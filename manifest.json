@@ -1,62 +1,56 @@
 {
   "manifest_version": 3,
-  "name": "Surfboard.AI",
+  "name": "Surfboard AI",
   "version": "2.0.0",
   "description": "AI-powered development assistant for WaveMaker",
   "permissions": [
     "storage",
-    "tabs",
     "activeTab",
+    "clipboardWrite",
     "scripting"
   ],
   "host_permissions": [
-    "https://*.wavemaker.com/*",
-    "https://*.wavemakeronline.com/*",
-    "http://localhost:*/*"
+    "https://*.wavemakeronline.com/*"
   ],
-  "background": {
-    "service_worker": "src/js/background.js"
-  },
-  "content_scripts": [
-    {
-      "matches": [
-        "https://*.wavemaker.com/*",
-        "https://*.wavemakeronline.com/*",
-        "http://localhost:*/*"
-      ],
-      "css": [
-        "src/css/copilot.css"
-      ],
-      "js": [
-        "src/js/content.js"
-      ],
-      "run_at": "document_start"
-    }
-  ],
-  "web_accessible_resources": [{
-    "resources": [
-      "src/icons/*",
-      "assets/*"
-    ],
-    "matches": [
-      "https://*.wavemaker.com/*",
-      "https://*.wavemakeronline.com/*",
-      "http://localhost:*/*"
-    ]
-  }],
   "action": {
     "default_popup": "src/html/popup.html",
     "default_icon": {
       "16": "src/icons/sticker.png",
-      "32": "src/icons/sticker.png",
       "48": "src/icons/sticker.png",
-      "128": "assets/icon.png"
+      "128": "src/icons/sticker.png"
     }
   },
+  "options_page": "options.html",
   "icons": {
     "16": "src/icons/sticker.png",
-    "32": "src/icons/sticker.png",
     "48": "src/icons/sticker.png",
-    "128": "assets/icon.png"
+    "128": "src/icons/sticker.png"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "css": [
+        "src/css/sidebar.css",
+        "src/css/prism-vscode-dark.css"
+      ],
+      "js": [
+        "src/js/prism.js",
+        "src/js/bundle.js"
+      ],
+      "run_at": "document_end"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "src/icons/*",
+        "src/css/*"
+      ],
+      "matches": ["https://*.wavemakeronline.com/*"]
+    }
+  ],
+  "background": {
+    "service_worker": "src/js/background.js",
+    "type": "module"
   }
 }

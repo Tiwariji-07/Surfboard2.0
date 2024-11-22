@@ -1,128 +1,254 @@
-/**
- * WaveMaker Copilot Sidebar
- * Manages the sidebar UI for the copilot
- */
-
 class WaveMakerCopilotSidebar {
     constructor() {
         this.sidebarElement = null;
-        this.isVisible = false;
-        this.isDragging = false;
-        this.dragStartX = 0;
-        this.initialWidth = 300; // Default width in pixels
+        this.chatContainer = null;
+        this.isOpen = false;
+        this.initialize();
     }
 
-    /**
-     * Initialize the sidebar
-     */
     initialize() {
-        this.createSidebar();
-        this.setupEventListeners();
-    }
-
-    /**
-     * Create the sidebar DOM element
-     */
-    createSidebar() {
-        // Create main sidebar container
+        // Create sidebar element
         this.sidebarElement = document.createElement('div');
-        this.sidebarElement.id = 'wm-copilot-sidebar';
         this.sidebarElement.className = 'wm-copilot-sidebar';
         
         // Add sidebar content
         this.sidebarElement.innerHTML = `
             <div class="sidebar-header">
-                <h2>WaveMaker Copilot</h2>
+                <h2>Surfboard AI</h2>
                 <button class="minimize-button">−</button>
             </div>
             <div class="sidebar-content">
                 <div class="chat-container"></div>
                 <div class="context-panel"></div>
             </div>
-            <div class="resize-handle"></div>
+            <div class="input-container">
+                <textarea placeholder="Ask me anything..." rows="1"></textarea>
+                <button class="send-button">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/>
+                    </svg>
+                </button>
+            </div>
         `;
 
-        // Add sidebar to page
+        // Store chat container reference
+        this.chatContainer = this.sidebarElement.querySelector('.chat-container');
+
+        // Add to document
         document.body.appendChild(this.sidebarElement);
-        
-        // Initialize width
-        this.sidebarElement.style.width = `${this.initialWidth}px`;
+
+        // Setup event listeners
+        this.setupEventListeners();
+
+        // Create and add toggle button
+        this.createToggleButton();
     }
 
-    /**
-     * Set up event listeners for sidebar interactions
-     */
+    createToggleButton() {
+        const toggleButton = document.createElement('button');
+        toggleButton.className = 'sidebar-toggle';
+        toggleButton.innerHTML = `
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+            </svg>
+        `;
+        document.body.appendChild(toggleButton);
+
+        // Add toggle functionality
+        toggleButton.addEventListener('click', () => {
+            this.toggleSidebar();
+            toggleButton.classList.toggle('active');
+        });
+    }
+
     setupEventListeners() {
         // Minimize button
         const minimizeButton = this.sidebarElement.querySelector('.minimize-button');
-        minimizeButton.addEventListener('click', () => this.toggleVisibility());
+        minimizeButton.addEventListener('click', () => this.toggleSidebar());
 
-        // Resize handle
-        const resizeHandle = this.sidebarElement.querySelector('.resize-handle');
-        resizeHandle.addEventListener('mousedown', (e) => this.startResize(e));
-        document.addEventListener('mousemove', (e) => this.handleResize(e));
-        document.addEventListener('mouseup', () => this.stopResize());
+        // Send button and textarea
+        const sendButton = this.sidebarElement.querySelector('.send-button');
+        const textarea = this.sidebarElement.querySelector('textarea');
+        
+        const sendMessage = () => {
+            const message = textarea.value.trim();
+            if (message) {
+                this.addMessage(message, 'user');
+                textarea.value = '';
+                textarea.style.height = 'auto';
+                
+                // Emit custom event for content script to handle
+                const event = new CustomEvent('surfboard-message', { 
+                    detail: { message, type: 'user' }
+                });
+                document.dispatchEvent(event);
+            }
+        };
+
+        // Send button click
+        sendButton.addEventListener('click', sendMessage);
+
+        // Send on Enter (but Shift+Enter for new line)
+        textarea.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault();
+                sendMessage();
+            }
+        });
+
+        // Auto-resize textarea
+        textarea.addEventListener('input', () => {
+            textarea.style.height = 'auto';
+            textarea.style.height = Math.min(textarea.scrollHeight, 200) + 'px';
+        });
 
         // Keyboard shortcuts
         document.addEventListener('keydown', (e) => {
             if (e.ctrlKey && e.key === '\\') {
-                this.toggleVisibility();
+                this.toggleSidebar();
             }
         });
     }
 
-    /**
-     * Toggle sidebar visibility
-     */
-    toggleVisibility() {
-        this.isVisible = !this.isVisible;
-        this.sidebarElement.classList.toggle('minimized');
+    toggleSidebar() {
+        this.isOpen = !this.isOpen;
+        this.sidebarElement.classList.toggle('open');
         
-        // Update button text
-        const button = this.sidebarElement.querySelector('.minimize-button');
-        button.textContent = this.isVisible ? '−' : '+';
+        // Update minimize button text
+        const minimizeButton = this.sidebarElement.querySelector('.minimize-button');
+        minimizeButton.textContent = this.isOpen ? '−' : '+';
     }
 
-    /**
-     * Start sidebar resize
-     * @param {MouseEvent} e - Mouse event
-     */
-    startResize(e) {
-        this.isDragging = true;
-        this.dragStartX = e.clientX;
-        this.initialWidth = this.sidebarElement.offsetWidth;
+    addMessage(message, type) {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `chat-message ${type}`;
+
+        if (type === 'assistant') {
+            // Convert markdown to HTML
+            messageDiv.innerHTML = this.processMarkdown(message);
+        } else {
+            messageDiv.textContent = message;
+        }
+
+        this.chatContainer.appendChild(messageDiv);
+        this.chatContainer.scrollTop = this.chatContainer.scrollHeight;
+    }
+
+    processMarkdown(text) {
+        // Process code blocks
+        text = text.replace(/```(\w+)?\n([\s\S]+?)\n```/g, (match, lang, code) => {
+            const codeBlock = this.createCodeBlock(code.trim(), lang);
+            const tempContainer = document.createElement('div');
+            tempContainer.appendChild(codeBlock);
+            return tempContainer.innerHTML;
+        });
+
+        // Process inline code
+        text = text.replace(/`([^`]+)`/g, '<code>$1</code>');
+
+        return text;
+    }
+
+    createCodeBlock(code, language) {
+        const codeBlock = document.createElement('div');
+        codeBlock.className = 'code-block';
+
+        // Create header
+        const header = document.createElement('div');
+        header.className = 'code-block-header';
+
+        // Add language label
+        const languageLabel = document.createElement('span');
+        languageLabel.className = 'language-label';
+        languageLabel.textContent = language || 'text';
+
+        // Create copy button
+        const copyButton = document.createElement('button');
+        copyButton.className = 'copy-button';
+        copyButton.type = 'button'; // Explicitly set button type
+        copyButton.innerHTML = `
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+            </svg>
+            <span>Copy</span>
+        `;
+
+        // Add click event listener
+        copyButton.onclick = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log('Copy button clicked');
+            
+            // Copy the code to clipboard
+            navigator.clipboard.writeText(code)
+                .then(() => {
+                    console.log('Code copied:', code);
+                    copyButton.classList.add('copied');
+                    const span = copyButton.querySelector('span');
+                    span.textContent = 'Copied!';
+                    
+                    setTimeout(() => {
+                        copyButton.classList.remove('copied');
+                        span.textContent = 'Copy';
+                    }, 2000);
+                })
+                .catch(err => {
+                    console.error('Failed to copy:', err);
+                    copyButton.classList.add('error');
+                    const span = copyButton.querySelector('span');
+                    span.textContent = 'Error!';
+                    
+                    setTimeout(() => {
+                        copyButton.classList.remove('error');
+                        span.textContent = 'Copy';
+                    }, 2000);
+                });
+        };
+
+        // Assemble header
+        header.appendChild(languageLabel);
+        header.appendChild(copyButton);
+        codeBlock.appendChild(header);
+
+        // Create code content
+        const codeContent = document.createElement('div');
+        codeContent.className = 'code-content';
+        const preElement = document.createElement('pre');
+        const codeElement = document.createElement('code');
+        codeElement.className = `language-${language || 'text'}`;
         
-        // Add resize class
-        document.body.classList.add('sidebar-resizing');
+        // Set code content
+        if (window.Prism) {
+            codeElement.innerHTML = Prism.highlight(
+                code,
+                Prism.languages[language] || Prism.languages.text,
+                language || 'text'
+            );
+        } else {
+            codeElement.textContent = code;
+        }
+
+        // Assemble code block
+        preElement.appendChild(codeElement);
+        codeContent.appendChild(preElement);
+        codeBlock.appendChild(codeContent);
+
+        return codeBlock;
     }
 
-    /**
-     * Handle sidebar resize
-     * @param {MouseEvent} e - Mouse event
-     */
-    handleResize(e) {
-        if (!this.isDragging) return;
+    showError(message) {
+        const errorDiv = document.createElement('div');
+        errorDiv.className = 'error-message';
+        errorDiv.textContent = message;
+        this.sidebarElement.appendChild(errorDiv);
 
-        const deltaX = this.dragStartX - e.clientX;
-        const newWidth = this.initialWidth + deltaX;
-
-        // Apply min/max constraints
-        const width = Math.min(Math.max(newWidth, 250), 800);
-        this.sidebarElement.style.width = `${width}px`;
+        // Auto-remove after 5 seconds
+        setTimeout(() => {
+            errorDiv.remove();
+        }, 5000);
     }
 
-    /**
-     * Stop sidebar resize
-     */
-    stopResize() {
-        this.isDragging = false;
-        document.body.classList.remove('sidebar-resizing');
-    }
-
-    /**
-     * Update context panel content
-     * @param {Object} context - Current context
-     */
     updateContextPanel(context) {
         const panel = this.sidebarElement.querySelector('.context-panel');
         
@@ -136,11 +262,6 @@ class WaveMakerCopilotSidebar {
         `;
     }
 
-    /**
-     * Format context details for display
-     * @param {Object} context - Context object
-     * @returns {string} Formatted HTML
-     */
     formatContextDetails(context) {
         if (!context) return '<p>No context available</p>';
 
@@ -157,50 +278,22 @@ class WaveMakerCopilotSidebar {
         `;
     }
 
-    /**
-     * Get the chat container element
-     * @returns {HTMLElement} Chat container
-     */
     getChatContainer() {
         return this.sidebarElement.querySelector('.chat-container');
     }
 
-    /**
-     * Show loading state
-     */
     showLoading() {
         const loader = document.createElement('div');
         loader.className = 'loading-spinner';
         this.sidebarElement.appendChild(loader);
     }
 
-    /**
-     * Hide loading state
-     */
     hideLoading() {
         const loader = this.sidebarElement.querySelector('.loading-spinner');
         if (loader) {
             loader.remove();
         }
     }
-
-    /**
-     * Show error message
-     * @param {string} message - Error message
-     */
-    showError(message) {
-        const errorDiv = document.createElement('div');
-        errorDiv.className = 'error-message';
-        errorDiv.textContent = message;
-        
-        this.sidebarElement.appendChild(errorDiv);
-        
-        // Auto-remove after 5 seconds
-        setTimeout(() => {
-            errorDiv.remove();
-        }, 5000);
-    }
 }
 
-// Export the sidebar
 export default WaveMakerCopilotSidebar;

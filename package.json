@@ -1,0 +1,16 @@
+{
+  "name": "surfboard-ai",
+  "version": "2.0.0",
+  "description": "AI-powered development assistant for WaveMaker",
+  "main": "src/js/content.js",
+  "scripts": {
+    "build": "node build.js",
+    "build:prod": "NODE_ENV=production node build.js",
+    "watch": "node build.js --watch",
+    "dev": "npm run watch"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "esbuild": "^0.19.11"
+  }
+}
