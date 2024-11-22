@@ -1,0 +1,62 @@
+{
+  "manifest_version": 3,
+  "name": "Surfboard.AI",
+  "version": "2.0.0",
+  "description": "AI-powered development assistant for WaveMaker",
+  "permissions": [
+    "storage",
+    "tabs",
+    "activeTab",
+    "scripting"
+  ],
+  "host_permissions": [
+    "https://*.wavemaker.com/*",
+    "https://*.wavemakeronline.com/*",
+    "http://localhost:*/*"
+  ],
+  "background": {
+    "service_worker": "src/js/background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://*.wavemaker.com/*",
+        "https://*.wavemakeronline.com/*",
+        "http://localhost:*/*"
+      ],
+      "css": [
+        "src/css/copilot.css"
+      ],
+      "js": [
+        "src/js/content.js"
+      ],
+      "run_at": "document_start"
+    }
+  ],
+  "web_accessible_resources": [{
+    "resources": [
+      "src/icons/*",
+      "assets/*"
+    ],
+    "matches": [
+      "https://*.wavemaker.com/*",
+      "https://*.wavemakeronline.com/*",
+      "http://localhost:*/*"
+    ]
+  }],
+  "action": {
+    "default_popup": "src/html/popup.html",
+    "default_icon": {
+      "16": "src/icons/sticker.png",
+      "32": "src/icons/sticker.png",
+      "48": "src/icons/sticker.png",
+      "128": "assets/icon.png"
+    }
+  },
+  "icons": {
+    "16": "src/icons/sticker.png",
+    "32": "src/icons/sticker.png",
+    "48": "src/icons/sticker.png",
+    "128": "assets/icon.png"
+  }
+}

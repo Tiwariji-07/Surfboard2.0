@@ -1,0 +1,298 @@
+/* WaveMaker Copilot Sidebar Styles */
+
+.wm-copilot-sidebar {
+    position: fixed;
+    top: 0;
+    right: 0;
+    width: 320px;
+    height: 100vh;
+    background-color: #ffffff;
+    box-shadow: -2px 0 8px rgba(0, 0, 0, 0.1);
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    transition: transform 0.3s ease-in-out;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.wm-copilot-sidebar.collapsed {
+    transform: translateX(100%);
+}
+
+.wm-copilot-header {
+    padding: 12px 16px;
+    background-color: #f8f9fa;
+    border-bottom: 1px solid #e9ecef;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.wm-copilot-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: #2c3e50;
+    margin: 0;
+}
+
+.wm-copilot-controls {
+    display: flex;
+    gap: 8px;
+}
+
+.wm-copilot-button {
+    background: none;
+    border: none;
+    padding: 4px;
+    cursor: pointer;
+    color: #6c757d;
+    border-radius: 4px;
+    transition: background-color 0.2s;
+}
+
+.wm-copilot-button:hover {
+    background-color: #e9ecef;
+    color: #2c3e50;
+}
+
+.wm-copilot-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+}
+
+.wm-copilot-resize-handle {
+    position: absolute;
+    left: -4px;
+    top: 0;
+    width: 8px;
+    height: 100%;
+    cursor: ew-resize;
+    background: transparent;
+}
+
+.wm-copilot-resize-handle:hover {
+    background: rgba(0, 0, 0, 0.1);
+}
+
+/* Context Panel */
+.wm-copilot-context {
+    margin-bottom: 16px;
+    background-color: #f8f9fa;
+    border-radius: 6px;
+    padding: 12px;
+}
+
+.wm-copilot-context-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: #2c3e50;
+    margin: 0 0 8px 0;
+}
+
+.wm-copilot-context-item {
+    font-size: 13px;
+    color: #6c757d;
+    margin: 4px 0;
+}
+
+/* Chat Interface */
+.wm-copilot-chat {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.wm-copilot-message {
+    display: flex;
+    gap: 12px;
+    padding: 8px;
+    border-radius: 6px;
+}
+
+.wm-copilot-message.user {
+    background-color: #e3f2fd;
+}
+
+.wm-copilot-message.assistant {
+    background-color: #f8f9fa;
+}
+
+.wm-copilot-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background-color: #e9ecef;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    color: #6c757d;
+}
+
+.wm-copilot-message-content {
+    flex: 1;
+    font-size: 14px;
+    line-height: 1.5;
+    color: #2c3e50;
+}
+
+.wm-copilot-input-container {
+    position: relative;
+    margin-top: auto;
+    padding: 16px;
+    border-top: 1px solid #e9ecef;
+}
+
+.wm-copilot-input {
+    width: 100%;
+    min-height: 40px;
+    max-height: 120px;
+    padding: 8px 40px 8px 12px;
+    border: 1px solid #ced4da;
+    border-radius: 6px;
+    resize: none;
+    font-family: inherit;
+    font-size: 14px;
+    line-height: 1.5;
+    color: #2c3e50;
+}
+
+.wm-copilot-input:focus {
+    outline: none;
+    border-color: #3498db;
+    box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+}
+
+.wm-copilot-send-button {
+    position: absolute;
+    right: 24px;
+    bottom: 24px;
+    background-color: #3498db;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 6px 12px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.wm-copilot-send-button:hover {
+    background-color: #2980b9;
+}
+
+/* Loading States */
+.wm-copilot-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    color: #6c757d;
+}
+
+.wm-copilot-spinner {
+    border: 2px solid #f3f3f3;
+    border-top: 2px solid #3498db;
+    border-radius: 50%;
+    width: 16px;
+    height: 16px;
+    animation: spin 1s linear infinite;
+    margin-right: 8px;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Error States */
+.wm-copilot-error {
+    padding: 12px;
+    background-color: #fee2e2;
+    border: 1px solid #ef4444;
+    border-radius: 6px;
+    color: #b91c1c;
+    font-size: 14px;
+    margin: 8px 0;
+}
+
+/* Markdown Styling */
+.wm-copilot-markdown {
+    font-size: 14px;
+    line-height: 1.6;
+}
+
+.wm-copilot-markdown code {
+    background-color: #f8f9fa;
+    padding: 2px 4px;
+    border-radius: 4px;
+    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+    font-size: 13px;
+}
+
+.wm-copilot-markdown pre {
+    background-color: #f8f9fa;
+    padding: 12px;
+    border-radius: 6px;
+    overflow-x: auto;
+}
+
+.wm-copilot-markdown pre code {
+    background-color: transparent;
+    padding: 0;
+}
+
+/* Theme Support */
+[data-theme="dark"] .wm-copilot-sidebar {
+    background-color: #1a1a1a;
+    color: #ffffff;
+}
+
+[data-theme="dark"] .wm-copilot-header {
+    background-color: #2d2d2d;
+    border-bottom-color: #404040;
+}
+
+[data-theme="dark"] .wm-copilot-title {
+    color: #ffffff;
+}
+
+[data-theme="dark"] .wm-copilot-button {
+    color: #a0a0a0;
+}
+
+[data-theme="dark"] .wm-copilot-button:hover {
+    background-color: #404040;
+    color: #ffffff;
+}
+
+[data-theme="dark"] .wm-copilot-context {
+    background-color: #2d2d2d;
+}
+
+[data-theme="dark"] .wm-copilot-message.user {
+    background-color: #2d3748;
+}
+
+[data-theme="dark"] .wm-copilot-message.assistant {
+    background-color: #2d2d2d;
+}
+
+[data-theme="dark"] .wm-copilot-input {
+    background-color: #2d2d2d;
+    border-color: #404040;
+    color: #ffffff;
+}
+
+[data-theme="dark"] .wm-copilot-input:focus {
+    border-color: #3498db;
+    box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+}
+
+[data-theme="dark"] .wm-copilot-markdown code {
+    background-color: #2d2d2d;
+}
+
+[data-theme="dark"] .wm-copilot-markdown pre {
+    background-color: #2d2d2d;
+}

@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Welcome to WaveMaker Copilot</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 0;
+            color: #333;
+            background-color: #f5f5f5;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .header {
+            text-align: center;
+            padding: 2rem 0;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 2rem;
+        }
+
+        .logo {
+            width: 120px;
+            height: 120px;
+            margin-bottom: 1rem;
+        }
+
+        h1 {
+            color: #2c3e50;
+            margin: 0;
+            font-size: 2.5rem;
+        }
+
+        .subtitle {
+            color: #7f8c8d;
+            font-size: 1.2rem;
+            margin-top: 0.5rem;
+        }
+
+        .section {
+            background-color: #fff;
+            padding: 2rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 2rem;
+        }
+
+        h2 {
+            color: #2c3e50;
+            margin-top: 0;
+            border-bottom: 2px solid #eee;
+            padding-bottom: 0.5rem;
+        }
+
+        .feature-list {
+            list-style: none;
+            padding: 0;
+        }
+
+        .feature-list li {
+            margin-bottom: 1rem;
+            padding-left: 1.5rem;
+            position: relative;
+        }
+
+        .feature-list li:before {
+            content: "→";
+            position: absolute;
+            left: 0;
+            color: #3498db;
+        }
+
+        .setup-steps {
+            counter-reset: step;
+            list-style: none;
+            padding: 0;
+        }
+
+        .setup-steps li {
+            margin-bottom: 1.5rem;
+            padding-left: 2.5rem;
+            position: relative;
+        }
+
+        .setup-steps li:before {
+            counter-increment: step;
+            content: counter(step);
+            position: absolute;
+            left: 0;
+            width: 1.5rem;
+            height: 1.5rem;
+            background-color: #3498db;
+            color: white;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .api-key-section {
+            background-color: #f8f9fa;
+            padding: 1rem;
+            border-radius: 4px;
+            margin: 1rem 0;
+        }
+
+        .button {
+            display: inline-block;
+            padding: 0.8rem 1.5rem;
+            background-color: #3498db;
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+            transition: background-color 0.2s;
+        }
+
+        .button:hover {
+            background-color: #2980b9;
+        }
+
+        .keyboard-shortcut {
+            background-color: #f8f9fa;
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            font-family: monospace;
+        }
+
+        footer {
+            text-align: center;
+            padding: 2rem;
+            color: #7f8c8d;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <img src="../assets/icon128.png" alt="WaveMaker Copilot Logo" class="logo">
+            <h1>Welcome to WaveMaker Copilot</h1>
+            <p class="subtitle">Your AI-powered assistant for WaveMaker development</p>
+        </div>
+
+        <div class="section">
+            <h2>Features</h2>
+            <ul class="feature-list">
+                <li>Intelligent context-aware assistance for WaveMaker development</li>
+                <li>Real-time suggestions and best practices</li>
+                <li>Code snippets and component recommendations</li>
+                <li>Natural language interaction with AI</li>
+                <li>Seamless integration with WaveMaker Studio</li>
+            </ul>
+        </div>
+
+        <div class="section">
+            <h2>Getting Started</h2>
+            <ol class="setup-steps">
+                <li>
+                    <strong>Set up your API key</strong>
+                    <div class="api-key-section">
+                        <p>You'll need an OpenAI API key to use WaveMaker Copilot. Get your key from:</p>
+                        <a href="https://platform.openai.com/account/api-keys" target="_blank" class="button">
+                            OpenAI API Dashboard
+                        </a>
+                    </div>
+                </li>
+                <li>
+                    <strong>Configure the extension</strong>
+                    <p>Click the extension icon and enter your API key when prompted.</p>
+                </li>
+                <li>
+                    <strong>Start using Copilot</strong>
+                    <p>Open WaveMaker Studio and press <span class="keyboard-shortcut">Ctrl + \</span> to toggle the Copilot sidebar.</p>
+                </li>
+            </ol>
+        </div>
+
+        <div class="section">
+            <h2>Keyboard Shortcuts</h2>
+            <ul class="feature-list">
+                <li><span class="keyboard-shortcut">Ctrl + \</span> - Toggle Copilot sidebar</li>
+                <li><span class="keyboard-shortcut">Ctrl + Enter</span> - Send message in chat</li>
+                <li><span class="keyboard-shortcut">Esc</span> - Close current suggestion</li>
+            </ul>
+        </div>
+
+        <div class="section">
+            <h2>Need Help?</h2>
+            <p>
+                If you encounter any issues or have questions, please visit our 
+                <a href="https://github.com/yourusername/wavemaker-copilot/issues" target="_blank">GitHub repository</a>
+                or contact support at <a href="mailto:support@example.com">support@example.com</a>.
+            </p>
+        </div>
+
+        <footer>
+            <p>WaveMaker Copilot v1.0.0</p>
+            <p>&copy; 2024 Your Organization. All rights reserved.</p>
+        </footer>
+    </div>
+</body>
+</html>
