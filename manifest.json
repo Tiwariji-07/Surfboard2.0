@@ -4,14 +4,18 @@
   "version": "2.0.0",
   "description": "AI-powered development assistant for WaveMaker",
   "permissions": [
-    "storage",
+    "scripting",
     "activeTab",
-    "clipboardWrite",
-    "scripting"
+    "storage",
+    "clipboardWrite"
   ],
   "host_permissions": [
-    "https://*.wavemakeronline.com/*"
+    "https://*.wavemakeronline.com/*project-id*"
   ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'",
+    "sandbox": "sandbox allow-scripts allow-forms allow-popups allow-modals; script-src 'self' 'unsafe-inline' 'unsafe-eval'; child-src 'self'"
+  },
   "action": {
     "default_popup": "src/html/popup.html",
     "default_icon": {
@@ -20,7 +24,6 @@
       "128": "src/icons/sticker.png"
     }
   },
-  "options_page": "options.html",
   "icons": {
     "16": "src/icons/sticker.png",
     "48": "src/icons/sticker.png",
@@ -28,10 +31,11 @@
   },
   "content_scripts": [
     {
-      "matches": ["<all_urls>"],
+      "matches": ["https://*.wavemakeronline.com/*project-id*"],
       "css": [
         "src/css/sidebar.css",
-        "src/css/prism-vscode-dark.css"
+        "src/css/prism-vscode-dark.css",
+        "src/css/completion.css"
       ],
       "js": [
         "src/js/prism.js",
@@ -44,6 +48,7 @@
     {
       "resources": [
         "src/icons/*",
+        "src/js/inject/*",
         "src/css/*"
       ],
       "matches": ["https://*.wavemakeronline.com/*"]

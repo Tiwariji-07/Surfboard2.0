@@ -8,6 +8,7 @@ let copilotInstance = null;
 
 import WMContextManager from './context/wmContext.js';
 import WaveMakerCopilotSidebar from './ui/sidebar.js';
+import CompletionManager from './completion/completionManager.js';
 
 class SurfboardAI {
     constructor() {
@@ -17,11 +18,19 @@ class SurfboardAI {
         this.apiEndpoint = 'https://api.groq.com/openai/v1';
         this.isInitialized = false;
         this.sidebar = null;
+        this.completionManager = null;
         this.initialize();
     }
 
     async initialize() {
         try {
+            console.log('Initializing SurfboardAI...');
+            
+            // Initialize completion manager first
+            this.completionManager = new CompletionManager();
+            console.log('CompletionManager initialized');
+            
+            // Load API key
             await this.loadConfiguration();
             this.sidebar = new WaveMakerCopilotSidebar();
             await this.contextManager.initialize();
@@ -41,7 +50,7 @@ class SurfboardAI {
             
             console.log('Surfboard.AI initialized successfully');
         } catch (error) {
-            console.error('Failed to initialize Surfboard AI:', error);
+            console.error('Error initializing SurfboardAI:', error);
         }
     }
 

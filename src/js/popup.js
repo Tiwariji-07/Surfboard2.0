@@ -3,104 +3,103 @@
  * Manages the extension popup UI and API key storage
  */
 
-document.addEventListener('DOMContentLoaded', async () => {
-    const apiKeyInput = document.getElementById('apiKeyInput');
+document.addEventListener('DOMContentLoaded', () => {
+    const groqApiKeyInput = document.getElementById('groqApiKey');
+    const openaiApiKeyInput = document.getElementById('openaiApiKey');
     const saveButton = document.getElementById('saveButton');
-    const statusIcon = document.getElementById('statusIcon');
-    const statusText = document.getElementById('statusText');
-    const errorMessage = document.getElementById('errorMessage');
+    const statusDiv = document.getElementById('status');
+    const enableCopilotCheckbox = document.getElementById('enableCopilot');
 
-    // Check current theme
-    chrome.storage.sync.get('theme', ({ theme }) => {
-        if (theme === 'dark') {
-            document.body.setAttribute('data-theme', 'dark');
+    // Load saved settings
+    chrome.storage.sync.get(['groqApiKey', 'openaiApiKey', 'copilotEnabled'], (result) => {
+        if (result.groqApiKey) {
+            groqApiKeyInput.value = result.groqApiKey;
+        }
+        if (result.openaiApiKey) {
+            openaiApiKeyInput.value = result.openaiApiKey;
+        }
+        if (typeof result.copilotEnabled !== 'undefined') {
+            enableCopilotCheckbox.checked = result.copilotEnabled;
         }
     });
 
-    // Load existing API key
-    try {
-        const { apiKey } = await chrome.storage.sync.get('apiKey');
-        if (apiKey) {
-            apiKeyInput.value = apiKey;
-            updateStatus(true);
-        } else {
-            updateStatus(false);
-        }
-    } catch (error) {
-        console.error('Error loading API key:', error);
-        updateStatus(false);
-    }
-
-    // Save API key
-    saveButton.addEventListener('click', async () => {
-        const apiKey = apiKeyInput.value.trim();
+    // Save API keys
+    saveButton.addEventListener('click', () => {
+        const groqApiKey = groqApiKeyInput.value.trim();
+        const openaiApiKey = openaiApiKeyInput.value.trim();
         
-        if (!apiKey) {
-            showError('Please enter a valid Groq API key');
+        if (!groqApiKey && !openaiApiKey) {
+            showStatus('Please enter at least one API key', 'error');
             return;
         }
 
-        if (!apiKey.startsWith('gsk_')) {
-            showError('Invalid Groq API key format');
+        // Validate API keys if provided
+        if (groqApiKey && (!groqApiKey.startsWith('gsk_') || groqApiKey.length < 20)) {
+            showStatus('Invalid Groq API key format', 'error');
             return;
         }
 
-        try {
-            // Save API key
-            await chrome.storage.sync.set({ apiKey });
-            updateStatus(true);
-            hideError();
+        if (openaiApiKey && (!openaiApiKey.startsWith('sk-') || openaiApiKey.length < 20)) {
+            showStatus('Invalid OpenAI API key format', 'error');
+            return;
+        }
+
+        // Save to chrome.storage
+        chrome.storage.sync.set({ 
+            groqApiKey,
+            openaiApiKey
+        }, () => {
+            showStatus('API keys saved successfully!', 'success');
             
-            // Notify background script
-            chrome.runtime.sendMessage({ type: 'API_KEY_UPDATED', apiKey });
-            
-            // Show success message
-            statusText.textContent = 'API key saved successfully';
-            setTimeout(() => {
-                if (statusIcon.classList.contains('active')) {
-                    statusText.textContent = 'Copilot is ready';
+            // Only try to send message if we're in a valid tab context
+            chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+                if (tabs[0] && tabs[0].url && tabs[0].url.match(/(wavemakeronline\.com|localhost)/)) {
+                    // Send message and handle potential errors
+                    chrome.tabs.sendMessage(tabs[0].id, { 
+                        type: 'API_KEYS_UPDATED',
+                        data: { groqApiKey, openaiApiKey }
+                    }).catch(error => {
+                        console.log('Tab communication error:', error);
+                        // Content script might not be loaded yet, which is fine
+                    });
                 }
-            }, 2000);
-        } catch (error) {
-            console.error('Error saving API key:', error);
-            showError('Error saving API key');
-            updateStatus(false);
-        }
+            });
+        });
     });
 
-    // Handle Enter key
-    apiKeyInput.addEventListener('keypress', (event) => {
-        if (event.key === 'Enter') {
-            saveButton.click();
-        }
+    // Handle enable/disable toggle
+    enableCopilotCheckbox.addEventListener('change', (e) => {
+        const enabled = e.target.checked;
+        
+        chrome.storage.sync.set({ copilotEnabled: enabled }, () => {
+            // Only try to send message if we're in a valid tab context
+            chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+                if (tabs[0] && tabs[0].url && tabs[0].url.match(/(wavemakeronline\.com|localhost)/)) {
+                    // Send message and handle potential errors
+                    chrome.tabs.sendMessage(tabs[0].id, { 
+                        type: 'COPILOT_STATUS_CHANGED',
+                        data: { enabled }
+                    }).catch(error => {
+                        console.log('Tab communication error:', error);
+                        // Content script might not be loaded yet, which is fine
+                    });
+                }
+            });
+            
+            showStatus(
+                `Copilot ${enabled ? 'enabled' : 'disabled'} successfully!`,
+                'success'
+            );
+        });
     });
 
-    function updateStatus(active) {
-        statusIcon.className = 'status-icon ' + (active ? 'active' : 'inactive');
-        statusText.textContent = active ? 'Copilot is ready' : 'API key required';
-        saveButton.textContent = active ? 'Update API Key' : 'Save API Key';
+    function showStatus(message, type) {
+        statusDiv.textContent = message;
+        statusDiv.className = `status ${type}`;
+        statusDiv.style.display = 'block';
+
+        setTimeout(() => {
+            statusDiv.style.display = 'none';
+        }, 3000);
     }
-
-    function showError(message) {
-        errorMessage.textContent = message;
-        errorMessage.classList.add('visible');
-    }
-
-    function hideError() {
-        errorMessage.classList.remove('visible');
-    }
-
-    // Check if we're on a WaveMaker page
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-        const currentTab = tabs[0];
-        const isWaveMakerPage = currentTab.url.match(
-            /(wavemaker\.com|wavemakeronline\.com|localhost)/
-        );
-
-        if (!isWaveMakerPage) {
-            statusText.textContent = 'Not a WaveMaker page';
-            apiKeyInput.disabled = true;
-            saveButton.disabled = true;
-        }
-    });
 });

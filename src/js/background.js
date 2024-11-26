@@ -206,3 +206,5 @@ chrome.action.onClicked.addListener((tab) => {
         handleToggleCopilot(tab.id);
     }
 });
+
+

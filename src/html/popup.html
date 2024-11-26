@@ -1,15 +1,12 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WaveMaker Copilot</title>
+    <title>WaveMaker Copilot Settings</title>
     <style>
         body {
             width: 320px;
             padding: 16px;
-            margin: 0;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
         }
 
         .container {
@@ -18,179 +15,137 @@
             gap: 16px;
         }
 
-        .header {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding-bottom: 12px;
-            border-bottom: 1px solid #e9ecef;
-        }
-
-        .logo {
-            width: 32px;
-            height: 32px;
-        }
-
-        .title {
-            margin: 0;
-            font-size: 16px;
-            font-weight: 600;
-            color: #2c3e50;
-        }
-
-        .status {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            padding: 8px;
-            border-radius: 4px;
-            background-color: #f8f9fa;
-        }
-
-        .status-icon {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-        }
-
-        .status-icon.active {
-            background-color: #2ecc71;
-        }
-
-        .status-icon.inactive {
-            background-color: #e74c3c;
-        }
-
-        .status-text {
-            font-size: 14px;
-            color: #6c757d;
-        }
-
-        .api-key-section {
+        .input-group {
             display: flex;
             flex-direction: column;
             gap: 8px;
         }
 
-        .api-key-input {
+        label {
+            font-weight: 500;
+            color: #333;
+        }
+
+        input[type="text"] {
             padding: 8px;
-            border: 1px solid #ced4da;
+            border: 1px solid #ccc;
             border-radius: 4px;
-            font-family: inherit;
             font-size: 14px;
         }
 
-        .api-key-input:focus {
+        input[type="text"]:focus {
             outline: none;
-            border-color: #3498db;
-            box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+            border-color: #0066cc;
+            box-shadow: 0 0 0 2px rgba(0,102,204,0.2);
         }
 
-        .button {
+        .toggle-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .toggle {
+            position: relative;
+            display: inline-block;
+            width: 44px;
+            height: 24px;
+        }
+
+        .toggle input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 24px;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+
+        input:checked + .slider {
+            background-color: #2196F3;
+        }
+
+        input:checked + .slider:before {
+            transform: translateX(20px);
+        }
+
+        button {
             padding: 8px 16px;
+            background-color: #0066cc;
+            color: white;
             border: none;
             border-radius: 4px;
-            background-color: #3498db;
-            color: white;
-            font-size: 14px;
             cursor: pointer;
-            transition: background-color 0.2s;
+            font-size: 14px;
+            font-weight: 500;
         }
 
-        .button:hover {
-            background-color: #2980b9;
+        button:hover {
+            background-color: #0052a3;
         }
 
-        .button:disabled {
-            background-color: #bdc3c7;
-            cursor: not-allowed;
-        }
-
-        .shortcuts {
-            font-size: 13px;
-            color: #6c757d;
-        }
-
-        .shortcut-key {
-            display: inline-block;
-            padding: 2px 6px;
-            background-color: #f8f9fa;
-            border-radius: 3px;
-            font-family: monospace;
-        }
-
-        .error {
+        .status {
             padding: 8px;
-            background-color: #fee2e2;
-            border: 1px solid #ef4444;
             border-radius: 4px;
-            color: #b91c1c;
-            font-size: 13px;
+            font-size: 14px;
             display: none;
         }
 
-        .error.visible {
-            display: block;
+        .status.success {
+            background-color: #e6f4ea;
+            color: #1e7e34;
         }
 
-        [data-theme="dark"] {
-            background-color: #1a1a1a;
-            color: #ffffff;
-        }
-
-        [data-theme="dark"] .title {
-            color: #ffffff;
-        }
-
-        [data-theme="dark"] .status {
-            background-color: #2d2d2d;
-        }
-
-        [data-theme="dark"] .status-text {
-            color: #a0a0a0;
-        }
-
-        [data-theme="dark"] .api-key-input {
-            background-color: #2d2d2d;
-            border-color: #404040;
-            color: #ffffff;
-        }
-
-        [data-theme="dark"] .shortcut-key {
-            background-color: #2d2d2d;
-            color: #ffffff;
+        .status.error {
+            background-color: #fde7e9;
+            color: #b71c1c;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <div class="header">
-            <img src="../assets/icon.png" alt="WaveMaker Copilot" class="logo">
-            <h1 class="title">WaveMaker Copilot</h1>
+        <div class="input-group">
+            <label for="groqApiKey">Groq API Key</label>
+            <input type="text" id="groqApiKey" placeholder="Enter your Groq API key (gsk_...)">
         </div>
 
-        <div class="status">
-            <div class="status-icon" id="statusIcon"></div>
-            <span class="status-text" id="statusText">Checking status...</span>
+        <div class="input-group">
+            <label for="openaiApiKey">OpenAI API Key</label>
+            <input type="text" id="openaiApiKey" placeholder="Enter your OpenAI API key (sk-...)">
         </div>
 
-        <div class="api-key-section">
-            <input type="password" 
-                   class="api-key-input" 
-                   id="apiKeyInput" 
-                   placeholder="Enter Groq API Key">
-            <button class="button" id="saveButton">Save API Key</button>
+        <div class="toggle-group">
+            <label for="enableCopilot">Enable Copilot</label>
+            <label class="toggle">
+                <input type="checkbox" id="enableCopilot" checked>
+                <span class="slider"></span>
+            </label>
         </div>
 
-        <div class="error" id="errorMessage"></div>
-
-        <div class="shortcuts">
-            Toggle Copilot: <span class="shortcut-key">Ctrl+Shift+Space</span>
-            <br>
-            Send Message: <span class="shortcut-key">Ctrl+Enter</span>
-        </div>
+        <button id="saveButton">Save Settings</button>
+        <div id="status" class="status"></div>
     </div>
-
     <script src="../js/popup.js"></script>
 </body>
 </html>

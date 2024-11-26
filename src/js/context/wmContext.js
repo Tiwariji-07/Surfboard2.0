@@ -75,6 +75,44 @@ class WMContextManager {
     }
 
     /**
+     * Update the current context with new element information
+     * @param {Object} parsedElement - Parsed element data
+     */
+    updateContext(parsedElement) {
+        if (!parsedElement) return;
+
+        // Update widgets map
+        if (parsedElement.type === 'widget' && parsedElement.id) {
+            this.currentContext.widgets.set(parsedElement.id, parsedElement);
+        }
+
+        // Update variables map
+        if (parsedElement.variables) {
+            parsedElement.variables.forEach(variable => {
+                this.currentContext.variables.set(variable.name, variable);
+            });
+        }
+
+        // Update bindings map
+        if (parsedElement.bindings) {
+            parsedElement.bindings.forEach(binding => {
+                this.currentContext.bindings.set(binding.id, binding);
+            });
+        }
+
+        // Update active widget if this is the currently focused element
+        if (document.activeElement === parsedElement.element) {
+            this.currentContext.activeWidget = parsedElement;
+        }
+
+        // Notify observers of context change
+        this.notifyObservers({
+            type: 'contextUpdate',
+            element: parsedElement
+        });
+    }
+
+    /**
      * Analyze current page structure
      */
     async analyzeCurrentPage() {
@@ -255,10 +293,10 @@ class WMContextManager {
     /**
      * Notify observers of context changes
      */
-    notifyObservers() {
+    notifyObservers(change) {
         this.observers.forEach(callback => {
             try {
-                callback(this.currentContext);
+                callback(this.currentContext, change);
             } catch (error) {
                 console.error('Error in context observer:', error);
             }

@@ -1,0 +1,91 @@
+.wm-completion-suggestions {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+    font-size: 14px;
+    line-height: 1.4;
+    border-radius: 4px;
+    position: fixed;
+    background: white;
+    border: 1px solid #ccc;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+    max-height: 200px;
+    overflow-y: auto;
+    z-index: 999999;
+    min-width: 200px;
+    max-width: 400px;
+}
+
+.suggestion-item {
+    padding: 8px 12px;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    border-bottom: 1px solid #eee;
+}
+
+.suggestion-item:last-child {
+    border-bottom: none;
+}
+
+.suggestion-item:hover {
+    background-color: #f5f5f5;
+}
+
+.suggestion-label {
+    color: #333;
+    font-weight: 500;
+}
+
+.suggestion-detail {
+    color: #666;
+    font-size: 12px;
+}
+
+/* Type-specific styling */
+.suggestion-item[data-type="component"] .suggestion-label {
+    color: #0066cc;
+}
+
+.suggestion-item[data-type="attribute"] .suggestion-label {
+    color: #669900;
+}
+
+.suggestion-item[data-type="binding"] .suggestion-label {
+    color: #cc6600;
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+    .wm-completion-suggestions {
+        background: #1e1e1e;
+        border-color: #333;
+    }
+
+    .suggestion-item {
+        border-bottom-color: #333;
+    }
+
+    .suggestion-item:hover {
+        background-color: #2a2a2a;
+    }
+
+    .suggestion-label {
+        color: #e0e0e0;
+    }
+
+    .suggestion-detail {
+        color: #999;
+    }
+
+    .suggestion-item[data-type="component"] .suggestion-label {
+        color: #61afef;
+    }
+
+    .suggestion-item[data-type="attribute"] .suggestion-label {
+        color: #98c379;
+    }
+
+    .suggestion-item[data-type="binding"] .suggestion-label {
+        color: #e5c07b;
+    }
+}

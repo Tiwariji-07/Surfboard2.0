@@ -221,6 +221,34 @@
       }
     }
     /**
+     * Update the current context with new element information
+     * @param {Object} parsedElement - Parsed element data
+     */
+    updateContext(parsedElement) {
+      if (!parsedElement)
+        return;
+      if (parsedElement.type === "widget" && parsedElement.id) {
+        this.currentContext.widgets.set(parsedElement.id, parsedElement);
+      }
+      if (parsedElement.variables) {
+        parsedElement.variables.forEach((variable) => {
+          this.currentContext.variables.set(variable.name, variable);
+        });
+      }
+      if (parsedElement.bindings) {
+        parsedElement.bindings.forEach((binding) => {
+          this.currentContext.bindings.set(binding.id, binding);
+        });
+      }
+      if (document.activeElement === parsedElement.element) {
+        this.currentContext.activeWidget = parsedElement;
+      }
+      this.notifyObservers({
+        type: "contextUpdate",
+        element: parsedElement
+      });
+    }
+    /**
      * Analyze current page structure
      */
     async analyzeCurrentPage() {
@@ -377,10 +405,10 @@
     /**
      * Notify observers of context changes
      */
-    notifyObservers() {
+    notifyObservers(change) {
       this.observers.forEach((callback) => {
         try {
-          callback(this.currentContext);
+          callback(this.currentContext, change);
         } catch (error) {
           console.error("Error in context observer:", error);
         }
@@ -516,29 +544,35 @@
             </svg>
             <span>Copy</span>
         `;
-      copyButton.onclick = (e) => {
+      console.log("Adding click handlers to button...");
+      copyButton.onclick = function(e) {
+        console.log("Copy button clicked via onclick");
+        handleCopy(e);
+      };
+      copyButton.addEventListener("click", function(e) {
+        console.log("Copy button clicked via addEventListener");
+        handleCopy(e);
+      });
+      const handleCopy = async (e) => {
+        console.log("Handling copy...");
         e.preventDefault();
         e.stopPropagation();
-        console.log("Copy button clicked");
-        navigator.clipboard.writeText(code).then(() => {
-          console.log("Code copied:", code);
+        const span = copyButton.querySelector("span");
+        try {
+          console.log("Attempting to copy code:", code);
+          await navigator.clipboard.writeText(code);
+          console.log("Code copied successfully");
           copyButton.classList.add("copied");
-          const span = copyButton.querySelector("span");
           span.textContent = "Copied!";
-          setTimeout(() => {
-            copyButton.classList.remove("copied");
-            span.textContent = "Copy";
-          }, 2e3);
-        }).catch((err) => {
+        } catch (err) {
           console.error("Failed to copy:", err);
           copyButton.classList.add("error");
-          const span = copyButton.querySelector("span");
           span.textContent = "Error!";
-          setTimeout(() => {
-            copyButton.classList.remove("error");
-            span.textContent = "Copy";
-          }, 2e3);
-        });
+        }
+        setTimeout(() => {
+          copyButton.classList.remove("copied", "error");
+          span.textContent = "Copy";
+        }, 2e3);
       };
       header.appendChild(languageLabel);
       header.appendChild(copyButton);
@@ -615,6 +649,437 @@
   };
   var sidebar_default = WaveMakerCopilotSidebar;
 
+  // src/js/services/aiService.js
+  var AIService = class {
+    constructor() {
+      this.API_KEY = "";
+      this.API_URL = "https://api.openai.com/v1/chat/completions";
+      this.MODEL = "gpt-3.5-turbo";
+      this.CONFIG = {
+        max_tokens: 150,
+        temperature: 0.2,
+        // Lower temperature for more focused completions
+        top_p: 0.95,
+        // Slightly reduce randomness
+        presence_penalty: 0.1,
+        // Slight penalty for repetition
+        frequency_penalty: 0.1
+        // Slight penalty for common tokens
+      };
+    }
+    setApiKey(key) {
+      this.API_KEY = key;
+    }
+    createPrompt(context, language) {
+      const cursorIndex = context.indexOf("\u25BC");
+      const beforeCursor = context.substring(0, cursorIndex);
+      const afterCursor = context.substring(cursorIndex + 1);
+      return [
+        {
+          role: "system",
+          content: `You are a precise code completion model for ${language}. Follow these rules:
+1. Complete the code at the cursor position (\u25BC) naturally
+2. Focus on the local context and variable names
+3. Maintain consistent style with the surrounding code
+4. Only provide the completion text, no explanations
+5. Ensure syntactic correctness
+6. Use existing variables and functions when appropriate`
+        },
+        {
+          role: "user",
+          content: `Complete the following ${language} code at the cursor position (\u25BC). Return ONLY the completion text:
+
+Before cursor:
+${beforeCursor}
+\u25BC
+After cursor:
+${afterCursor}`
+        }
+      ];
+    }
+    async makeAPIRequest(messages, n = 1, signal = null) {
+      var _a;
+      if (!this.API_KEY) {
+        throw new Error("OpenAI API key not set");
+      }
+      try {
+        const response = await fetch(this.API_URL, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${this.API_KEY}`
+          },
+          body: JSON.stringify({
+            model: this.MODEL,
+            messages,
+            ...this.CONFIG,
+            n
+          }),
+          signal
+          // Add abort signal to fetch request
+        });
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(((_a = error.error) == null ? void 0 : _a.message) || "API request failed");
+        }
+        const data = await response.json();
+        return data.choices;
+      } catch (error) {
+        console.error("API request failed:", error);
+        throw error;
+      }
+    }
+    async getCompletion(context, language) {
+      const messages = this.createPrompt(context, language);
+      const choices = await this.makeAPIRequest(messages, 1);
+      return choices[0].message.content.trim();
+    }
+    async getMultipleCompletions(context, language, n = 3, signal = null) {
+      const messages = this.createPrompt(context, language);
+      const choices = await this.makeAPIRequest(messages, n, signal);
+      return choices.map((choice) => choice.message.content.trim());
+    }
+  };
+  var aiService_default = new AIService();
+
+  // src/js/completion/completionManager.js
+  var CompletionManager = class {
+    constructor() {
+      this.currentEditor = null;
+      this.editorType = null;
+      this.monacoInstance = null;
+      this.inlineDecorationIds = [];
+      this.lastInlineText = "";
+      this.isProcessingInline = false;
+      this.initializeAttempts = 0;
+      this.maxInitializeAttempts = 20;
+      this._inlineProviderRegistered = false;
+      this.contextWindow = 5;
+      this.inlineConfig = {
+        debounceTime: 500,
+        // Increased to 500ms
+        minRequestInterval: 750,
+        // Minimum time between requests
+        maxPendingRequests: 1
+        // Maximum number of pending requests
+      };
+      this.debouncedHandleContentChange = this.debounce(
+        this.handleContentChange.bind(this),
+        this.inlineConfig.debounceTime
+      );
+      this.initialize();
+    }
+    debounce(func, wait) {
+      let timeout;
+      return (...args) => {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => {
+          func.apply(this, args);
+        }, wait);
+      };
+    }
+    throttle(func, limit) {
+      let inThrottle;
+      return (...args) => {
+        if (!inThrottle) {
+          func.apply(this, args);
+          inThrottle = true;
+          setTimeout(() => inThrottle = false, limit);
+        }
+      };
+    }
+    initialize() {
+      console.log("CompletionManager initializing...");
+      this.injectMonacoHelper();
+      this.setupMessageListener();
+      this.setupAPIKey();
+      this.setupEditorObserver();
+      console.log("CompletionManager initialized");
+    }
+    setupAPIKey() {
+      chrome.storage.sync.get(["openaiApiKey"], (result) => {
+        if (result.openaiApiKey) {
+          aiService_default.setApiKey(result.openaiApiKey);
+        }
+      });
+      chrome.storage.onChanged.addListener((changes) => {
+        if (changes.openaiApiKey) {
+          aiService_default.setApiKey(changes.openaiApiKey.newValue);
+        }
+      });
+    }
+    injectMonacoHelper() {
+      var s = document.createElement("script");
+      s.src = chrome.runtime.getURL("src/js/inject/monacoHelper.js");
+      s.onload = function() {
+        this.remove();
+      };
+      (document.head || document.documentElement).appendChild(s);
+    }
+    setupMessageListener() {
+      window.addEventListener("message", (event) => {
+        if (event.source !== window)
+          return;
+        const { type, data } = event.data;
+        switch (type) {
+          case "MONACO_HELPER_READY":
+            console.log("Monaco helper ready, setting up completion provider...");
+            window.postMessage({
+              type: "SETUP_COMPLETION_PROVIDER",
+              languages: ["javascript", "typescript", "html", "css"]
+            }, "*");
+            break;
+          case "GET_EDITOR_INSTANCE_RESPONSE":
+            console.log("Got editor instance response:", data);
+            if (data && data.success) {
+              this.monacoInstance = data.editor;
+              console.log("Monaco instance set:", this.monacoInstance);
+            }
+            break;
+          case "SETUP_PROVIDER_RESPONSE":
+            console.log("Completion provider setup response:", data);
+            if (data && data.success) {
+              console.log("Completion provider registered successfully");
+            } else {
+              console.error("Failed to setup completion provider:", data == null ? void 0 : data.error);
+            }
+            break;
+          case "GET_INLINE_COMPLETIONS":
+            console.log("Getting inline completions for:", data);
+            this.handleCompletionRequest(data);
+            break;
+        }
+      });
+    }
+    async handleCompletionRequest(data) {
+      const now = Date.now();
+      if (now - this._lastRequestTime < this.inlineConfig.minRequestInterval) {
+        return;
+      }
+      this._lastRequestTime = now;
+      try {
+        const context = this.getContext(data);
+        if (!context)
+          return;
+        if (this._pendingRequest) {
+          this._pendingRequest.abort();
+        }
+        const controller = new AbortController();
+        this._pendingRequest = controller;
+        const completions = await aiService_default.getMultipleCompletions(
+          context.text,
+          context.language,
+          3,
+          // Number of completions
+          controller.signal
+          // Pass signal separately
+        );
+        if (this._pendingRequest === controller) {
+          this._pendingRequest = null;
+        }
+        const startColumn = data.wordUntil ? data.wordUntil.endColumn : data.position.column;
+        window.postMessage({
+          type: "INLINE_COMPLETIONS_RESPONSE",
+          data: {
+            modelId: data.modelId,
+            items: completions.map((completion) => ({
+              text: completion,
+              range: {
+                startLineNumber: data.position.lineNumber,
+                startColumn,
+                endLineNumber: data.position.lineNumber,
+                endColumn: startColumn
+              }
+            }))
+          }
+        }, "*");
+      } catch (error) {
+        if (error.name === "AbortError") {
+          console.log("Completion request cancelled");
+        } else {
+          console.error("Error handling completion request:", error);
+        }
+        window.postMessage({
+          type: "INLINE_COMPLETIONS_RESPONSE",
+          data: {
+            modelId: data.modelId,
+            items: []
+          }
+        }, "*");
+      }
+    }
+    getContext(data) {
+      const { contextText, position, language, cursorOffset } = data;
+      const prefix = contextText.slice(0, cursorOffset);
+      const suffix = contextText.slice(cursorOffset);
+      const lines = prefix.split("\n");
+      const cursorLine = lines.length;
+      const cursorColumn = lines[lines.length - 1].length + 1;
+      return {
+        text: `${prefix}\u25BC${suffix}`,
+        language,
+        cursorLine,
+        cursorColumn
+      };
+    }
+    setupEditorObserver() {
+      console.log("Setting up editor observer...");
+      const observer = new MutationObserver((mutations) => {
+        for (const mutation of mutations) {
+          for (const node of mutation.addedNodes) {
+            if (node.nodeType === Node.ELEMENT_NODE) {
+              const containers = [
+                ...node.querySelectorAll("wms-editor, .wm-code-editor, .monaco-editor"),
+                ...node.matches("wms-editor, .wm-code-editor, .monaco-editor") ? [node] : []
+              ];
+              for (const container of containers) {
+                console.log("Found potential editor container:", container.className || container.tagName);
+                if (container.tagName.toLowerCase() === "wms-editor" && container.shadowRoot) {
+                  const shadowEditor = container.shadowRoot.querySelector(".monaco-editor");
+                  if (shadowEditor && !shadowEditor.classList.contains("rename-box")) {
+                    console.log("Found Monaco editor in shadow DOM");
+                    this.setupEditorListeners(shadowEditor);
+                  }
+                  continue;
+                }
+                const editor = container.matches(".monaco-editor") ? container : container.querySelector(".monaco-editor");
+                if (editor && !editor.classList.contains("rename-box")) {
+                  console.log("Found Monaco editor");
+                  this.setupEditorListeners(editor);
+                }
+              }
+            }
+          }
+        }
+      });
+      console.log("Checking for existing editors...");
+      ["wms-editor", ".wm-code-editor", ".monaco-editor"].forEach((selector) => {
+        const existingEditors = document.querySelectorAll(selector);
+        existingEditors.forEach((container) => {
+          console.log("Found existing container:", selector);
+          if (container.tagName.toLowerCase() === "wms-editor" && container.shadowRoot) {
+            const shadowEditor = container.shadowRoot.querySelector(".monaco-editor");
+            if (shadowEditor && !shadowEditor.classList.contains("rename-box")) {
+              console.log("Found existing Monaco editor in shadow DOM");
+              this.setupEditorListeners(shadowEditor);
+            }
+          } else {
+            const editor = container.matches(".monaco-editor") ? container : container.querySelector(".monaco-editor");
+            if (editor && !editor.classList.contains("rename-box")) {
+              console.log("Found existing Monaco editor");
+              this.setupEditorListeners(editor);
+            }
+          }
+        });
+      });
+      observer.observe(document.body, {
+        childList: true,
+        subtree: true
+      });
+      console.log("Editor observer setup complete");
+    }
+    setupEditorListeners(editor) {
+      if (!editor || !this.isWaveMakerEditor(editor)) {
+        console.log("Invalid editor or not a WaveMaker editor");
+        return;
+      }
+      console.log("Setting up editor listeners");
+      try {
+        const textArea = editor.querySelector(".inputarea");
+        if (!textArea) {
+          console.log("Monaco input area not found");
+          return;
+        }
+        const editorElement = editor.closest("[data-keybinding-context]");
+        if (!editorElement) {
+          console.log("Editor context not found");
+          return;
+        }
+        const editorId = editorElement.getAttribute("data-keybinding-context");
+        console.log("Found editor ID:", editorId);
+        window.postMessage({
+          type: "GET_EDITOR_INSTANCE",
+          editorId
+        }, "*");
+        this.currentEditor = editor;
+        editor.addEventListener("focus", () => {
+          console.log("Editor focused");
+          this.setCurrentEditor(editor);
+        });
+        editor.addEventListener("click", () => {
+          this.setCurrentEditor(editor);
+        });
+        this.monacoInstance.onDidChangeModelContent((event) => {
+          this.debouncedHandleContentChange(event);
+        });
+      } catch (error) {
+        console.error("Error setting up editor listeners:", error);
+      }
+    }
+    handleContentChange(event) {
+      if (this.isProcessingInline || !this.monacoInstance)
+        return;
+      const position = this.monacoInstance.getPosition();
+      if (position) {
+        this.monacoInstance.trigger("inline", "editor.action.inlineCompletion");
+      }
+    }
+    isWaveMakerEditor(element) {
+      if (!element)
+        return false;
+      console.log("Checking editor:", element.className);
+      if (element.classList.contains("rename-box")) {
+        console.log("Skipping rename box widget");
+        return false;
+      }
+      const isMonacoEditor = element.classList.contains("monaco-editor");
+      const hasCorrectTheme = element.classList.contains("vs-dark") || element.classList.contains("vs");
+      const isNotWidget = !element.hasAttribute("widgetid");
+      if (isMonacoEditor && hasCorrectTheme && isNotWidget) {
+        console.log("Valid Monaco editor found");
+        return true;
+      }
+      const wmContainer = element.closest("wms-editor, .wm-code-editor");
+      if (wmContainer) {
+        console.log("Found within WaveMaker container:", wmContainer.tagName || wmContainer.className);
+        return true;
+      }
+      console.log("Not a valid WaveMaker editor");
+      return false;
+    }
+    detectEditorType(editor) {
+      if (!editor)
+        return null;
+      const container = editor.closest(".wm-code-editor");
+      if (!container)
+        return null;
+      const editorClasses = editor.className;
+      if (editorClasses.includes("html-editor") || container.getAttribute("data-mode-id") === "html") {
+        return "markup";
+      } else if (editorClasses.includes("css-editor") || container.getAttribute("data-mode-id") === "css") {
+        return "style";
+      } else if (editorClasses.includes("js-editor") || container.getAttribute("data-mode-id") === "javascript") {
+        return "script";
+      }
+      const editorContent = editor.textContent.trim().toLowerCase();
+      if (editorContent.startsWith("<!doctype") || editorContent.includes("<html")) {
+        return "markup";
+      } else if (editorContent.includes("{") && editorContent.includes("}") && (editorContent.includes(":") || editorContent.includes(";"))) {
+        return "style";
+      }
+      return "script";
+    }
+    setCurrentEditor(editor) {
+      if (this.currentEditor === editor)
+        return;
+      console.log("Setting current editor:", editor);
+      this.currentEditor = editor;
+      this.editorType = this.detectEditorType(editor);
+      console.log("Editor type:", this.editorType);
+    }
+  };
+  var completionManager_default = CompletionManager;
+
   // src/js/content.js
   var copilotInstance = null;
   var SurfboardAI = class {
@@ -625,10 +1090,14 @@
       this.apiEndpoint = "https://api.groq.com/openai/v1";
       this.isInitialized = false;
       this.sidebar = null;
+      this.completionManager = null;
       this.initialize();
     }
     async initialize() {
       try {
+        console.log("Initializing SurfboardAI...");
+        this.completionManager = new completionManager_default();
+        console.log("CompletionManager initialized");
         await this.loadConfiguration();
         this.sidebar = new sidebar_default();
         await this.contextManager.initialize();
@@ -640,7 +1109,7 @@
         );
         console.log("Surfboard.AI initialized successfully");
       } catch (error) {
-        console.error("Failed to initialize Surfboard AI:", error);
+        console.error("Error initializing SurfboardAI:", error);
       }
     }
     setupMessageListener() {

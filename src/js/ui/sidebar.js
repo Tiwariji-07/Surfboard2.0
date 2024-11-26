@@ -165,7 +165,7 @@ class WaveMakerCopilotSidebar {
         // Create copy button
         const copyButton = document.createElement('button');
         copyButton.className = 'copy-button';
-        copyButton.type = 'button'; // Explicitly set button type
+        copyButton.type = 'button';
         copyButton.innerHTML = `
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
@@ -174,36 +174,44 @@ class WaveMakerCopilotSidebar {
             <span>Copy</span>
         `;
 
-        // Add click event listener
-        copyButton.onclick = (e) => {
+        console.log('Adding click handlers to button...');
+
+        // Add both click handlers for testing
+        copyButton.onclick = function(e) {
+            console.log('Copy button clicked via onclick');
+            handleCopy(e);
+        };
+
+        copyButton.addEventListener('click', function(e) {
+            console.log('Copy button clicked via addEventListener');
+            handleCopy(e);
+        });
+
+        // Separate copy handler function
+        const handleCopy = async (e) => {
+            console.log('Handling copy...');
             e.preventDefault();
             e.stopPropagation();
-            console.log('Copy button clicked');
             
-            // Copy the code to clipboard
-            navigator.clipboard.writeText(code)
-                .then(() => {
-                    console.log('Code copied:', code);
-                    copyButton.classList.add('copied');
-                    const span = copyButton.querySelector('span');
-                    span.textContent = 'Copied!';
-                    
-                    setTimeout(() => {
-                        copyButton.classList.remove('copied');
-                        span.textContent = 'Copy';
-                    }, 2000);
-                })
-                .catch(err => {
-                    console.error('Failed to copy:', err);
-                    copyButton.classList.add('error');
-                    const span = copyButton.querySelector('span');
-                    span.textContent = 'Error!';
-                    
-                    setTimeout(() => {
-                        copyButton.classList.remove('error');
-                        span.textContent = 'Copy';
-                    }, 2000);
-                });
+            const span = copyButton.querySelector('span');
+            
+            try {
+                console.log('Attempting to copy code:', code);
+                await navigator.clipboard.writeText(code);
+                console.log('Code copied successfully');
+                copyButton.classList.add('copied');
+                span.textContent = 'Copied!';
+            } catch (err) {
+                console.error('Failed to copy:', err);
+                copyButton.classList.add('error');
+                span.textContent = 'Error!';
+            }
+            
+            // Reset button state after delay
+            setTimeout(() => {
+                copyButton.classList.remove('copied', 'error');
+                span.textContent = 'Copy';
+            }, 2000);
         };
 
         // Assemble header
