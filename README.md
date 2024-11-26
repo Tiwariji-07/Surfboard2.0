@@ -7,23 +7,23 @@ A powerful AI-powered Chrome extension designed to enhance the WaveMaker low-cod
 ## ✨ Features
 
 ### 🤖 AI-Powered Assistance
-- Real-time coding suggestions
-- Context-aware development help
-- Best practices recommendations
-- Code optimization tips
-- WaveMaker-specific guidance
+- Real-time code completion
+- Context-aware suggestions
+- Intelligent code predictions
+- WaveMaker-specific assistance
+- Multi-language support (JavaScript, HTML, CSS)
 
 ### 💻 User Interface
-- Floating action button for quick access
-- Collapsible sidebar interface
-- Dark/light theme support
-- Responsive chat interface
-- Code snippet formatting
+- Monaco Editor integration
+- Inline code completions
+- Debounced suggestions
+- Non-intrusive UI
+- Responsive design
 
 ### 🔒 Security
-- Secure API key storage
-- Client-side processing
-- No data retention
+- Secure API key management
+- Environment-based configuration
+- No sensitive data storage
 - HTTPS-only communication
 
 ## 🚀 Getting Started
@@ -31,101 +31,145 @@ A powerful AI-powered Chrome extension designed to enhance the WaveMaker low-cod
 ### Prerequisites
 - Google Chrome browser
 - WaveMaker development environment
-- Groq API key ([Get one here](https://console.groq.com))
+- OpenAI API key ([Get one here](https://platform.openai.com))
+- Node.js and npm installed
 
-### Installation
-1. Download or clone this repository
-2. Open Chrome and go to `chrome://extensions`
-3. Enable "Developer mode" in the top right
-4. Click "Load unpacked" and select the extension directory
-5. Click the extension icon and enter your Groq API key
+### Installation for Development
+
+1. Clone the repository:
+```bash
+git clone https://github.com/yourusername/wavemaker-copilot.git
+cd wavemaker-copilot
+```
+
+2. Install dependencies:
+```bash
+npm install
+```
+
+3. Set up environment variables:
+```bash
+cp .env.example .env
+```
+Edit `.env` and add your OpenAI API key.
+
+4. Build the extension:
+```bash
+npm run build
+```
+
+5. Load in Chrome:
+- Open Chrome and go to `chrome://extensions`
+- Enable "Developer mode"
+- Click "Load unpacked"
+- Select the `dist` directory
+
+### Building for Production
+
+1. Ensure all dependencies are installed:
+```bash
+npm install
+```
+
+2. Create production build:
+```bash
+npm run build:prod
+```
+
+3. The extension will be built in the `dist` directory
+4. You can then zip the dist directory for distribution
 
 ## 🛠️ Technical Details
 
 ### Architecture
 - Chrome Extension Manifest V3
-- Class-based JavaScript components
-- Event-driven communication
-- Modular design pattern
+- Monaco Editor integration
+- OpenAI GPT-3.5 Turbo
+- Event-driven messaging
 
 ### Components
-- **Background Service**
-  - Extension lifecycle management
-  - Cross-tab communication
-  - API key management
-
-- **Content Scripts**
-  - UI initialization
-  - Context parsing
-  - Event handling
-
-- **Chat Interface**
-  - AI message processing
-  - Code formatting
+- **AI Service**
+  - OpenAI API integration
+  - Completion generation
   - Context management
 
-### AI Integration
-- Uses Groq's Llama3 model
-- OpenAI-compatible API
-- Streaming responses
-- Context window: 8192 tokens
+- **Completion Manager**
+  - Monaco Editor integration
+  - Context extraction
+  - Debounced suggestions
 
-## 🔧 Development
+- **Monaco Helper**
+  - Editor initialization
+  - Event handling
+  - Completion rendering
 
 ### Project Structure
-\`\`\`
+```
 wavemaker-copilot/
 ├── manifest.json
 ├── src/
 │   ├── css/
-│   │   └── copilot.css
-│   ├── html/
-│   │   ├── popup.html
-│   │   └── welcome.html
-│   ├── icons/
-│   │   └── sticker.png
-│   └── js/
-│       ├── background.js
-│       ├── content.js
-│       └── ui/
-│           ├── chat.js
-│           └── sidebar.js
-└── assets/
-    └── icon.png
-\`\`\`
+│   │   ├── sidebar.css
+│   │   ├── completion.css
+│   │   └── prism-vscode-dark.css
+│   ├── js/
+│   │   ├── services/
+│   │   │   └── aiService.js
+│   │   ├── completion/
+│   │   │   └── completionManager.js
+│   │   ├── inject/
+│   │   │   └── monacoHelper.js
+│   │   ├── ui/
+│   │   │   └── sidebar.js
+│   │   └── content.js
+│   └── icons/
+│       └── sticker.png
+├── .env.example
+├── .gitignore
+└── package.json
+```
 
-### Building
-1. Make changes to source files
-2. Test in Chrome using "Load unpacked"
-3. Package for distribution when ready
+## 🔧 Development
 
-## 🤝 Contributing
+### Available Scripts
 
-We welcome contributions! Please follow these steps:
+- `npm run build`: Build development version
+- `npm run build:prod`: Build production version
+- `npm run watch`: Watch for changes and rebuild
+- `npm run lint`: Run ESLint
+- `npm test`: Run tests
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Submit a pull request
+### Configuration
+
+1. Environment Variables (`.env`):
+```env
+OPENAI_API_KEY=your-api-key-here
+EXTENSION_ENV=development
+DEBUG_MODE=false
+```
+
+2. Build Configuration:
+- Development build includes source maps
+- Production build is minified and optimized
+- Watch mode for development
+
+### Best Practices
+
+1. **API Key Management**:
+   - Never commit API keys
+   - Use environment variables
+   - Store keys securely in extension storage
+
+2. **Code Style**:
+   - Follow ESLint configuration
+   - Use consistent formatting
+   - Write meaningful comments
+
+3. **Testing**:
+   - Test all new features
+   - Ensure backward compatibility
+   - Verify API integration
 
 ## 📝 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 🙏 Acknowledgments
-
-- WaveMaker community
-- Groq AI team
-- Chrome Extensions documentation
-- All contributors
-
-## 📞 Support
-
-For support:
-- Open an issue on GitHub
-- Contact the development team
-- Check our documentation
-
----
-
-Made with ❤️ for the WaveMaker community
+This project is licensed under the MIT License - see the LICENSE file for details.
