@@ -97,6 +97,15 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                 }
                 break;
 
+            case 'GET_AUTH_COOKIE':
+                chrome.cookies.get({
+                    url: 'https://www.wavemakeronline.com',
+                    name: 'auth_cookie'
+                }, (cookie) => {
+                    sendResponse({ cookie: cookie ? cookie.value : null });
+                });
+                return true; // Required for async response
+
             default:
                 console.warn('Unknown message type:', message.type);
                 sendResponse({ error: 'Unknown message type' });
@@ -206,5 +215,3 @@ chrome.action.onClicked.addListener((tab) => {
         handleToggleCopilot(tab.id);
     }
 });
-
-

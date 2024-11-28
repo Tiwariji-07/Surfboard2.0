@@ -1,8 +1,15 @@
+// import SearchPanel from './searchPanel.js';
+import LogPanel from './logPanel.js';
+import SearchPanel from './searchPanel.js';
+
 class WaveMakerCopilotSidebar {
     constructor() {
         this.sidebarElement = null;
         this.chatContainer = null;
         this.isOpen = false;
+        // this.searchPanel = null;
+        this.logPanel = null;
+        this.searchPanel = null;
         this.initialize();
     }
 
@@ -15,10 +22,17 @@ class WaveMakerCopilotSidebar {
         this.sidebarElement.innerHTML = `
             <div class="sidebar-header">
                 <h2>Surfboard AI</h2>
+                <div class="tab-buttons">
+                    <button class="tab-button active" data-tab="chat">Chat</button>
+                    <!--<button class="tab-button" data-tab="search">Search</button>-->
+                    <button class="tab-button" data-tab="logs">Logs</button>
+                </div>
                 <button class="minimize-button">−</button>
             </div>
             <div class="sidebar-content">
-                <div class="chat-container"></div>
+                <div class="chat-container active"></div>
+                <div class="search-container"></div>
+                <div class="log-container"></div>
                 <div class="context-panel"></div>
             </div>
             <div class="input-container">
@@ -39,9 +53,27 @@ class WaveMakerCopilotSidebar {
 
         // Setup event listeners
         this.setupEventListeners();
+        // this.setupSearchPanel();
 
         // Create and add toggle button
         this.createToggleButton();
+    }
+
+    async initializePanels() {
+        const logContainer = this.sidebarElement.querySelector('.log-container');
+        console.log('Log container:', logContainer);
+        if (!this.logPanel && logContainer) {
+            console.log('Creating new LogPanel');
+            this.logPanel = new LogPanel();
+            console.log('LogPanel created:', this.logPanel);
+            logContainer.appendChild(this.logPanel.element);
+            console.log('LogPanel appended to container');
+        }
+        const searchContainer = this.sidebarElement.querySelector('.search-container');
+        if (!this.searchPanel && searchContainer) {
+            this.searchPanel = new SearchPanel();
+            searchContainer.appendChild(this.searchPanel.container);
+        }
     }
 
     createToggleButton() {
@@ -102,6 +134,32 @@ class WaveMakerCopilotSidebar {
             textarea.style.height = Math.min(textarea.scrollHeight, 200) + 'px';
         });
 
+        // Tab switching
+        const tabButtons = this.sidebarElement.querySelectorAll('.tab-button');
+        tabButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                // Remove active class from all buttons and containers
+                tabButtons.forEach(btn => btn.classList.remove('active'));
+                this.sidebarElement.querySelectorAll('.sidebar-content > div').forEach(container => {
+                    container.classList.remove('active');
+                });
+
+                // Add active class to clicked button and corresponding container
+                button.classList.add('active');
+                const tabName = button.getAttribute('data-tab');
+                let containerClass = tabName === 'logs' ? 'log' : tabName;
+                const container = this.sidebarElement.querySelector(`.${containerClass}-container`);
+                if (container) {
+                    container.classList.add('active');
+                }
+
+                // Initialize log panel if logs tab is selected
+                if (tabName === 'logs') {
+                    this.initializePanels();
+                }
+            });
+        });
+
         // Keyboard shortcuts
         document.addEventListener('keydown', (e) => {
             if (e.ctrlKey && e.key === '\\') {
@@ -109,6 +167,37 @@ class WaveMakerCopilotSidebar {
             }
         });
     }
+
+    /*setupSearchPanel() {
+        // Initialize search panel first
+        const searchContainer = this.sidebarElement.querySelector('.search-container');
+        this.searchPanel = new SearchPanel();
+        this.searchPanel.initialize(); // Initialize before accessing container
+        searchContainer.appendChild(this.searchPanel.container);
+
+        // Handle tab switching
+        const tabButtons = this.sidebarElement.querySelectorAll('.tab-button');
+        tabButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                // Update active tab button
+                tabButtons.forEach(btn => btn.classList.remove('active'));
+                button.classList.add('active');
+
+                // Show/hide containers
+                const tabName = button.dataset.tab;
+                const chatContainer = this.sidebarElement.querySelector('.chat-container');
+                const searchContainer = this.sidebarElement.querySelector('.search-container');
+
+                if (tabName === 'chat') {
+                    chatContainer.classList.add('active');
+                    searchContainer.classList.remove('active');
+                } else {
+                    chatContainer.classList.remove('active');
+                    searchContainer.classList.add('active');
+                }
+            });
+        });
+    }*/
 
     toggleSidebar() {
         this.isOpen = !this.isOpen;

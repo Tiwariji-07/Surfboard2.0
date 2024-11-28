@@ -417,12 +417,822 @@
   };
   var wmContext_default = WMContextManager;
 
+  // src/js/services/openaiService.js
+  var OpenAIService = class {
+    constructor() {
+      this.apiKey = null;
+      this.baseURL = "https://api.openai.com/v1/chat/completions";
+    }
+    async setApiKey(key) {
+      this.apiKey = key;
+    }
+    async analyzeLogs(logs) {
+      if (!this.apiKey) {
+        throw new Error("OpenAI API key not set");
+      }
+      const messages = [
+        {
+          role: "system",
+          content: `You are a log analysis expert. Analyze the provided logs and:
+                1. Identify any errors, warnings, or potential issues
+                2. Suggest possible solutions or debugging steps
+                3. Highlight any performance concerns
+                4. Provide a brief summary of the system state
+                Be concise and focus on actionable insights.`
+        },
+        {
+          role: "user",
+          content: `Please analyze these application logs:
+
+${logs}`
+        }
+      ];
+      try {
+        const response = await fetch(this.baseURL, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${this.apiKey}`
+          },
+          body: JSON.stringify({
+            model: "gpt-3.5-turbo",
+            messages,
+            temperature: 0.3,
+            max_tokens: 500
+          })
+        });
+        if (!response.ok) {
+          throw new Error(`OpenAI API error: ${response.statusText}`);
+        }
+        const data = await response.json();
+        return data.choices[0].message.content;
+      } catch (error) {
+        console.error("Error analyzing logs:", error);
+        throw error;
+      }
+    }
+  };
+  var openaiService_default = new OpenAIService();
+
+  // src/js/services/logService.js
+  var LogService = class {
+    constructor() {
+      this.baseUrl = "https://www.wavemakeronline.com/studio/services/studio/logs";
+      this.authCookie = null;
+      this.openaiService = openaiService_default;
+    }
+    async initialize(apiKey) {
+      try {
+        const response = await chrome.runtime.sendMessage({ type: "GET_AUTH_COOKIE" });
+        if (!response.cookie) {
+          throw new Error("Authentication cookie not found");
+        }
+        this.authCookie = response.cookie;
+        if (!apiKey) {
+          throw new Error("OpenAI API key is required");
+        }
+        await this.openaiService.setApiKey(apiKey);
+        console.log("LogService initialized with auth cookie and API key");
+      } catch (error) {
+        console.error("Failed to initialize LogService:", error);
+        throw error;
+      }
+    }
+    async fetchLogs(type = "server", limit = 1e3) {
+      if (!this.authCookie) {
+        await this.initialize();
+      }
+      const url = `${this.baseUrl}/${type}/${limit}`;
+      try {
+        const response = await fetch(url, {
+          method: "GET",
+          credentials: "include",
+          headers: {
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+            "Cookie": `auth_cookie=${this.authCookie}`
+          }
+        });
+        if (!response.ok) {
+          throw new Error(`Failed to fetch ${type} logs: ${response.statusText}`);
+        }
+        const logs = await response.json();
+        return this.parseLogs(logs, type);
+      } catch (error) {
+        console.error(`Error fetching ${type} logs:`, error);
+        throw error;
+      }
+    }
+    parseLogs(logs, type) {
+      if (!logs || typeof logs !== "object") {
+        console.warn("Invalid logs response:", logs);
+        return [];
+      }
+      if (logs.result) {
+        const logLines = logs.result.split("\n").filter((line) => line.trim());
+        return logLines.map((line) => {
+          const match = line.match(/^(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2},\d{3})\s+(\S+)\s+(.+)$/);
+          if (match) {
+            const [, timestamp, thread, message] = match;
+            return {
+              timestamp,
+              thread,
+              message,
+              type,
+              severity: this.getSeverity(message)
+            };
+          }
+          return {
+            timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+            thread: "unknown",
+            message: line,
+            type,
+            severity: this.getSeverity(line)
+          };
+        });
+      }
+      console.warn("Unexpected logs format:", logs);
+      return [];
+    }
+    getSeverity(message) {
+      const lowerMessage = message.toLowerCase();
+      if (lowerMessage.includes("error") || lowerMessage.includes("exception")) {
+        return "error";
+      }
+      if (lowerMessage.includes("warn") || lowerMessage.includes("warning")) {
+        return "warning";
+      }
+      if (lowerMessage.includes("debug")) {
+        return "debug";
+      }
+      return "info";
+    }
+    async analyzeBatch(logs, maxLogs = 10) {
+      try {
+        console.log("Starting batch analysis with logs:", logs);
+        if (!logs || logs.length === 0) {
+          throw new Error("No logs provided for analysis");
+        }
+        const significantLogs = [...logs].sort((a, b) => {
+          const severityScore = (log) => {
+            if (log.severity === "error")
+              return 3;
+            if (log.severity === "warning")
+              return 2;
+            if (log.severity === "info")
+              return 1;
+            return 0;
+          };
+          return severityScore(b) - severityScore(a);
+        }).slice(0, maxLogs);
+        console.log("Selected significant logs:", significantLogs);
+        const logsText = significantLogs.map((log) => {
+          const severity = log.severity ? `[${log.severity.toUpperCase()}]` : "";
+          return `${severity} [${log.timestamp}] [${log.thread}] ${log.message}`;
+        }).join("\n");
+        console.log("Formatted logs for analysis:", logsText);
+        if (!logsText.trim()) {
+          throw new Error("No valid log content for analysis");
+        }
+        const aiAnalysis = await this.openaiService.analyzeLogs(logsText);
+        console.log("Received analysis:", aiAnalysis);
+        return aiAnalysis;
+      } catch (error) {
+        console.error("Error in batch analysis:", error);
+        throw error;
+      }
+    }
+  };
+
+  // src/js/ui/logPanel.js
+  var LogPanel = class {
+    constructor() {
+      this.logService = new LogService();
+      this.element = document.createElement("div");
+      this.element.className = "log-panel";
+      this.currentLogType = "server";
+      this.createHeader();
+      this.createContent();
+      this.createAnalysisPanel();
+      this.setupEventListeners();
+      this.initializeService();
+    }
+    async initializeService() {
+      try {
+        const apiKey = await this.getOpenAIKey();
+        if (!apiKey) {
+          console.warn("OpenAI API key not found");
+          this.showError("OpenAI API key not configured. AI analysis will not be available.");
+          return;
+        }
+        await this.logService.initialize(apiKey);
+        await this.refreshLogs();
+      } catch (error) {
+        console.error("Error initializing LogService:", error);
+        this.showError("Failed to initialize log service: " + error.message);
+      }
+    }
+    async getOpenAIKey() {
+      return new Promise((resolve) => {
+        chrome.storage.sync.get(["openaiApiKey"], (result) => {
+          resolve(result.openaiApiKey);
+        });
+      });
+    }
+    async initializeAsync() {
+      try {
+        const apiKey = await this.getOpenAIKey();
+        if (apiKey) {
+          await this.logService.openaiService.setApiKey(apiKey);
+        }
+      } catch (error) {
+        console.error("Error initializing LogPanel:", error);
+      }
+    }
+    createHeader() {
+      const header = document.createElement("div");
+      header.className = "log-header";
+      const typeSelector = document.createElement("select");
+      typeSelector.className = "log-type-selector";
+      ["server", "application"].forEach((type) => {
+        const option = document.createElement("option");
+        option.value = type;
+        option.textContent = `${type.charAt(0).toUpperCase() + type.slice(1)} Logs`;
+        typeSelector.appendChild(option);
+      });
+      const refreshButton = document.createElement("button");
+      refreshButton.className = "refresh-button";
+      refreshButton.innerHTML = "\u{1F504} Refresh";
+      const analyzeButton = document.createElement("button");
+      analyzeButton.className = "analyze-button";
+      analyzeButton.innerHTML = "\u{1F50D} Analyze";
+      header.appendChild(typeSelector);
+      header.appendChild(refreshButton);
+      header.appendChild(analyzeButton);
+      this.element.appendChild(header);
+    }
+    createContent() {
+      const content = document.createElement("div");
+      content.className = "log-content";
+      this.logsContainer = document.createElement("div");
+      this.logsContainer.className = "logs-container";
+      this.logsContainer.innerHTML = '<div class="log-entry info"><span class="log-timestamp">Now</span><span class="log-thread"></span><span class="log-message">Initializing log panel...</span></div>';
+      content.appendChild(this.logsContainer);
+      this.element.appendChild(content);
+    }
+    createAnalysisPanel() {
+      this.analysisContainer = document.createElement("div");
+      this.analysisContainer.className = "analysis-panel";
+      this.analysisContainer.style.display = "none";
+      this.analysisContainer.innerHTML = "<h3>Log Analysis</h3>";
+      this.element.appendChild(this.analysisContainer);
+    }
+    setupEventListeners() {
+      const typeSelector = this.element.querySelector(".log-type-selector");
+      typeSelector.addEventListener("change", (e) => {
+        this.currentLogType = e.target.value;
+        this.refreshLogs();
+      });
+      const refreshButton = this.element.querySelector(".refresh-button");
+      refreshButton.addEventListener("click", () => this.refreshLogs());
+      const analyzeButton = this.element.querySelector(".analyze-button");
+      analyzeButton.addEventListener("click", () => this.analyzeLogs());
+    }
+    async fetchLogs(type) {
+      try {
+        this.showLoading();
+        const logs = await this.logService.fetchLogs(type);
+        this.displayLogs(logs);
+      } catch (error) {
+        this.showError(error.message);
+      }
+    }
+    async refreshLogs() {
+      try {
+        const logs = await this.logService.fetchLogs(this.currentLogType);
+        this.displayLogs(logs);
+      } catch (error) {
+        console.error("Error refreshing logs:", error);
+        this.showError("Failed to refresh logs");
+      }
+    }
+    async analyzeLogs() {
+      try {
+        const analysisButton = this.element.querySelector(".analyze-button");
+        analysisButton.disabled = true;
+        analysisButton.textContent = "Analyzing...";
+        const logContent = this.element.querySelector(".log-content");
+        const logEntries = Array.from(logContent.querySelectorAll(".log-entry")).map((entry) => ({
+          message: entry.querySelector(".log-message").textContent,
+          timestamp: entry.querySelector(".log-timestamp").textContent,
+          thread: entry.querySelector(".log-thread").textContent,
+          severity: entry.dataset.severity || "info"
+        }));
+        console.log("Collected log entries:", logEntries);
+        if (logEntries.length === 0) {
+          throw new Error("No logs available for analysis");
+        }
+        const analysis = await this.logService.analyzeBatch(logEntries);
+        this.displayAnalysis(analysis);
+      } catch (error) {
+        console.error("Error analyzing logs:", error);
+        this.showError("Failed to analyze logs: " + error.message);
+      } finally {
+        const analysisButton = this.element.querySelector(".analyze-button");
+        analysisButton.disabled = false;
+        analysisButton.textContent = "Analyze Logs";
+      }
+    }
+    displayLogs(logs) {
+      this.logsContainer.innerHTML = "";
+      [...logs].reverse().forEach((log) => {
+        const logEntry = document.createElement("div");
+        logEntry.className = `log-entry ${log.severity}`;
+        logEntry.dataset.severity = log.severity;
+        const timestamp = document.createElement("span");
+        timestamp.className = "log-timestamp";
+        timestamp.textContent = log.timestamp;
+        const thread = document.createElement("span");
+        thread.className = "log-thread";
+        thread.textContent = log.thread;
+        const message = document.createElement("span");
+        message.className = "log-message";
+        message.textContent = log.message;
+        logEntry.appendChild(timestamp);
+        logEntry.appendChild(thread);
+        logEntry.appendChild(message);
+        this.logsContainer.appendChild(logEntry);
+      });
+    }
+    displayAnalysis(analysis) {
+      const analysisPanel = this.element.querySelector(".analysis-panel");
+      analysisPanel.innerHTML = "";
+      const content = document.createElement("div");
+      content.className = "analysis-content";
+      content.innerHTML = `<pre>${analysis}</pre>`;
+      analysisPanel.appendChild(content);
+      analysisPanel.style.display = "block";
+    }
+    showLoading() {
+      this.logsContainer.innerHTML = '<div class="loading">Loading logs...</div>';
+      this.analysisContainer.style.display = "none";
+    }
+    showError(message) {
+      const errorDiv = document.createElement("div");
+      errorDiv.className = "log-entry error";
+      errorDiv.innerHTML = `<span class="log-message">${message}</span>`;
+      this.logsContainer.insertBefore(errorDiv, this.logsContainer.firstChild);
+    }
+  };
+  var logPanel_default = LogPanel;
+
+  // src/js/services/searchService.js
+  var SearchService = class {
+    constructor() {
+      this.fileCache = /* @__PURE__ */ new Map();
+      this.projectId = null;
+      this.baseUrl = "https://www.wavemakeronline.com/studio/services/projects";
+      this.authCookie = null;
+      this.initialize();
+    }
+    /**
+     * Initialize the search service
+     */
+    async initialize() {
+      try {
+        const response = await chrome.runtime.sendMessage({ type: "GET_AUTH_COOKIE" });
+        if (!response.cookie) {
+          throw new Error("Authentication cookie not found");
+        }
+        this.authCookie = response.cookie;
+        console.log("SearchService initialized with auth cookie");
+      } catch (error) {
+        console.error("Failed to initialize SearchService:", error);
+        throw new Error("Failed to authenticate with WaveMaker");
+      }
+    }
+    /**
+     * Extract project ID from WaveMaker Studio URL
+     */
+    getProjectIdFromUrl() {
+      const urlParams = new URLSearchParams(window.location.search);
+      return urlParams.get("project-id");
+    }
+    /**
+     * Get file content from WaveMaker API
+     */
+    async getFileContent(filename) {
+      if (!this.authCookie) {
+        await this.initialize();
+      }
+      if (this.fileCache.has(filename)) {
+        return this.fileCache.get(filename);
+      }
+      const url = `${this.baseUrl}/${this.projectId}/resources/content/project/${filename}`;
+      try {
+        const response = await fetch(url, {
+          method: "GET",
+          credentials: "include",
+          headers: {
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+            "Cookie": `auth_cookie=${this.authCookie}`
+          }
+        });
+        if (!response.ok) {
+          if (response.status === 401) {
+            await this.initialize();
+            return this.getFileContent(filename);
+          }
+          throw new Error(`Failed to fetch file: ${response.statusText}`);
+        }
+        const content = await response.text();
+        this.fileCache.set(filename, content);
+        return content;
+      } catch (error) {
+        console.error(`Error fetching ${filename}:`, error);
+        throw error;
+      }
+    }
+    /**
+     * Search in current editor
+     */
+    async searchInCurrentEditor(query, options = {}) {
+      return new Promise((resolve, reject) => {
+        const messageHandler = (event) => {
+          if (event.data.type === "EDITOR_CONTENT_RESPONSE") {
+            window.removeEventListener("message", messageHandler);
+            if (event.data.error) {
+              reject(new Error(event.data.error));
+              return;
+            }
+            const { content, filename } = event.data;
+            resolve(this.searchInContent(content, query, filename, options));
+          }
+        };
+        window.addEventListener("message", messageHandler);
+        window.postMessage({ type: "GET_EDITOR_CONTENT" }, "*");
+        setTimeout(() => {
+          window.removeEventListener("message", messageHandler);
+          reject(new Error("Timeout waiting for editor content"));
+        }, 5e3);
+      });
+    }
+    /**
+     * Search in content with various strategies
+     */
+    searchInContent(content, query, filename, options = {}) {
+      const results = [];
+      try {
+        if (!options.type || options.type === "exact") {
+          const escapedQuery = query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+          const regex = new RegExp(escapedQuery, "gi");
+          let match;
+          while ((match = regex.exec(content)) !== null) {
+            results.push({
+              type: "exact",
+              filename,
+              line: this.getLineNumber(content, match.index),
+              match: match[0],
+              context: this.getContext(content, match.index)
+            });
+          }
+        }
+        if (!options.type || options.type === "pattern") {
+          const patterns = this.getSearchPatterns(query);
+          patterns.forEach((pattern) => {
+            try {
+              const regex = new RegExp(pattern, "gi");
+              let match;
+              while ((match = regex.exec(content)) !== null) {
+                results.push({
+                  type: "pattern",
+                  filename,
+                  line: this.getLineNumber(content, match.index),
+                  match: match[0],
+                  context: this.getContext(content, match.index)
+                });
+              }
+            } catch (error) {
+              console.warn(`Invalid pattern ${pattern}:`, error);
+            }
+          });
+        }
+      } catch (error) {
+        console.error("Search failed:", error);
+        throw new Error("Failed to perform search: " + error.message);
+      }
+      return results;
+    }
+    /**
+     * Get search patterns based on query type
+     */
+    getSearchPatterns(query) {
+      const patterns = {
+        // API patterns
+        api: [
+          "\\b(fetch|axios)\\s*\\(",
+          "\\bapi\\b.*\\(",
+          "\\bhttp[s]?:\\/\\/"
+        ],
+        // Function patterns
+        function: [
+          "function\\s+(\\w+)\\s*\\(",
+          "(\\w+)\\s*:\\s*function\\s*\\(",
+          "(\\w+)\\s*=\\s*\\([^)]*\\)\\s*=>"
+        ],
+        // Variable patterns
+        variable: [
+          "\\b(var|let|const)\\s+(\\w+)\\s*=",
+          "\\bthis\\.(\\w+)\\s*="
+        ],
+        // WaveMaker specific patterns
+        widget: [
+          `\\[wm-type=['"]([^'"]+)['"]\\]`,
+          `widget-id=['"]([^'"]+)['"]\\]`,
+          "\\bwm\\.(\\w+)\\("
+        ],
+        // Service patterns
+        service: [
+          "\\.service\\b",
+          "Service\\b.*\\{",
+          "\\@Injectable"
+        ]
+      };
+      const queryLower = query.toLowerCase();
+      let selectedPatterns = [];
+      if (queryLower.includes("api") || queryLower.includes("http")) {
+        selectedPatterns.push(...patterns.api);
+      }
+      if (queryLower.includes("function")) {
+        selectedPatterns.push(...patterns.function);
+      }
+      if (queryLower.includes("variable")) {
+        selectedPatterns.push(...patterns.variable);
+      }
+      if (queryLower.includes("widget")) {
+        selectedPatterns.push(...patterns.widget);
+      }
+      if (queryLower.includes("service")) {
+        selectedPatterns.push(...patterns.service);
+      }
+      if (selectedPatterns.length === 0) {
+        selectedPatterns = Object.values(patterns).flat();
+      }
+      return selectedPatterns;
+    }
+    /**
+     * Get line number from content index
+     */
+    getLineNumber(content, index) {
+      return content.substring(0, index).split("\n").length;
+    }
+    /**
+     * Get surrounding context for a match
+     */
+    getContext(content, index, contextLines = 2) {
+      const lines = content.split("\n");
+      const lineNumber = this.getLineNumber(content, index);
+      const start = Math.max(0, lineNumber - contextLines - 1);
+      const end = Math.min(lines.length, lineNumber + contextLines);
+      return lines.slice(start, end).join("\n");
+    }
+    /**
+     * Clear file cache
+     */
+    clearCache(filename = null) {
+      if (filename) {
+        this.fileCache.delete(filename);
+      } else {
+        this.fileCache.clear();
+      }
+    }
+  };
+  var searchService_default = SearchService;
+  var searchService = new SearchService();
+
+  // src/js/ui/searchPanel.js
+  var SearchPanel = class {
+    constructor() {
+      this.searchService = new searchService_default();
+      this.container = document.createElement("div");
+      this.container.className = "search-panel";
+      this.searchInput = document.createElement("input");
+      this.searchInput.type = "text";
+      this.searchInput.placeholder = "Search code...";
+      this.searchInput.className = "search-input";
+      this.filterButtons = document.createElement("div");
+      this.filterButtons.className = "filter-buttons";
+      this.resultsContainer = document.createElement("div");
+      this.resultsContainer.className = "search-results";
+      const filterTypes = ["All", "Exact", "Pattern"];
+      filterTypes.forEach((type) => {
+        const button = document.createElement("button");
+        button.textContent = type;
+        button.className = "filter-button";
+        if (type === "All")
+          button.classList.add("active");
+        button.onclick = () => {
+          this.filterButtons.querySelectorAll("button").forEach((btn) => btn.classList.remove("active"));
+          button.classList.add("active");
+          this.filterResults(type);
+        };
+        this.filterButtons.appendChild(button);
+      });
+      this.container.appendChild(this.searchInput);
+      this.container.appendChild(this.filterButtons);
+      this.container.appendChild(this.resultsContainer);
+      this.attachEventListeners();
+    }
+    /**
+     * Initialize the search panel
+     */
+    initialize() {
+      this.createPanel();
+      this.searchService.initialize();
+    }
+    /**
+     * Create the search panel UI
+     */
+    createPanel() {
+      const searchBox = document.createElement("div");
+      searchBox.className = "search-box";
+      this.searchInput = document.createElement("input");
+      this.searchInput.type = "text";
+      this.searchInput.placeholder = 'Search code (e.g., "find API calls" or "show variables")';
+      const searchButton = document.createElement("button");
+      searchButton.textContent = "Search";
+      searchButton.onclick = () => this.handleSearch();
+      searchBox.appendChild(this.searchInput);
+      searchBox.appendChild(searchButton);
+      this.filterButtons = document.createElement("div");
+      this.filterButtons.className = "filter-buttons";
+      const filters = ["All", "API", "Functions", "Variables", "Widgets", "Services"];
+      filters.forEach((filter) => {
+        const button = document.createElement("button");
+        button.textContent = filter;
+        button.onclick = () => this.filterResults(filter);
+        this.filterButtons.appendChild(button);
+      });
+      this.resultsContainer = document.createElement("div");
+      this.resultsContainer.className = "search-results";
+      this.container.appendChild(searchBox);
+      this.container.appendChild(this.filterButtons);
+      this.container.appendChild(this.resultsContainer);
+    }
+    /**
+     * Display search results
+     */
+    displayResults(results) {
+      this.resultsContainer.innerHTML = "";
+      if (!results || results.length === 0) {
+        const noResults = document.createElement("div");
+        noResults.className = "no-results";
+        noResults.textContent = "No results found";
+        this.resultsContainer.appendChild(noResults);
+        return;
+      }
+      results.forEach((result) => {
+        const resultCard = this.createResultCard(result);
+        this.resultsContainer.appendChild(resultCard);
+      });
+    }
+    /**
+     * Create a search result card
+     */
+    createResultCard(result) {
+      const resultCard = document.createElement("div");
+      resultCard.className = "search-result-card";
+      resultCard.dataset.type = result.type || "exact";
+      const header = document.createElement("div");
+      header.className = "result-header";
+      const filename = document.createElement("span");
+      filename.className = "result-filename";
+      filename.textContent = result.filename;
+      const line = document.createElement("span");
+      line.className = "result-line";
+      line.textContent = `Line ${result.line}`;
+      const type = document.createElement("span");
+      type.className = "result-type";
+      type.textContent = result.type || "exact";
+      header.appendChild(filename);
+      header.appendChild(line);
+      header.appendChild(type);
+      const content = document.createElement("div");
+      content.className = "result-content";
+      content.innerHTML = this.highlightCode(result.context, result.match);
+      resultCard.appendChild(header);
+      resultCard.appendChild(content);
+      resultCard.onclick = () => this.navigateToResult(result);
+      return resultCard;
+    }
+    /**
+     * Handle search execution
+     */
+    async handleSearch() {
+      const query = this.searchInput.value.trim();
+      if (!query) {
+        this.showError("Please enter a search query");
+        return;
+      }
+      try {
+        this.showLoading();
+        const results = await this.searchService.searchInCurrentEditor(query);
+        this.displayResults(results);
+      } catch (error) {
+        console.error("Search failed:", error);
+        this.showError("Search failed: " + (error.message || "Unknown error"));
+      }
+    }
+    /**
+     * Highlight code in search results
+     */
+    highlightCode(context, match) {
+      try {
+        const escapedMatch = match.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        return context.replace(
+          new RegExp(escapedMatch, "g"),
+          `<span class="highlight">${match}</span>`
+        );
+      } catch (error) {
+        console.warn("Failed to highlight code:", error);
+        return context;
+      }
+    }
+    /**
+     * Navigate to a search result
+     */
+    navigateToResult(result) {
+      if (!result || !result.filename) {
+        console.error("Invalid search result:", result);
+        return;
+      }
+      window.postMessage({
+        type: "NAVIGATE_TO_FILE",
+        data: {
+          filename: result.filename,
+          line: result.line,
+          column: 0
+        }
+      }, "*");
+    }
+    /**
+     * Filter results by type
+     */
+    filterResults(filter) {
+      if (!filter)
+        return;
+      const cards = this.resultsContainer.querySelectorAll(".search-result-card");
+      cards.forEach((card) => {
+        const type = card.dataset.type;
+        if (filter.toLowerCase() === "all" || type === filter.toLowerCase()) {
+          card.style.display = "block";
+        } else {
+          card.style.display = "none";
+        }
+      });
+    }
+    /**
+     * Attach event listeners
+     */
+    attachEventListeners() {
+      this.searchInput.addEventListener("keypress", (e) => {
+        if (e.key === "Enter") {
+          this.handleSearch();
+        }
+      });
+      document.addEventListener("keydown", (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key === "k") {
+          e.preventDefault();
+          this.searchInput.focus();
+        }
+      });
+    }
+    showLoading() {
+      this.resultsContainer.innerHTML = '<div class="loading">Searching... <div class="spinner"></div></div>';
+    }
+    showError(message) {
+      this.resultsContainer.innerHTML = `<div class="error">${message}</div>`;
+    }
+    displayError(message) {
+      this.resultsContainer.innerHTML = `
+            <div class="error-message">
+                <span class="error-icon">\u26A0\uFE0F</span>
+                <span class="error-text">${message}</span>
+            </div>
+        `;
+    }
+  };
+  var searchPanel_default = SearchPanel;
+
   // src/js/ui/sidebar.js
   var WaveMakerCopilotSidebar = class {
     constructor() {
       this.sidebarElement = null;
       this.chatContainer = null;
       this.isOpen = false;
+      this.logPanel = null;
+      this.searchPanel = null;
       this.initialize();
     }
     initialize() {
@@ -431,10 +1241,17 @@
       this.sidebarElement.innerHTML = `
             <div class="sidebar-header">
                 <h2>Surfboard AI</h2>
+                <div class="tab-buttons">
+                    <button class="tab-button active" data-tab="chat">Chat</button>
+                    <!--<button class="tab-button" data-tab="search">Search</button>-->
+                    <button class="tab-button" data-tab="logs">Logs</button>
+                </div>
                 <button class="minimize-button">\u2212</button>
             </div>
             <div class="sidebar-content">
-                <div class="chat-container"></div>
+                <div class="chat-container active"></div>
+                <div class="search-container"></div>
+                <div class="log-container"></div>
                 <div class="context-panel"></div>
             </div>
             <div class="input-container">
@@ -450,6 +1267,22 @@
       document.body.appendChild(this.sidebarElement);
       this.setupEventListeners();
       this.createToggleButton();
+    }
+    async initializePanels() {
+      const logContainer = this.sidebarElement.querySelector(".log-container");
+      console.log("Log container:", logContainer);
+      if (!this.logPanel && logContainer) {
+        console.log("Creating new LogPanel");
+        this.logPanel = new logPanel_default();
+        console.log("LogPanel created:", this.logPanel);
+        logContainer.appendChild(this.logPanel.element);
+        console.log("LogPanel appended to container");
+      }
+      const searchContainer = this.sidebarElement.querySelector(".search-container");
+      if (!this.searchPanel && searchContainer) {
+        this.searchPanel = new searchPanel_default();
+        searchContainer.appendChild(this.searchPanel.container);
+      }
     }
     createToggleButton() {
       const toggleButton = document.createElement("button");
@@ -493,12 +1326,61 @@
         textarea.style.height = "auto";
         textarea.style.height = Math.min(textarea.scrollHeight, 200) + "px";
       });
+      const tabButtons = this.sidebarElement.querySelectorAll(".tab-button");
+      tabButtons.forEach((button) => {
+        button.addEventListener("click", () => {
+          tabButtons.forEach((btn) => btn.classList.remove("active"));
+          this.sidebarElement.querySelectorAll(".sidebar-content > div").forEach((container2) => {
+            container2.classList.remove("active");
+          });
+          button.classList.add("active");
+          const tabName = button.getAttribute("data-tab");
+          let containerClass = tabName === "logs" ? "log" : tabName;
+          const container = this.sidebarElement.querySelector(`.${containerClass}-container`);
+          if (container) {
+            container.classList.add("active");
+          }
+          if (tabName === "logs") {
+            this.initializePanels();
+          }
+        });
+      });
       document.addEventListener("keydown", (e) => {
         if (e.ctrlKey && e.key === "\\") {
           this.toggleSidebar();
         }
       });
     }
+    /*setupSearchPanel() {
+            // Initialize search panel first
+            const searchContainer = this.sidebarElement.querySelector('.search-container');
+            this.searchPanel = new SearchPanel();
+            this.searchPanel.initialize(); // Initialize before accessing container
+            searchContainer.appendChild(this.searchPanel.container);
+    
+            // Handle tab switching
+            const tabButtons = this.sidebarElement.querySelectorAll('.tab-button');
+            tabButtons.forEach(button => {
+                button.addEventListener('click', () => {
+                    // Update active tab button
+                    tabButtons.forEach(btn => btn.classList.remove('active'));
+                    button.classList.add('active');
+    
+                    // Show/hide containers
+                    const tabName = button.dataset.tab;
+                    const chatContainer = this.sidebarElement.querySelector('.chat-container');
+                    const searchContainer = this.sidebarElement.querySelector('.search-container');
+    
+                    if (tabName === 'chat') {
+                        chatContainer.classList.add('active');
+                        searchContainer.classList.remove('active');
+                    } else {
+                        chatContainer.classList.remove('active');
+                        searchContainer.classList.add('active');
+                    }
+                });
+            });
+        }*/
     toggleSidebar() {
       this.isOpen = !this.isOpen;
       this.sidebarElement.classList.toggle("open");

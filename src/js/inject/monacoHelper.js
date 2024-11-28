@@ -1,5 +1,7 @@
 // Script that runs in the page context to access Monaco
 
+let activeEditor = null;
+
 function initMonacoHelper() {
     console.log('Initializing Monaco helper...');
     
@@ -12,6 +14,32 @@ function initMonacoHelper() {
     }
 
     waitForMonaco(() => {
+        // Store reference to active editor
+        monaco.editor.onDidCreateEditor((editor) => {
+            activeEditor = editor;
+        });
+
+        // Listen for messages from the extension
+        window.addEventListener('message', async (event) => {
+            if (event.data.type === 'GET_EDITOR_CONTENT') {
+                const editor = getActiveEditorContent();
+                window.postMessage({
+                    type: 'EDITOR_CONTENT_RESPONSE',
+                    content: editor.content,
+                    filename: editor.filename,
+                    error: editor.error
+                }, '*');
+            }
+        });
+
+        // Listen for navigation messages
+        window.addEventListener('message', (event) => {
+            if (event.data.type === 'NAVIGATE_TO_FILE') {
+                const { filename, line, column } = event.data.data;
+                navigateToFile(filename, line, column);
+            }
+        });
+
         // Register completion provider for all supported languages
         const languages = ['javascript', 'typescript', 'html', 'css'];
         
@@ -91,6 +119,74 @@ function initMonacoHelper() {
         
         console.log('Monaco helper initialized');
     });
+}
+
+/**
+ * Get content from the active editor
+ */
+function getActiveEditorContent() {
+    try {
+        if (!activeEditor) {
+            const editors = monaco.editor.getEditors();
+            if (editors.length > 0) {
+                activeEditor = editors[0];
+            } else {
+                return {
+                    error: 'No active editor found'
+                };
+            }
+        }
+
+        const model = activeEditor.getModel();
+        if (!model) {
+            return {
+                error: 'No active document found'
+            };
+        }
+
+        return {
+            content: model.getValue(),
+            filename: model.uri.path.split('/').pop()
+        };
+    } catch (error) {
+        return {
+            error: error.message || 'Failed to get editor content'
+        };
+    }
+}
+
+/**
+ * Navigate to a specific file and position
+ */
+function navigateToFile(filename, line, column) {
+    const editor = getActiveEditor();
+    if (!editor) {
+        console.error('No active editor found');
+        return;
+    }
+
+    try {
+        // Set cursor position
+        editor.setPosition({
+            lineNumber: parseInt(line, 10),
+            column: parseInt(column, 10) || 1
+        });
+
+        // Reveal the line
+        editor.revealLineInCenter(parseInt(line, 10));
+
+        // Focus the editor
+        editor.focus();
+    } catch (error) {
+        console.error('Failed to navigate:', error);
+    }
+}
+
+/**
+ * Get the active editor
+ */
+function getActiveEditor() {
+    return activeEditor;
 }
 
 // Initialize the helper
