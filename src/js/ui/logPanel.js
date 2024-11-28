@@ -135,11 +135,45 @@ class LogPanel {
 
     async refreshLogs() {
         try {
+            console.log('Starting log refresh...');
+            this.showLoading();
+            
+            // Clear existing logs
+            const logContent = this.element.querySelector('.log-content');
+            if (logContent) {
+                console.log('Clearing existing logs');
+                logContent.innerHTML = '';
+            } else {
+                console.warn('Log content container not found');
+            }
+
+            console.log('Fetching logs of type:', this.currentLogType);
             const logs = await this.logService.fetchLogs(this.currentLogType);
+            console.log('Received logs:', logs);
+            
+            if (!logs || !Array.isArray(logs)) {
+                console.warn('Invalid logs format:', logs);
+                throw new Error('Invalid logs format received');
+            }
+
+            if (logs.length === 0) {
+                console.warn('No logs received');
+                logContent.innerHTML = '<div class="no-logs">No logs available</div>';
+                return;
+            }
+
+            console.log('Displaying logs...');
             this.displayLogs(logs);
+            console.log('Logs displayed successfully');
         } catch (error) {
             console.error('Error refreshing logs:', error);
-            this.showError('Failed to refresh logs');
+            this.showError('Failed to fetch logs: ' + error.message);
+        } finally {
+            // Hide loading indicator
+            const loadingIndicator = this.element.querySelector('.loading-indicator');
+            if (loadingIndicator) {
+                loadingIndicator.style.display = 'none';
+            }
         }
     }
 
@@ -151,64 +185,150 @@ class LogPanel {
 
             // Get current logs from the content
             const logContent = this.element.querySelector('.log-content');
-            const logEntries = Array.from(logContent.querySelectorAll('.log-entry')).map(entry => ({
-                message: entry.querySelector('.log-message').textContent,
-                timestamp: entry.querySelector('.log-timestamp').textContent,
-                thread: entry.querySelector('.log-thread').textContent,
-                severity: entry.dataset.severity || 'info'
+            const logSections = Array.from(logContent.querySelectorAll('.log-section')).map(section => ({
+                timeSection: section.querySelector('.section-header').textContent,
+                logs: Array.from(section.querySelectorAll('.log-entry')).map(entry => {
+                    // Get the main message and any stack trace
+                    const messageElement = entry.querySelector('.log-message');
+                    let message = messageElement?.textContent || '';
+                    let stackTrace = [];
+                    
+                    // If the message contains a stack trace (has newlines), split it
+                    if (message.includes('\n')) {
+                        const lines = message.split('\n');
+                        message = lines[0]; // First line is the main message
+                        stackTrace = lines.slice(1); // Rest is the stack trace
+                    }
+
+                    // Create base log object with required fields
+                    const log = {
+                        message,
+                        stackTrace,
+                        timestamp: section.querySelector('.section-header').textContent + 
+                                 (entry.querySelector('.log-timestamp')?.textContent || ''),
+                        thread: entry.querySelector('.log-thread')?.textContent || '',
+                        component: entry.querySelector('.log-component')?.textContent || '',
+                        severity: entry.dataset.severity || 'info'
+                    };
+
+                    // Add optional fields based on log type
+                    const requestId = entry.querySelector('.log-request-id');
+                    if (requestId) {
+                        log.requestId = requestId.textContent;
+                    }
+
+                    const projectPath = entry.querySelector('.log-project');
+                    if (projectPath) {
+                        log.projectPath = projectPath.textContent;
+                    }
+
+                    const appId = entry.querySelector('.log-appid');
+                    if (appId) {
+                        log.appId = appId.textContent;
+                    }
+
+                    return log;
+                })
             }));
 
-            console.log('Collected log entries:', logEntries);
+            console.log('Collected log sections for analysis:', logSections);
 
-            if (logEntries.length === 0) {
-                throw new Error('No logs available for analysis');
-            }
-
-            // Send logs for analysis
-            const analysis = await this.logService.analyzeBatch(logEntries);
+            // Analyze logs using OpenAI
+            const analysis = await this.logService.analyzeBatch(logSections);
             
-            // Display analysis
-            this.displayAnalysis(analysis);
+            // Display analysis results
+            this.showAnalysis(analysis);
         } catch (error) {
             console.error('Error analyzing logs:', error);
             this.showError('Failed to analyze logs: ' + error.message);
         } finally {
             const analysisButton = this.element.querySelector('.analyze-button');
             analysisButton.disabled = false;
-            analysisButton.textContent = 'Analyze Logs';
+            analysisButton.textContent = '🔍 Analyze';
         }
     }
 
-    displayLogs(logs) {
-        this.logsContainer.innerHTML = '';
+    displayLogs(sections) {
+        console.log('Starting displayLogs with sections:', sections);
         
-        // Reverse the logs array to show newest first
-        [...logs].reverse().forEach(log => {
-            const logEntry = document.createElement('div');
-            logEntry.className = `log-entry ${log.severity}`;
-            logEntry.dataset.severity = log.severity;
-            
-            const timestamp = document.createElement('span');
-            timestamp.className = 'log-timestamp';
-            timestamp.textContent = log.timestamp;
-            
-            const thread = document.createElement('span');
-            thread.className = 'log-thread';
-            thread.textContent = log.thread;
+        const logContent = this.element.querySelector('.log-content');
+        if (!logContent) {
+            console.error('Log content container not found');
+            return;
+        }
 
-            const message = document.createElement('span');
-            message.className = 'log-message';
-            message.textContent = log.message;
+        logContent.innerHTML = '';
+
+        if (!sections || sections.length === 0) {
+            console.warn('No sections to display');
+            logContent.innerHTML = '<div class="no-logs">No logs available</div>';
+            return;
+        }
+
+        console.log('Processing sections...');
+        sections.forEach((section, index) => {
+            console.log(`Processing section ${index}:`, section);
             
-            logEntry.appendChild(timestamp);
-            logEntry.appendChild(thread);
-            logEntry.appendChild(message);
-            this.logsContainer.appendChild(logEntry);
+            const sectionDiv = document.createElement('div');
+            sectionDiv.className = 'log-section';
+
+            // Add section header
+            const header = document.createElement('div');
+            header.className = 'section-header';
+            header.textContent = section.timeSection;
+            sectionDiv.appendChild(header);
+
+            if (!section.logs || !Array.isArray(section.logs)) {
+                console.warn(`Invalid logs in section ${index}:`, section.logs);
+                return;
+            }
+
+            // Add logs for this section
+            section.logs.forEach((log, logIndex) => {
+                console.log(`Processing log ${logIndex} in section ${index}:`, log);
+                
+                const logEntry = document.createElement('div');
+                logEntry.className = `log-entry severity-${log.severity}`;
+                logEntry.dataset.severity = log.severity;
+
+                // Format timestamp to show only time portion
+                const timeOnly = log.timestamp.split(' ')[1];
+
+                logEntry.innerHTML = `
+                    <span class="log-timestamp">${timeOnly}</span>
+                    ${log.projectPath ? `<span class="log-project">${log.projectPath}</span>` : ''}
+                    ${log.appId ? `<span class="log-appid">${log.appId}</span>` : ''}
+                    <span class="log-thread">${log.thread}</span>
+                    <span class="log-severity ${log.severity}">${log.severity.toUpperCase()}</span>
+                    <span class="log-component">[${log.component}]</span>
+                    <span class="log-message ${log.stackTrace && log.stackTrace.length > 0 ? 'has-stack' : ''}">${this.escapeHtml(log.message)}</span>
+                `;
+
+                sectionDiv.appendChild(logEntry);
+            });
+
+            logContent.appendChild(sectionDiv);
         });
+        
+        console.log('Finished displaying logs');
+    }
+
+    escapeHtml(unsafe) {
+        return unsafe
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
     }
 
     displayAnalysis(analysis) {
         const analysisPanel = this.element.querySelector('.analysis-panel');
+        if (!analysisPanel) {
+            console.error('Analysis panel not found');
+            return;
+        }
+
         analysisPanel.innerHTML = '';
         
         const content = document.createElement('div');
@@ -229,6 +349,23 @@ class LogPanel {
         errorDiv.className = 'log-entry error';
         errorDiv.innerHTML = `<span class="log-message">${message}</span>`;
         this.logsContainer.insertBefore(errorDiv, this.logsContainer.firstChild);
+    }
+
+    showAnalysis(analysis) {
+        const analysisPanel = this.element.querySelector('.analysis-panel');
+        if (!analysisPanel) {
+            console.error('Analysis panel not found');
+            return;
+        }
+
+        analysisPanel.innerHTML = '';
+        
+        const content = document.createElement('div');
+        content.className = 'analysis-content';
+        content.innerHTML = `<pre>${analysis}</pre>`;
+        
+        analysisPanel.appendChild(content);
+        analysisPanel.style.display = 'block';
     }
 }
 

@@ -36,6 +36,7 @@
       "css": [
         "src/css/sidebar.css",
         "src/css/logPanel.css",
+        "src/css/searchPanel.css",
         "src/css/prism-vscode-dark.css",
         "src/css/completion.css"
       ],

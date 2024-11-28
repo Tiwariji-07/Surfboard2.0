@@ -57,10 +57,12 @@
 }
 
 .log-content {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
+    padding: 10px;
+    overflow-y: auto;
+    height: calc(100% - 60px);
+    font-family: 'Consolas', 'Monaco', monospace;
+    font-size: 12px;
+    line-height: 1.4;
 }
 
 .logs-container {
@@ -229,6 +231,226 @@
 
 .error-icon {
     font-size: 18px;
+}
+
+.log-section {
+    margin-bottom: 20px;
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+}
+
+.section-header {
+    padding: 8px;
+    background: #f5f5f5;
+    font-weight: bold;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.log-entry {
+    padding: 6px 8px;
+    border-bottom: 1px solid #f0f0f0;
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    white-space: pre-wrap;
+}
+
+.log-entry:last-child {
+    border-bottom: none;
+}
+
+.log-entry > span {
+    display: inline-block;
+}
+
+.log-timestamp {
+    color: #666;
+    min-width: 80px;
+}
+
+.log-project {
+    color: #2196F3;
+    font-weight: 500;
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.log-appid {
+    color: #9C27B0;
+    font-style: italic;
+    max-width: 150px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.log-thread {
+    color: #795548;
+    font-size: 11px;
+}
+
+.log-severity {
+    font-weight: bold;
+    padding: 2px 6px;
+    border-radius: 3px;
+    text-transform: uppercase;
+    font-size: 11px;
+}
+
+.log-severity.error {
+    background: #ffebee;
+    color: #d32f2f;
+}
+
+.log-severity.warn {
+    background: #fff3e0;
+    color: #f57c00;
+}
+
+.log-severity.debug {
+    background: #e8f5e9;
+    color: #388e3c;
+}
+
+.log-severity.info {
+    background: #e3f2fd;
+    color: #1976d2;
+}
+
+.log-component {
+    color: #607d8b;
+    font-style: italic;
+}
+
+.log-message {
+    flex: 1;
+    color: #333;
+    white-space: pre-wrap;
+    font-family: 'Consolas', 'Monaco', monospace;
+}
+
+.log-message.has-stack {
+    color: #d32f2f;
+    background: rgba(255, 235, 238, 0.2);
+    padding: 4px 8px;
+    border-radius: 4px;
+    margin: -4px 0;
+}
+
+.log-request {
+    color: #9C27B0;
+    font-weight: 500;
+    max-width: 150px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.severity-error {
+    background-color: rgba(255, 235, 238, 0.3);
+}
+
+.severity-warn {
+    background-color: rgba(255, 243, 224, 0.3);
+}
+
+.severity-debug {
+    background-color: rgba(232, 245, 233, 0.3);
+}
+
+.no-logs {
+    text-align: center;
+    padding: 20px;
+    color: #666;
+    font-style: italic;
+}
+
+.analysis-panel {
+    margin-top: 20px;
+    padding: 16px;
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+    background: #fafafa;
+}
+
+.analysis-content {
+    white-space: pre-wrap;
+    font-family: 'Consolas', 'Monaco', monospace;
+    font-size: 12px;
+    line-height: 1.5;
+    color: #333;
+}
+
+.analysis-panel {
+    padding: 16px;
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    margin-top: 16px;
+}
+
+.analysis-panel h3 {
+    margin: 0 0 16px 0;
+    color: #333;
+    font-size: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.analysis-panel h3::before {
+    content: '🔍';
+}
+
+.analysis-content {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    line-height: 1.5;
+}
+
+.analysis-content pre {
+    white-space: pre-wrap;
+    font-size: 14px;
+    line-height: 1.6;
+    color: #333;
+}
+
+.analysis-content h2 {
+    font-size: 14px;
+    font-weight: 600;
+    margin: 16px 0 8px;
+    color: #1a73e8;
+}
+
+.analysis-content h2:contains('🚨') {
+    color: #d32f2f;
+}
+
+.analysis-content h2:contains('⚠️') {
+    color: #f57c00;
+}
+
+.analysis-content h2:contains('🔍') {
+    color: #0277bd;
+}
+
+.analysis-content h2:contains('💡') {
+    color: #2e7d32;
+}
+
+.analysis-content ul {
+    margin: 8px 0;
+    padding-left: 24px;
+}
+
+.analysis-content li {
+    margin: 4px 0;
+}
+
+.analysis-content code {
+    background: #f5f5f5;
+    padding: 2px 4px;
+    border-radius: 4px;
+    font-family: 'Consolas', 'Monaco', monospace;
+    font-size: 13px;
 }
 
 @keyframes spin {

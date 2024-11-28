@@ -24,8 +24,8 @@ class WaveMakerCopilotSidebar {
                 <h2>Surfboard AI</h2>
                 <div class="tab-buttons">
                     <button class="tab-button active" data-tab="chat">Chat</button>
-                    <!--<button class="tab-button" data-tab="search">Search</button>-->
                     <button class="tab-button" data-tab="logs">Logs</button>
+                    <button class="tab-button" data-tab="search">Search</button>
                 </div>
                 <button class="minimize-button">−</button>
             </div>

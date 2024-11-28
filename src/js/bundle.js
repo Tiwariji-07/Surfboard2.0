@@ -499,11 +499,15 @@ ${logs}`
       }
     }
     async fetchLogs(type = "server", limit = 1e3) {
-      if (!this.authCookie) {
-        await this.initialize();
-      }
-      const url = `${this.baseUrl}/${type}/${limit}`;
       try {
+        console.log("Fetching logs of type:", type, "with limit:", limit);
+        if (!this.authCookie) {
+          console.log("No auth cookie found, initializing...");
+          await this.initialize();
+        }
+        console.log("Using auth cookie:", this.authCookie ? "Present" : "Missing");
+        const url = `${this.baseUrl}/${type}/${limit}`;
+        console.log("Fetching logs from URL:", url);
         const response = await fetch(url, {
           method: "GET",
           credentials: "include",
@@ -513,89 +517,234 @@ ${logs}`
             "Cookie": `auth_cookie=${this.authCookie}`
           }
         });
+        console.log("Response status:", response.status);
         if (!response.ok) {
           throw new Error(`Failed to fetch ${type} logs: ${response.statusText}`);
         }
-        const logs = await response.json();
-        return this.parseLogs(logs, type);
+        const data = await response.json();
+        console.log("Raw response data:", data);
+        if (!data || !data.result) {
+          console.warn("Invalid response format:", data);
+          throw new Error("Invalid response format from server");
+        }
+        const sections = await this.parseLogs(data, type);
+        console.log("Parsed log sections:", sections);
+        return sections;
       } catch (error) {
-        console.error(`Error fetching ${type} logs:`, error);
+        console.error("Error in fetchLogs:", error);
         throw error;
       }
     }
-    parseLogs(logs, type) {
-      if (!logs || typeof logs !== "object") {
-        console.warn("Invalid logs response:", logs);
-        return [];
-      }
-      if (logs.result) {
-        const logLines = logs.result.split("\n").filter((line) => line.trim());
-        return logLines.map((line) => {
-          const match = line.match(/^(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2},\d{3})\s+(\S+)\s+(.+)$/);
-          if (match) {
-            const [, timestamp, thread, message] = match;
-            return {
-              timestamp,
-              thread,
-              message,
-              type,
-              severity: this.getSeverity(message)
-            };
+    async parseLogs(rawLogs, type = "server") {
+      try {
+        if (!rawLogs || typeof rawLogs !== "object") {
+          console.warn("Invalid logs response:", rawLogs);
+          return [];
+        }
+        if (rawLogs.result) {
+          console.log("Raw logs result:", rawLogs.result);
+          const logLines = rawLogs.result.split("\n").filter((line) => line.trim());
+          console.log("Filtered log lines:", logLines);
+          let currentLog = null;
+          const parsedLogs = [];
+          const serverLogPattern = /^(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2},\d{3})\s+(\S+)\s+(\w+)\s+(\S+)\s+(\S+)\s+\[([^\]]+)\](?:\s*-\s*(.+))?$/;
+          const appLogPattern = /^(\d{2}\s+\w+\s+\d{4}\s+\d{2}:\d{2}:\d{2},\d{3})\s+(-[^\s]*)\s+(-[^\s]*)\s+(\S+)\s+(\w+)\s+\[([^\]]+)\](?:\s*-\s*(.+))?$/;
+          for (const line of logLines) {
+            const pattern = type === "server" ? serverLogPattern : appLogPattern;
+            const mainLogMatch = line.match(pattern);
+            if (mainLogMatch) {
+              if (currentLog && currentLog.stackTrace) {
+                parsedLogs.push(currentLog);
+              }
+              if (type === "server") {
+                const [, timestamp, thread, level, requestId, projectPath, component, message] = mainLogMatch;
+                currentLog = {
+                  timestamp,
+                  timeSection: timestamp.slice(0, -4),
+                  // Remove milliseconds for grouping
+                  projectPath,
+                  appId: "",
+                  thread,
+                  severity: this.getSeverity({ level, message: message || "" }),
+                  component,
+                  message: message || "",
+                  stackTrace: []
+                };
+              } else {
+                const [, timestamp, projectPath, appId, thread, level, component, message] = mainLogMatch;
+                const date = new Date(timestamp);
+                const isoTimestamp = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")} ${timestamp.split(" ").pop()}`;
+                currentLog = {
+                  timestamp: isoTimestamp,
+                  timeSection: isoTimestamp.slice(0, -4),
+                  projectPath: projectPath.startsWith("-") ? projectPath.slice(1) : projectPath,
+                  appId: appId.startsWith("-") ? appId.slice(1) : appId,
+                  thread,
+                  severity: this.getSeverity({ level, message: message || "" }),
+                  component,
+                  message: message || "",
+                  stackTrace: []
+                };
+              }
+              if (!currentLog.message.includes("Exception:") && !currentLog.message.includes("Error:") && !currentLog.message.startsWith("Caused by:")) {
+                parsedLogs.push(currentLog);
+              }
+            } else if (line.trim().startsWith("at ") || line.trim().startsWith("Caused by:") || line.includes("Exception:") || line.includes("Error:") || line.match(/^[\t\s]*\.\.\.\s+\d+\s+more$/) || line.includes(".java:")) {
+              if (currentLog) {
+                currentLog.stackTrace.push(line.trim());
+                currentLog.message = currentLog.message ? `${currentLog.message}
+${line.trim()}` : line.trim();
+                currentLog.severity = "error";
+              }
+            } else {
+              if (line.includes("\n")) {
+                const lines = line.split("\n");
+                const message = lines[0];
+                const jsonLine = lines.find((line2) => line2.trim().startsWith("[{"));
+                const stackLines = lines.filter((line2) => line2.trim().startsWith("at "));
+                if (jsonLine) {
+                  stackTrace = [
+                    message,
+                    jsonLine,
+                    ...stackLines
+                  ];
+                } else {
+                  stackTrace = lines.filter((line2) => line2.trim());
+                }
+                currentLog = {
+                  timestamp: "",
+                  timeSection: "",
+                  projectPath: "",
+                  appId: "",
+                  thread: "",
+                  severity: "error",
+                  component: "",
+                  message: message || "",
+                  stackTrace
+                };
+              } else {
+                currentLog = {
+                  timestamp: "",
+                  timeSection: "",
+                  projectPath: "",
+                  appId: "",
+                  thread: "",
+                  severity: "error",
+                  component: "",
+                  message: line || "",
+                  stackTrace: []
+                };
+              }
+              parsedLogs.push(currentLog);
+            }
           }
-          return {
-            timestamp: (/* @__PURE__ */ new Date()).toISOString(),
-            thread: "unknown",
-            message: line,
-            type,
-            severity: this.getSeverity(line)
-          };
-        });
+          if (currentLog && currentLog.stackTrace.length > 0) {
+            parsedLogs.push(currentLog);
+          }
+          console.log("Parsed logs:", parsedLogs);
+          const filteredLogs = parsedLogs.filter((log) => ["warn", "error", "debug"].includes(log.severity));
+          console.log("Filtered logs by severity:", filteredLogs);
+          const groupedLogs = filteredLogs.reduce((groups, log) => {
+            const group = groups[log.timeSection] || [];
+            group.push(log);
+            groups[log.timeSection] = group;
+            return groups;
+          }, {});
+          console.log("Grouped logs:", groupedLogs);
+          const sections = Object.entries(groupedLogs).map(([timeSection, logs]) => ({
+            timeSection,
+            logs: logs.sort((a, b) => b.timestamp.localeCompare(a.timestamp))
+          })).sort((a, b) => b.timeSection.localeCompare(a.timeSection));
+          console.log("Final sections:", sections);
+          return sections;
+        }
+        console.warn("Unexpected logs format:", rawLogs);
+        return [];
+      } catch (error) {
+        console.error("Error parsing logs:", error);
+        throw error;
       }
-      console.warn("Unexpected logs format:", logs);
-      return [];
     }
-    getSeverity(message) {
-      const lowerMessage = message.toLowerCase();
-      if (lowerMessage.includes("error") || lowerMessage.includes("exception")) {
+    getSeverity(log) {
+      const level = (log.level || "").toLowerCase();
+      if (level === "error")
         return "error";
-      }
-      if (lowerMessage.includes("warn") || lowerMessage.includes("warning")) {
-        return "warning";
-      }
-      if (lowerMessage.includes("debug")) {
+      if (level === "warn" || level === "warning")
+        return "warn";
+      if (level === "debug")
+        return "debug";
+      if (level === "info")
+        return "info";
+      const message = (log.message || "").toLowerCase();
+      if (message.includes("error") || message.includes("exception") || message.includes("fail")) {
+        return "error";
+      } else if (message.includes("warn") || message.includes("warning")) {
+        return "warn";
+      } else if (message.includes("debug")) {
         return "debug";
       }
       return "info";
     }
-    async analyzeBatch(logs, maxLogs = 10) {
+    async analyzeBatch(logSections) {
       try {
-        console.log("Starting batch analysis with logs:", logs);
-        if (!logs || logs.length === 0) {
-          throw new Error("No logs provided for analysis");
+        console.log("Starting batch analysis:", logSections);
+        let logsForAnalysis = logSections.flatMap(
+          (section) => section.logs.map((log) => ({
+            timestamp: log.timestamp,
+            severity: log.severity,
+            component: log.component,
+            message: log.message,
+            stackTrace: log.stackTrace,
+            ...log.requestId && { requestId: log.requestId },
+            ...log.projectPath && { projectPath: log.projectPath },
+            ...log.appId && { appId: log.appId },
+            thread: log.thread
+          }))
+        );
+        if (logsForAnalysis.length === 0) {
+          return "No logs available for analysis.";
         }
-        const significantLogs = [...logs].sort((a, b) => {
-          const severityScore = (log) => {
-            if (log.severity === "error")
-              return 3;
-            if (log.severity === "warning")
-              return 2;
-            if (log.severity === "info")
-              return 1;
-            return 0;
-          };
-          return severityScore(b) - severityScore(a);
-        }).slice(0, maxLogs);
-        console.log("Selected significant logs:", significantLogs);
-        const logsText = significantLogs.map((log) => {
-          const severity = log.severity ? `[${log.severity.toUpperCase()}]` : "";
-          return `${severity} [${log.timestamp}] [${log.thread}] ${log.message}`;
-        }).join("\n");
-        console.log("Formatted logs for analysis:", logsText);
-        if (!logsText.trim()) {
-          throw new Error("No valid log content for analysis");
-        }
-        const aiAnalysis = await this.openaiService.analyzeLogs(logsText);
-        console.log("Received analysis:", aiAnalysis);
+        logsForAnalysis.sort((a, b) => {
+          const severityOrder = { error: 3, warn: 2, debug: 1, info: 0 };
+          const severityDiff = (severityOrder[b.severity] || 0) - (severityOrder[a.severity] || 0);
+          if (severityDiff !== 0)
+            return severityDiff;
+          return b.timestamp.localeCompare(a.timestamp);
+        });
+        const errorLogs = logsForAnalysis.filter((log) => log.severity === "error").slice(0, 10);
+        const warnLogs = logsForAnalysis.filter((log) => log.severity === "warn").slice(0, 5);
+        const otherLogs = logsForAnalysis.filter((log) => !["error", "warn"].includes(log.severity)).slice(0, 5);
+        logsForAnalysis = [...errorLogs, ...warnLogs, ...otherLogs];
+        logsForAnalysis = logsForAnalysis.map((log) => ({
+          ...log,
+          stackTrace: log.stackTrace.length > 10 ? [...log.stackTrace.slice(0, 8), "... truncated ...", log.stackTrace[log.stackTrace.length - 1]] : log.stackTrace
+        }));
+        const prompt = `Analyze these WaveMaker Studio logs and provide a concise analysis. Be direct and specific:
+
+\u{1F6A8} ERRORS (if any):
+- List exact errors
+- File and line numbers
+- Quick fix suggestions
+
+\u26A0\uFE0F WARNINGS (if any):
+- List important warnings
+- Impact on system
+
+\u{1F50D} ROOT CAUSE:
+- One-line explanation
+- Affected components
+
+\u{1F4A1} SOLUTION:
+- Bullet points with specific steps
+- Code snippets if needed
+
+Note: Keep responses short and actionable. No lengthy explanations needed.
+
+Logs to analyze (${logsForAnalysis.length} most significant logs):
+${JSON.stringify(logsForAnalysis, null, 2)}`;
+        console.log("Sending batch analysis request to OpenAI");
+        const aiAnalysis = await this.openaiService.analyzeLogs(prompt);
+        console.log("Received analysis from OpenAI:", aiAnalysis);
         return aiAnalysis;
       } catch (error) {
         console.error("Error in batch analysis:", error);
@@ -709,11 +858,38 @@ ${logs}`
     }
     async refreshLogs() {
       try {
+        console.log("Starting log refresh...");
+        this.showLoading();
+        const logContent = this.element.querySelector(".log-content");
+        if (logContent) {
+          console.log("Clearing existing logs");
+          logContent.innerHTML = "";
+        } else {
+          console.warn("Log content container not found");
+        }
+        console.log("Fetching logs of type:", this.currentLogType);
         const logs = await this.logService.fetchLogs(this.currentLogType);
+        console.log("Received logs:", logs);
+        if (!logs || !Array.isArray(logs)) {
+          console.warn("Invalid logs format:", logs);
+          throw new Error("Invalid logs format received");
+        }
+        if (logs.length === 0) {
+          console.warn("No logs received");
+          logContent.innerHTML = '<div class="no-logs">No logs available</div>';
+          return;
+        }
+        console.log("Displaying logs...");
         this.displayLogs(logs);
+        console.log("Logs displayed successfully");
       } catch (error) {
         console.error("Error refreshing logs:", error);
-        this.showError("Failed to refresh logs");
+        this.showError("Failed to fetch logs: " + error.message);
+      } finally {
+        const loadingIndicator = this.element.querySelector(".loading-indicator");
+        if (loadingIndicator) {
+          loadingIndicator.style.display = "none";
+        }
       }
     }
     async analyzeLogs() {
@@ -722,50 +898,109 @@ ${logs}`
         analysisButton.disabled = true;
         analysisButton.textContent = "Analyzing...";
         const logContent = this.element.querySelector(".log-content");
-        const logEntries = Array.from(logContent.querySelectorAll(".log-entry")).map((entry) => ({
-          message: entry.querySelector(".log-message").textContent,
-          timestamp: entry.querySelector(".log-timestamp").textContent,
-          thread: entry.querySelector(".log-thread").textContent,
-          severity: entry.dataset.severity || "info"
+        const logSections = Array.from(logContent.querySelectorAll(".log-section")).map((section) => ({
+          timeSection: section.querySelector(".section-header").textContent,
+          logs: Array.from(section.querySelectorAll(".log-entry")).map((entry) => {
+            var _a, _b, _c;
+            const messageElement = entry.querySelector(".log-message");
+            let message = (messageElement == null ? void 0 : messageElement.textContent) || "";
+            let stackTrace2 = [];
+            if (message.includes("\n")) {
+              const lines = message.split("\n");
+              message = lines[0];
+              stackTrace2 = lines.slice(1);
+            }
+            const log = {
+              message,
+              stackTrace: stackTrace2,
+              timestamp: section.querySelector(".section-header").textContent + (((_a = entry.querySelector(".log-timestamp")) == null ? void 0 : _a.textContent) || ""),
+              thread: ((_b = entry.querySelector(".log-thread")) == null ? void 0 : _b.textContent) || "",
+              component: ((_c = entry.querySelector(".log-component")) == null ? void 0 : _c.textContent) || "",
+              severity: entry.dataset.severity || "info"
+            };
+            const requestId = entry.querySelector(".log-request-id");
+            if (requestId) {
+              log.requestId = requestId.textContent;
+            }
+            const projectPath = entry.querySelector(".log-project");
+            if (projectPath) {
+              log.projectPath = projectPath.textContent;
+            }
+            const appId = entry.querySelector(".log-appid");
+            if (appId) {
+              log.appId = appId.textContent;
+            }
+            return log;
+          })
         }));
-        console.log("Collected log entries:", logEntries);
-        if (logEntries.length === 0) {
-          throw new Error("No logs available for analysis");
-        }
-        const analysis = await this.logService.analyzeBatch(logEntries);
-        this.displayAnalysis(analysis);
+        console.log("Collected log sections for analysis:", logSections);
+        const analysis = await this.logService.analyzeBatch(logSections);
+        this.showAnalysis(analysis);
       } catch (error) {
         console.error("Error analyzing logs:", error);
         this.showError("Failed to analyze logs: " + error.message);
       } finally {
         const analysisButton = this.element.querySelector(".analyze-button");
         analysisButton.disabled = false;
-        analysisButton.textContent = "Analyze Logs";
+        analysisButton.textContent = "\u{1F50D} Analyze";
       }
     }
-    displayLogs(logs) {
-      this.logsContainer.innerHTML = "";
-      [...logs].reverse().forEach((log) => {
-        const logEntry = document.createElement("div");
-        logEntry.className = `log-entry ${log.severity}`;
-        logEntry.dataset.severity = log.severity;
-        const timestamp = document.createElement("span");
-        timestamp.className = "log-timestamp";
-        timestamp.textContent = log.timestamp;
-        const thread = document.createElement("span");
-        thread.className = "log-thread";
-        thread.textContent = log.thread;
-        const message = document.createElement("span");
-        message.className = "log-message";
-        message.textContent = log.message;
-        logEntry.appendChild(timestamp);
-        logEntry.appendChild(thread);
-        logEntry.appendChild(message);
-        this.logsContainer.appendChild(logEntry);
+    displayLogs(sections) {
+      console.log("Starting displayLogs with sections:", sections);
+      const logContent = this.element.querySelector(".log-content");
+      if (!logContent) {
+        console.error("Log content container not found");
+        return;
+      }
+      logContent.innerHTML = "";
+      if (!sections || sections.length === 0) {
+        console.warn("No sections to display");
+        logContent.innerHTML = '<div class="no-logs">No logs available</div>';
+        return;
+      }
+      console.log("Processing sections...");
+      sections.forEach((section, index) => {
+        console.log(`Processing section ${index}:`, section);
+        const sectionDiv = document.createElement("div");
+        sectionDiv.className = "log-section";
+        const header = document.createElement("div");
+        header.className = "section-header";
+        header.textContent = section.timeSection;
+        sectionDiv.appendChild(header);
+        if (!section.logs || !Array.isArray(section.logs)) {
+          console.warn(`Invalid logs in section ${index}:`, section.logs);
+          return;
+        }
+        section.logs.forEach((log, logIndex) => {
+          console.log(`Processing log ${logIndex} in section ${index}:`, log);
+          const logEntry = document.createElement("div");
+          logEntry.className = `log-entry severity-${log.severity}`;
+          logEntry.dataset.severity = log.severity;
+          const timeOnly = log.timestamp.split(" ")[1];
+          logEntry.innerHTML = `
+                    <span class="log-timestamp">${timeOnly}</span>
+                    ${log.projectPath ? `<span class="log-project">${log.projectPath}</span>` : ""}
+                    ${log.appId ? `<span class="log-appid">${log.appId}</span>` : ""}
+                    <span class="log-thread">${log.thread}</span>
+                    <span class="log-severity ${log.severity}">${log.severity.toUpperCase()}</span>
+                    <span class="log-component">[${log.component}]</span>
+                    <span class="log-message ${log.stackTrace && log.stackTrace.length > 0 ? "has-stack" : ""}">${this.escapeHtml(log.message)}</span>
+                `;
+          sectionDiv.appendChild(logEntry);
+        });
+        logContent.appendChild(sectionDiv);
       });
+      console.log("Finished displaying logs");
+    }
+    escapeHtml(unsafe) {
+      return unsafe.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
     }
     displayAnalysis(analysis) {
       const analysisPanel = this.element.querySelector(".analysis-panel");
+      if (!analysisPanel) {
+        console.error("Analysis panel not found");
+        return;
+      }
       analysisPanel.innerHTML = "";
       const content = document.createElement("div");
       content.className = "analysis-content";
@@ -782,6 +1017,19 @@ ${logs}`
       errorDiv.className = "log-entry error";
       errorDiv.innerHTML = `<span class="log-message">${message}</span>`;
       this.logsContainer.insertBefore(errorDiv, this.logsContainer.firstChild);
+    }
+    showAnalysis(analysis) {
+      const analysisPanel = this.element.querySelector(".analysis-panel");
+      if (!analysisPanel) {
+        console.error("Analysis panel not found");
+        return;
+      }
+      analysisPanel.innerHTML = "";
+      const content = document.createElement("div");
+      content.className = "analysis-content";
+      content.innerHTML = `<pre>${analysis}</pre>`;
+      analysisPanel.appendChild(content);
+      analysisPanel.style.display = "block";
     }
   };
   var logPanel_default = LogPanel;
@@ -1243,8 +1491,8 @@ ${logs}`
                 <h2>Surfboard AI</h2>
                 <div class="tab-buttons">
                     <button class="tab-button active" data-tab="chat">Chat</button>
-                    <!--<button class="tab-button" data-tab="search">Search</button>-->
                     <button class="tab-button" data-tab="logs">Logs</button>
+                    <button class="tab-button" data-tab="search">Search</button>
                 </div>
                 <button class="minimize-button">\u2212</button>
             </div>
