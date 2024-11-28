@@ -185,51 +185,12 @@ class LogPanel {
 
             // Get current logs from the content
             const logContent = this.element.querySelector('.log-content');
-            const logSections = Array.from(logContent.querySelectorAll('.log-section')).map(section => ({
-                timeSection: section.querySelector('.section-header').textContent,
-                logs: Array.from(section.querySelectorAll('.log-entry')).map(entry => {
-                    // Get the main message and any stack trace
-                    const messageElement = entry.querySelector('.log-message');
-                    let message = messageElement?.textContent || '';
-                    let stackTrace = [];
-                    
-                    // If the message contains a stack trace (has newlines), split it
-                    if (message.includes('\n')) {
-                        const lines = message.split('\n');
-                        message = lines[0]; // First line is the main message
-                        stackTrace = lines.slice(1); // Rest is the stack trace
-                    }
-
-                    // Create base log object with required fields
-                    const log = {
-                        message,
-                        stackTrace,
-                        timestamp: section.querySelector('.section-header').textContent + 
-                                 (entry.querySelector('.log-timestamp')?.textContent || ''),
-                        thread: entry.querySelector('.log-thread')?.textContent || '',
-                        component: entry.querySelector('.log-component')?.textContent || '',
-                        severity: entry.dataset.severity || 'info'
-                    };
-
-                    // Add optional fields based on log type
-                    const requestId = entry.querySelector('.log-request-id');
-                    if (requestId) {
-                        log.requestId = requestId.textContent;
-                    }
-
-                    const projectPath = entry.querySelector('.log-project');
-                    if (projectPath) {
-                        log.projectPath = projectPath.textContent;
-                    }
-
-                    const appId = entry.querySelector('.log-appid');
-                    if (appId) {
-                        log.appId = appId.textContent;
-                    }
-
-                    return log;
-                })
-            }));
+            let logSections = [];
+            try {
+                logSections = await this.logService.fetchLogs(this.currentLogType);
+            } catch (error) {
+                this.showError(error.message);
+            }
 
             console.log('Collected log sections for analysis:', logSections);
 

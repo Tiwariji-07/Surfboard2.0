@@ -553,7 +553,7 @@ ${logs}`
             const pattern = type === "server" ? serverLogPattern : appLogPattern;
             const mainLogMatch = line.match(pattern);
             if (mainLogMatch) {
-              if (currentLog && currentLog.stackTrace) {
+              if (currentLog && currentLog.stackTrace && currentLog.stackTrace.length > 0) {
                 parsedLogs.push(currentLog);
               }
               if (type === "server") {
@@ -570,6 +570,10 @@ ${logs}`
                   message: message || "",
                   stackTrace: []
                 };
+                if (message && message.includes("Error occurred while serving the request")) {
+                  currentLog.severity = "error";
+                  continue;
+                }
               } else {
                 const [, timestamp, projectPath, appId, thread, level, component, message] = mainLogMatch;
                 const date = new Date(timestamp);
@@ -589,12 +593,20 @@ ${logs}`
               if (!currentLog.message.includes("Exception:") && !currentLog.message.includes("Error:") && !currentLog.message.startsWith("Caused by:")) {
                 parsedLogs.push(currentLog);
               }
-            } else if (line.trim().startsWith("at ") || line.trim().startsWith("Caused by:") || line.includes("Exception:") || line.includes("Error:") || line.match(/^[\t\s]*\.\.\.\s+\d+\s+more$/) || line.includes(".java:")) {
-              if (currentLog) {
-                currentLog.stackTrace.push(line.trim());
-                currentLog.message = currentLog.message ? `${currentLog.message}
-${line.trim()}` : line.trim();
+            } else if (currentLog) {
+              const line_trimmed = line.trim();
+              if (line_trimmed.startsWith("com.wavemaker.studio.core.compiler.JavaCompilationErrorsException")) {
+                currentLog.message = line_trimmed;
                 currentLog.severity = "error";
+                currentLog.stackTrace = [line_trimmed];
+              } else if (line_trimmed.startsWith('[{"filename"')) {
+                if (currentLog.stackTrace) {
+                  currentLog.stackTrace.push(line_trimmed);
+                }
+              } else if (line_trimmed.startsWith("at ")) {
+                if (currentLog.stackTrace) {
+                  currentLog.stackTrace.push(line_trimmed);
+                }
               }
             } else {
               if (line.includes("\n")) {
@@ -638,7 +650,7 @@ ${line.trim()}` : line.trim();
               parsedLogs.push(currentLog);
             }
           }
-          if (currentLog && currentLog.stackTrace.length > 0) {
+          if (currentLog && currentLog.stackTrace && currentLog.stackTrace.length > 0) {
             parsedLogs.push(currentLog);
           }
           console.log("Parsed logs:", parsedLogs);
@@ -688,19 +700,18 @@ ${line.trim()}` : line.trim();
     async analyzeBatch(logSections) {
       try {
         console.log("Starting batch analysis:", logSections);
-        let logsForAnalysis = logSections.flatMap(
-          (section) => section.logs.map((log) => ({
-            timestamp: log.timestamp,
-            severity: log.severity,
-            component: log.component,
-            message: log.message,
-            stackTrace: log.stackTrace,
-            ...log.requestId && { requestId: log.requestId },
-            ...log.projectPath && { projectPath: log.projectPath },
-            ...log.appId && { appId: log.appId },
-            thread: log.thread
-          }))
-        );
+        let section = logSections[0];
+        let logsForAnalysis = section.logs.map((log) => ({
+          timestamp: log.timestamp,
+          severity: log.severity,
+          component: log.component,
+          message: log.message,
+          stackTrace: log.stackTrace,
+          ...log.requestId && { requestId: log.requestId },
+          ...log.projectPath && { projectPath: log.projectPath },
+          ...log.appId && { appId: log.appId },
+          thread: log.thread
+        }));
         if (logsForAnalysis.length === 0) {
           return "No logs available for analysis.";
         }
@@ -898,41 +909,12 @@ ${JSON.stringify(logsForAnalysis, null, 2)}`;
         analysisButton.disabled = true;
         analysisButton.textContent = "Analyzing...";
         const logContent = this.element.querySelector(".log-content");
-        const logSections = Array.from(logContent.querySelectorAll(".log-section")).map((section) => ({
-          timeSection: section.querySelector(".section-header").textContent,
-          logs: Array.from(section.querySelectorAll(".log-entry")).map((entry) => {
-            var _a, _b, _c;
-            const messageElement = entry.querySelector(".log-message");
-            let message = (messageElement == null ? void 0 : messageElement.textContent) || "";
-            let stackTrace2 = [];
-            if (message.includes("\n")) {
-              const lines = message.split("\n");
-              message = lines[0];
-              stackTrace2 = lines.slice(1);
-            }
-            const log = {
-              message,
-              stackTrace: stackTrace2,
-              timestamp: section.querySelector(".section-header").textContent + (((_a = entry.querySelector(".log-timestamp")) == null ? void 0 : _a.textContent) || ""),
-              thread: ((_b = entry.querySelector(".log-thread")) == null ? void 0 : _b.textContent) || "",
-              component: ((_c = entry.querySelector(".log-component")) == null ? void 0 : _c.textContent) || "",
-              severity: entry.dataset.severity || "info"
-            };
-            const requestId = entry.querySelector(".log-request-id");
-            if (requestId) {
-              log.requestId = requestId.textContent;
-            }
-            const projectPath = entry.querySelector(".log-project");
-            if (projectPath) {
-              log.projectPath = projectPath.textContent;
-            }
-            const appId = entry.querySelector(".log-appid");
-            if (appId) {
-              log.appId = appId.textContent;
-            }
-            return log;
-          })
-        }));
+        let logSections = [];
+        try {
+          logSections = await this.logService.fetchLogs(this.currentLogType);
+        } catch (error) {
+          this.showError(error.message);
+        }
         console.log("Collected log sections for analysis:", logSections);
         const analysis = await this.logService.analyzeBatch(logSections);
         this.showAnalysis(analysis);

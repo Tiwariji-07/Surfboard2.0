@@ -100,7 +100,7 @@ export class LogService {
                     
                     if (mainLogMatch) {
                         // If we have a previous log with stack trace, add it to results
-                        if (currentLog && currentLog.stackTrace) {
+                        if (currentLog && currentLog.stackTrace && currentLog.stackTrace.length > 0) {
                             parsedLogs.push(currentLog);
                         }
 
@@ -117,6 +117,12 @@ export class LogService {
                                 message: message || '',
                                 stackTrace: []
                             };
+
+                            // Check if this log entry starts a compilation error
+                            if (message && message.includes('Error occurred while serving the request')) {
+                                currentLog.severity = 'error';
+                                continue; // Skip adding to parsedLogs, wait for stack trace
+                            }
                         } else {
                             const [, timestamp, projectPath, appId, thread, level, component, message] = mainLogMatch;
                             // Convert timestamp to ISO format
@@ -142,19 +148,25 @@ export class LogService {
                             !currentLog.message.startsWith('Caused by:')) {
                             parsedLogs.push(currentLog);
                         }
-                    } else if (line.trim().startsWith('at ') || 
-                             line.trim().startsWith('Caused by:') || 
-                             line.includes('Exception:') ||
-                             line.includes('Error:') ||
-                             line.match(/^[\t\s]*\.\.\.\s+\d+\s+more$/) ||
-                             line.includes('.java:')) {
-                        // This is a stack trace line
-                        if (currentLog) {
-                            currentLog.stackTrace.push(line.trim());
-                            currentLog.message = currentLog.message ? 
-                                `${currentLog.message}\n${line.trim()}` : 
-                                line.trim();
-                            currentLog.severity = 'error'; // Stack traces indicate errors
+                    } else if (currentLog) {
+                        // Handle compilation errors and stack traces
+                        const line_trimmed = line.trim();
+                        
+                        if (line_trimmed.startsWith('com.wavemaker.studio.core.compiler.JavaCompilationErrorsException')) {
+                            // Start of compilation error
+                            currentLog.message = line_trimmed;
+                            currentLog.severity = 'error';
+                            currentLog.stackTrace = [line_trimmed];
+                        } else if (line_trimmed.startsWith('[{"filename"')) {
+                            // JSON error details for compilation error
+                            if (currentLog.stackTrace) {
+                                currentLog.stackTrace.push(line_trimmed);
+                            }
+                        } else if (line_trimmed.startsWith('at ')) {
+                            // Stack trace line
+                            if (currentLog.stackTrace) {
+                                currentLog.stackTrace.push(line_trimmed);
+                            }
                         }
                     } else {
                         // If the message contains a stack trace (has newlines), split it
@@ -208,7 +220,7 @@ export class LogService {
                 }
 
                 // Add the last log if it has a stack trace
-                if (currentLog && currentLog.stackTrace.length > 0) {
+                if (currentLog && currentLog.stackTrace && currentLog.stackTrace.length > 0) {
                     parsedLogs.push(currentLog);
                 }
 
@@ -275,8 +287,10 @@ export class LogService {
             console.log('Starting batch analysis:', logSections);
             
             // Prepare logs for analysis
-            let logsForAnalysis = logSections.flatMap(section => 
-                section.logs.map(log => ({
+            // console.log("Inside analyzeBatch:");
+            let section = logSections[0];
+            // let logsForAnalysis = logSections.flatMap(section => 
+                let logsForAnalysis = section.logs.map(log => ({
                     timestamp: log.timestamp,
                     severity: log.severity,
                     component: log.component,
@@ -287,7 +301,7 @@ export class LogService {
                     ...(log.appId && { appId: log.appId }),
                     thread: log.thread
                 }))
-            );
+            // );
 
             if (logsForAnalysis.length === 0) {
                 return "No logs available for analysis.";
