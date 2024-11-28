@@ -1531,7 +1531,10 @@ ${JSON.stringify(logsForAnalysis, null, 2)}`;
             mutation.addedNodes.forEach((node) => {
               if (node.nodeType === 1 && // Element node
               node.classList.contains("ngx-toastr") && node.classList.contains("toast-error")) {
-                this.openWithLogs();
+                const messageElement = node.querySelector(".toast-message");
+                if (messageElement && messageElement.textContent.trim().startsWith('{"headers":')) {
+                  this.openWithLogs();
+                }
               }
             });
           }

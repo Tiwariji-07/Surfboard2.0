@@ -179,9 +179,12 @@ class WaveMakerCopilotSidebar {
                         if (node.nodeType === 1 && // Element node
                             node.classList.contains('ngx-toastr') && 
                             node.classList.contains('toast-error')) {
-                            
+                                const messageElement = node.querySelector('.toast-message');
+                                if (messageElement && messageElement.textContent.trim().startsWith('{"headers":')) {
+                                    this.openWithLogs();
+                                }
+
                             // console.log('Error toast detected, opening sidebar and switching to logs');
-                            this.openWithLogs();
                         }
                     });
                 }
