@@ -22,7 +22,7 @@ export class LogService {
             }
             await this.openaiService.setApiKey(apiKey);
             
-            console.log('LogService initialized with auth cookie and API key');
+            // console.log('LogService initialized with auth cookie and API key');
         } catch (error) {
             console.error('Failed to initialize LogService:', error);
             throw error;
@@ -31,16 +31,16 @@ export class LogService {
 
     async fetchLogs(type = 'server', limit = 1000) {
         try {
-            console.log('Fetching logs of type:', type, 'with limit:', limit);
+            // console.log('Fetching logs of type:', type, 'with limit:', limit);
             
             if (!this.authCookie) {
-                console.log('No auth cookie found, initializing...');
+                // console.log('No auth cookie found, initializing...');
                 await this.initialize();
             }
-            console.log('Using auth cookie:', this.authCookie ? 'Present' : 'Missing');
+            // console.log('Using auth cookie:', this.authCookie ? 'Present' : 'Missing');
 
             const url = `${this.baseUrl}/${type}/${limit}`;
-            console.log('Fetching logs from URL:', url);
+            // console.log('Fetching logs from URL:', url);
 
             const response = await fetch(url, {
                 method: 'GET',
@@ -52,13 +52,13 @@ export class LogService {
                 }
             });
 
-            console.log('Response status:', response.status);
+            // console.log('Response status:', response.status);
             if (!response.ok) {
                 throw new Error(`Failed to fetch ${type} logs: ${response.statusText}`);
             }
 
             const data = await response.json();
-            console.log('Raw response data:', data);
+            // console.log('Raw response data:', data);
 
             if (!data || !data.result) {
                 console.warn('Invalid response format:', data);
@@ -66,7 +66,7 @@ export class LogService {
             }
 
             const sections = await this.parseLogs(data, type);
-            console.log('Parsed log sections:', sections);
+            // console.log('Parsed log sections:', sections);
             return sections;
         } catch (error) {
             console.error('Error in fetchLogs:', error);
@@ -82,9 +82,9 @@ export class LogService {
             }
 
             if (rawLogs.result) {
-                console.log('Raw logs result:', rawLogs.result);
+                // console.log('Raw logs result:', rawLogs.result);
                 const logLines = rawLogs.result.split('\n').filter(line => line.trim());
-                console.log('Filtered log lines:', logLines);
+                // console.log('Filtered log lines:', logLines);
                 
                 let currentLog = null;
                 const parsedLogs = [];
@@ -224,13 +224,13 @@ export class LogService {
                     parsedLogs.push(currentLog);
                 }
 
-                console.log('Parsed logs:', parsedLogs);
+                // console.log('Parsed logs:', parsedLogs);
 
                 // Filter out info logs and group by time section
                 const filteredLogs = parsedLogs
                     .filter(log => ['warn', 'error', 'debug'].includes(log.severity));
                 
-                console.log('Filtered logs by severity:', filteredLogs);
+                // console.log('Filtered logs by severity:', filteredLogs);
 
                 const groupedLogs = filteredLogs.reduce((groups, log) => {
                     const group = groups[log.timeSection] || [];
@@ -239,7 +239,7 @@ export class LogService {
                     return groups;
                 }, {});
 
-                console.log('Grouped logs:', groupedLogs);
+                // console.log('Grouped logs:', groupedLogs);
 
                 // Convert to array of sections, sorted by time (newest first)
                 const sections = Object.entries(groupedLogs)
@@ -249,7 +249,7 @@ export class LogService {
                     }))
                     .sort((a, b) => b.timeSection.localeCompare(a.timeSection));
 
-                console.log('Final sections:', sections);
+                // console.log('Final sections:', sections);
                 return sections;
             }
 
@@ -284,10 +284,10 @@ export class LogService {
 
     async analyzeBatch(logSections) {
         try {
-            console.log('Starting batch analysis:', logSections);
+            // console.log('Starting batch analysis:', logSections);
             
             // Prepare logs for analysis
-            // console.log("Inside analyzeBatch:");
+            console.log("Inside analyzeBatch:");
             let section = logSections[0];
             // let logsForAnalysis = logSections.flatMap(section => 
                 let logsForAnalysis = section.logs.map(log => ({
@@ -335,33 +335,19 @@ export class LogService {
             }));
 
             // Create prompt for OpenAI
-            const prompt = `Analyze these WaveMaker Studio logs and provide a concise analysis. Be direct and specific:
+            const prompt = `Analyze these logs and provide a VERY concise, human-friendly explanation:
+1. What's the problem? (1 short sentence)
+2. Where is it? (file and line number)
+3. How to fix it? (1-2 simple steps)
 
-🚨 ERRORS (if any):
-- List exact errors
-- File and line numbers
-- Quick fix suggestions
+Keep it extremely simple - imagine explaining to someone who's not technical.
 
-⚠️ WARNINGS (if any):
-- List important warnings
-- Impact on system
-
-🔍 ROOT CAUSE:
-- One-line explanation
-- Affected components
-
-💡 SOLUTION:
-- Bullet points with specific steps
-- Code snippets if needed
-
-Note: Keep responses short and actionable. No lengthy explanations needed.
-
-Logs to analyze (${logsForAnalysis.length} most significant logs):
+Logs to analyze: (${logsForAnalysis.length} most significant logs):
 ${JSON.stringify(logsForAnalysis, null, 2)}`;
 
-            console.log('Sending batch analysis request to OpenAI');
+            // console.log('Sending batch analysis request to OpenAI');
             const aiAnalysis = await this.openaiService.analyzeLogs(prompt);
-            console.log('Received analysis from OpenAI:', aiAnalysis);
+            // console.log('Received analysis from OpenAI:', aiAnalysis);
             
             return aiAnalysis;
         } catch (error) {
@@ -372,4 +358,4 @@ ${JSON.stringify(logsForAnalysis, null, 2)}`;
 
 }
 
-export default LogService;
+// export default LogService;

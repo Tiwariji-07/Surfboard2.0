@@ -22,7 +22,7 @@ class SearchService {
                 throw new Error('Authentication cookie not found');
             }
             this.authCookie = response.cookie;
-            console.log('SearchService initialized with auth cookie');
+            // console.log('SearchService initialized with auth cookie');
         } catch (error) {
             console.error('Failed to initialize SearchService:', error);
             throw new Error('Failed to authenticate with WaveMaker');

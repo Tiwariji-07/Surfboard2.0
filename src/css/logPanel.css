@@ -57,6 +57,7 @@
 }
 
 .log-content {
+    display: none;
     padding: 10px;
     overflow-y: auto;
     height: calc(100% - 60px);

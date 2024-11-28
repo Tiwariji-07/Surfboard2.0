@@ -11,6 +11,7 @@ class WaveMakerCopilotSidebar {
         this.logPanel = null;
         this.searchPanel = null;
         this.initialize();
+        this.setupToastObserver();
     }
 
     initialize() {
@@ -61,13 +62,13 @@ class WaveMakerCopilotSidebar {
 
     async initializePanels() {
         const logContainer = this.sidebarElement.querySelector('.log-container');
-        console.log('Log container:', logContainer);
+        // console.log('Log container:', logContainer);
         if (!this.logPanel && logContainer) {
-            console.log('Creating new LogPanel');
+            // console.log('Creating new LogPanel');
             this.logPanel = new LogPanel();
-            console.log('LogPanel created:', this.logPanel);
+            // console.log('LogPanel created:', this.logPanel);
             logContainer.appendChild(this.logPanel.element);
-            console.log('LogPanel appended to container');
+            // console.log('LogPanel appended to container');
         }
         const searchContainer = this.sidebarElement.querySelector('.search-container');
         if (!this.searchPanel && searchContainer) {
@@ -168,6 +169,54 @@ class WaveMakerCopilotSidebar {
         });
     }
 
+    setupToastObserver() {
+        // Create a mutation observer to watch for toasts
+        const observer = new MutationObserver((mutations) => {
+            for (const mutation of mutations) {
+                if (mutation.type === 'childList') {
+                    // Check added nodes for error toasts
+                    mutation.addedNodes.forEach(node => {
+                        if (node.nodeType === 1 && // Element node
+                            node.classList.contains('ngx-toastr') && 
+                            node.classList.contains('toast-error')) {
+                            
+                            // console.log('Error toast detected, opening sidebar and switching to logs');
+                            this.openWithLogs();
+                        }
+                    });
+                }
+            }
+        });
+
+        // Start observing the body for toast elements
+        observer.observe(document.body, {
+            childList: true,
+            subtree: true
+        });
+    }
+
+    async openWithLogs() {
+        // Open sidebar
+       if(!this.isOpen){
+        
+           this.toggleSidebar();
+       }
+        
+        
+        // Switch to logs panel
+        const logsTab = this.sidebarElement.querySelector('[data-tab="logs"]');
+        if (logsTab) {
+            // Deactivate all tabs
+            await logsTab.click()
+            // await this.logPanel.initializeService();
+            if(this.logPanel){
+                await this.logPanel.analyzeLogs("server");
+
+            }
+            
+        }
+    }
+
     /*setupSearchPanel() {
         // Initialize search panel first
         const searchContainer = this.sidebarElement.querySelector('.search-container');
@@ -263,31 +312,31 @@ class WaveMakerCopilotSidebar {
             <span>Copy</span>
         `;
 
-        console.log('Adding click handlers to button...');
+        // console.log('Adding click handlers to button...');
 
         // Add both click handlers for testing
         copyButton.onclick = function(e) {
-            console.log('Copy button clicked via onclick');
+            // console.log('Copy button clicked via onclick');
             handleCopy(e);
         };
 
         copyButton.addEventListener('click', function(e) {
-            console.log('Copy button clicked via addEventListener');
+            // console.log('Copy button clicked via addEventListener');
             handleCopy(e);
         });
 
         // Separate copy handler function
         const handleCopy = async (e) => {
-            console.log('Handling copy...');
+            // console.log('Handling copy...');
             e.preventDefault();
             e.stopPropagation();
             
             const span = copyButton.querySelector('span');
             
             try {
-                console.log('Attempting to copy code:', code);
+                // console.log('Attempting to copy code:', code);
                 await navigator.clipboard.writeText(code);
-                console.log('Code copied successfully');
+                // console.log('Code copied successfully');
                 copyButton.classList.add('copied');
                 span.textContent = 'Copied!';
             } catch (err) {
@@ -391,6 +440,8 @@ class WaveMakerCopilotSidebar {
             loader.remove();
         }
     }
+
+    
 }
 
 export default WaveMakerCopilotSidebar;

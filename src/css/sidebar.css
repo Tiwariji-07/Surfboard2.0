@@ -115,10 +115,10 @@
 }
 
 .log-panel .log-content {
-    flex: 1;
+    /* flex: 1;
     display: flex;
     flex-direction: column;
-    overflow: hidden;
+    overflow: hidden; */
 }
 
 .log-panel .log-header {

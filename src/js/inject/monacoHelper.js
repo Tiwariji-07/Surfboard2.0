@@ -3,7 +3,7 @@
 let activeEditor = null;
 
 function initMonacoHelper() {
-    console.log('Initializing Monaco helper...');
+    // console.log('Initializing Monaco helper...');
     
     function waitForMonaco(callback) {
         if (typeof monaco !== 'undefined') {
@@ -117,7 +117,7 @@ function initMonacoHelper() {
             });
         });
         
-        console.log('Monaco helper initialized');
+        // console.log('Monaco helper initialized');
     });
 }
 

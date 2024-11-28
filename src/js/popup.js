@@ -59,7 +59,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         type: 'API_KEYS_UPDATED',
                         data: { groqApiKey, openaiApiKey }
                     }).catch(error => {
-                        console.log('Tab communication error:', error);
+                        // console.log('Tab communication error:', error);
                         // Content script might not be loaded yet, which is fine
                     });
                 }
@@ -80,7 +80,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         type: 'COPILOT_STATUS_CHANGED',
                         data: { enabled }
                     }).catch(error => {
-                        console.log('Tab communication error:', error);
+                        // console.log('Tab communication error:', error);
                         // Content script might not be loaded yet, which is fine
                     });
                 }

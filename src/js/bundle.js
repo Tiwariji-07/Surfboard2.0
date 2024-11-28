@@ -492,7 +492,6 @@ ${logs}`
           throw new Error("OpenAI API key is required");
         }
         await this.openaiService.setApiKey(apiKey);
-        console.log("LogService initialized with auth cookie and API key");
       } catch (error) {
         console.error("Failed to initialize LogService:", error);
         throw error;
@@ -500,14 +499,10 @@ ${logs}`
     }
     async fetchLogs(type = "server", limit = 1e3) {
       try {
-        console.log("Fetching logs of type:", type, "with limit:", limit);
         if (!this.authCookie) {
-          console.log("No auth cookie found, initializing...");
           await this.initialize();
         }
-        console.log("Using auth cookie:", this.authCookie ? "Present" : "Missing");
         const url = `${this.baseUrl}/${type}/${limit}`;
-        console.log("Fetching logs from URL:", url);
         const response = await fetch(url, {
           method: "GET",
           credentials: "include",
@@ -517,18 +512,15 @@ ${logs}`
             "Cookie": `auth_cookie=${this.authCookie}`
           }
         });
-        console.log("Response status:", response.status);
         if (!response.ok) {
           throw new Error(`Failed to fetch ${type} logs: ${response.statusText}`);
         }
         const data = await response.json();
-        console.log("Raw response data:", data);
         if (!data || !data.result) {
           console.warn("Invalid response format:", data);
           throw new Error("Invalid response format from server");
         }
         const sections = await this.parseLogs(data, type);
-        console.log("Parsed log sections:", sections);
         return sections;
       } catch (error) {
         console.error("Error in fetchLogs:", error);
@@ -542,9 +534,7 @@ ${logs}`
           return [];
         }
         if (rawLogs.result) {
-          console.log("Raw logs result:", rawLogs.result);
           const logLines = rawLogs.result.split("\n").filter((line) => line.trim());
-          console.log("Filtered log lines:", logLines);
           let currentLog = null;
           const parsedLogs = [];
           const serverLogPattern = /^(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2},\d{3})\s+(\S+)\s+(\w+)\s+(\S+)\s+(\S+)\s+\[([^\]]+)\](?:\s*-\s*(.+))?$/;
@@ -653,21 +643,17 @@ ${logs}`
           if (currentLog && currentLog.stackTrace && currentLog.stackTrace.length > 0) {
             parsedLogs.push(currentLog);
           }
-          console.log("Parsed logs:", parsedLogs);
           const filteredLogs = parsedLogs.filter((log) => ["warn", "error", "debug"].includes(log.severity));
-          console.log("Filtered logs by severity:", filteredLogs);
           const groupedLogs = filteredLogs.reduce((groups, log) => {
             const group = groups[log.timeSection] || [];
             group.push(log);
             groups[log.timeSection] = group;
             return groups;
           }, {});
-          console.log("Grouped logs:", groupedLogs);
           const sections = Object.entries(groupedLogs).map(([timeSection, logs]) => ({
             timeSection,
             logs: logs.sort((a, b) => b.timestamp.localeCompare(a.timestamp))
           })).sort((a, b) => b.timeSection.localeCompare(a.timeSection));
-          console.log("Final sections:", sections);
           return sections;
         }
         console.warn("Unexpected logs format:", rawLogs);
@@ -699,7 +685,7 @@ ${logs}`
     }
     async analyzeBatch(logSections) {
       try {
-        console.log("Starting batch analysis:", logSections);
+        console.log("Inside analyzeBatch:");
         let section = logSections[0];
         let logsForAnalysis = section.logs.map((log) => ({
           timestamp: log.timestamp,
@@ -730,32 +716,16 @@ ${logs}`
           ...log,
           stackTrace: log.stackTrace.length > 10 ? [...log.stackTrace.slice(0, 8), "... truncated ...", log.stackTrace[log.stackTrace.length - 1]] : log.stackTrace
         }));
-        const prompt = `Analyze these WaveMaker Studio logs and provide a concise analysis. Be direct and specific:
+        const prompt = `Analyze these logs and provide a VERY concise, human-friendly explanation:
+1. What's the problem? (1 short sentence)
+2. Where is it? (file and line number)
+3. How to fix it? (1-2 simple steps)
 
-\u{1F6A8} ERRORS (if any):
-- List exact errors
-- File and line numbers
-- Quick fix suggestions
+Keep it extremely simple - imagine explaining to someone who's not technical.
 
-\u26A0\uFE0F WARNINGS (if any):
-- List important warnings
-- Impact on system
-
-\u{1F50D} ROOT CAUSE:
-- One-line explanation
-- Affected components
-
-\u{1F4A1} SOLUTION:
-- Bullet points with specific steps
-- Code snippets if needed
-
-Note: Keep responses short and actionable. No lengthy explanations needed.
-
-Logs to analyze (${logsForAnalysis.length} most significant logs):
+Logs to analyze: (${logsForAnalysis.length} most significant logs):
 ${JSON.stringify(logsForAnalysis, null, 2)}`;
-        console.log("Sending batch analysis request to OpenAI");
         const aiAnalysis = await this.openaiService.analyzeLogs(prompt);
-        console.log("Received analysis from OpenAI:", aiAnalysis);
         return aiAnalysis;
       } catch (error) {
         console.error("Error in batch analysis:", error);
@@ -798,16 +768,6 @@ ${JSON.stringify(logsForAnalysis, null, 2)}`;
           resolve(result.openaiApiKey);
         });
       });
-    }
-    async initializeAsync() {
-      try {
-        const apiKey = await this.getOpenAIKey();
-        if (apiKey) {
-          await this.logService.openaiService.setApiKey(apiKey);
-        }
-      } catch (error) {
-        console.error("Error initializing LogPanel:", error);
-      }
     }
     createHeader() {
       const header = document.createElement("div");
@@ -860,27 +820,14 @@ ${JSON.stringify(logsForAnalysis, null, 2)}`;
     }
     async fetchLogs(type) {
       try {
-        this.showLoading();
         const logs = await this.logService.fetchLogs(type);
-        this.displayLogs(logs);
       } catch (error) {
         this.showError(error.message);
       }
     }
     async refreshLogs() {
       try {
-        console.log("Starting log refresh...");
-        this.showLoading();
-        const logContent = this.element.querySelector(".log-content");
-        if (logContent) {
-          console.log("Clearing existing logs");
-          logContent.innerHTML = "";
-        } else {
-          console.warn("Log content container not found");
-        }
-        console.log("Fetching logs of type:", this.currentLogType);
         const logs = await this.logService.fetchLogs(this.currentLogType);
-        console.log("Received logs:", logs);
         if (!logs || !Array.isArray(logs)) {
           console.warn("Invalid logs format:", logs);
           throw new Error("Invalid logs format received");
@@ -890,9 +837,7 @@ ${JSON.stringify(logsForAnalysis, null, 2)}`;
           logContent.innerHTML = '<div class="no-logs">No logs available</div>';
           return;
         }
-        console.log("Displaying logs...");
-        this.displayLogs(logs);
-        console.log("Logs displayed successfully");
+        this.analyzeLogs(this.currentLogType);
       } catch (error) {
         console.error("Error refreshing logs:", error);
         this.showError("Failed to fetch logs: " + error.message);
@@ -903,19 +848,18 @@ ${JSON.stringify(logsForAnalysis, null, 2)}`;
         }
       }
     }
-    async analyzeLogs() {
+    async analyzeLogs(type = this.currentLogType) {
       try {
         const analysisButton = this.element.querySelector(".analyze-button");
         analysisButton.disabled = true;
         analysisButton.textContent = "Analyzing...";
-        const logContent = this.element.querySelector(".log-content");
+        const logContent2 = this.element.querySelector(".log-content");
         let logSections = [];
         try {
-          logSections = await this.logService.fetchLogs(this.currentLogType);
+          logSections = await this.logService.fetchLogs(type);
         } catch (error) {
           this.showError(error.message);
         }
-        console.log("Collected log sections for analysis:", logSections);
         const analysis = await this.logService.analyzeBatch(logSections);
         this.showAnalysis(analysis);
       } catch (error) {
@@ -927,69 +871,72 @@ ${JSON.stringify(logsForAnalysis, null, 2)}`;
         analysisButton.textContent = "\u{1F50D} Analyze";
       }
     }
-    displayLogs(sections) {
-      console.log("Starting displayLogs with sections:", sections);
-      const logContent = this.element.querySelector(".log-content");
-      if (!logContent) {
-        console.error("Log content container not found");
-        return;
-      }
-      logContent.innerHTML = "";
-      if (!sections || sections.length === 0) {
-        console.warn("No sections to display");
-        logContent.innerHTML = '<div class="no-logs">No logs available</div>';
-        return;
-      }
-      console.log("Processing sections...");
-      sections.forEach((section, index) => {
-        console.log(`Processing section ${index}:`, section);
-        const sectionDiv = document.createElement("div");
-        sectionDiv.className = "log-section";
-        const header = document.createElement("div");
-        header.className = "section-header";
-        header.textContent = section.timeSection;
-        sectionDiv.appendChild(header);
-        if (!section.logs || !Array.isArray(section.logs)) {
-          console.warn(`Invalid logs in section ${index}:`, section.logs);
-          return;
-        }
-        section.logs.forEach((log, logIndex) => {
-          console.log(`Processing log ${logIndex} in section ${index}:`, log);
-          const logEntry = document.createElement("div");
-          logEntry.className = `log-entry severity-${log.severity}`;
-          logEntry.dataset.severity = log.severity;
-          const timeOnly = log.timestamp.split(" ")[1];
-          logEntry.innerHTML = `
-                    <span class="log-timestamp">${timeOnly}</span>
-                    ${log.projectPath ? `<span class="log-project">${log.projectPath}</span>` : ""}
-                    ${log.appId ? `<span class="log-appid">${log.appId}</span>` : ""}
-                    <span class="log-thread">${log.thread}</span>
-                    <span class="log-severity ${log.severity}">${log.severity.toUpperCase()}</span>
-                    <span class="log-component">[${log.component}]</span>
-                    <span class="log-message ${log.stackTrace && log.stackTrace.length > 0 ? "has-stack" : ""}">${this.escapeHtml(log.message)}</span>
-                `;
-          sectionDiv.appendChild(logEntry);
-        });
-        logContent.appendChild(sectionDiv);
-      });
-      console.log("Finished displaying logs");
-    }
+    // displayLogs(sections) {
+    // console.log('Starting displayLogs with sections:', sections);
+    //     const logContent = this.element.querySelector('.log-content');
+    //     if (!logContent) {
+    //         console.error('Log content container not found');
+    //         return;
+    //     }
+    //     logContent.innerHTML = '';
+    //     if (!sections || sections.length === 0) {
+    //         console.warn('No sections to display');
+    //         logContent.innerHTML = '<div class="no-logs">No logs available</div>';
+    //         return;
+    //     }
+    // console.log('Processing sections...');
+    //     sections.forEach((section, index) => {
+    // console.log(`Processing section ${index}:`, section);
+    //         const sectionDiv = document.createElement('div');
+    //         sectionDiv.className = 'log-section';
+    //         // Add section header
+    //         const header = document.createElement('div');
+    //         header.className = 'section-header';
+    //         header.textContent = section.timeSection;
+    //         sectionDiv.appendChild(header);
+    //         if (!section.logs || !Array.isArray(section.logs)) {
+    //             console.warn(`Invalid logs in section ${index}:`, section.logs);
+    //             return;
+    //         }
+    //         // Add logs for this section
+    //         section.logs.forEach((log, logIndex) => {
+    // console.log(`Processing log ${logIndex} in section ${index}:`, log);
+    //             const logEntry = document.createElement('div');
+    //             logEntry.className = `log-entry severity-${log.severity}`;
+    //             logEntry.dataset.severity = log.severity;
+    //             // Format timestamp to show only time portion
+    //             const timeOnly = log.timestamp.split(' ')[1];
+    //             logEntry.innerHTML = `
+    //                 <span class="log-timestamp">${timeOnly}</span>
+    //                 ${log.projectPath ? `<span class="log-project">${log.projectPath}</span>` : ''}
+    //                 ${log.appId ? `<span class="log-appid">${log.appId}</span>` : ''}
+    //                 <span class="log-thread">${log.thread}</span>
+    //                 <span class="log-severity ${log.severity}">${log.severity.toUpperCase()}</span>
+    //                 <span class="log-component">[${log.component}]</span>
+    //                 <span class="log-message ${log.stackTrace && log.stackTrace.length > 0 ? 'has-stack' : ''}">${this.escapeHtml(log.message)}</span>
+    //             `;
+    //             sectionDiv.appendChild(logEntry);
+    //         });
+    //         logContent.appendChild(sectionDiv);
+    //     });
+    // console.log('Finished displaying logs');
+    // }
     escapeHtml(unsafe) {
       return unsafe.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
     }
-    displayAnalysis(analysis) {
-      const analysisPanel = this.element.querySelector(".analysis-panel");
-      if (!analysisPanel) {
-        console.error("Analysis panel not found");
-        return;
-      }
-      analysisPanel.innerHTML = "";
-      const content = document.createElement("div");
-      content.className = "analysis-content";
-      content.innerHTML = `<pre>${analysis}</pre>`;
-      analysisPanel.appendChild(content);
-      analysisPanel.style.display = "block";
-    }
+    // displayAnalysis(analysis) {
+    //     const analysisPanel = this.element.querySelector('.analysis-panel');
+    //     if (!analysisPanel) {
+    //         console.error('Analysis panel not found');
+    //         return;
+    //     }
+    //     analysisPanel.innerHTML = '';
+    //     const content = document.createElement('div');
+    //     content.className = 'analysis-content';
+    //     content.innerHTML = `<pre>${analysis}</pre>`;
+    //     analysisPanel.appendChild(content);
+    //     analysisPanel.style.display = 'block';
+    // }
     showLoading() {
       this.logsContainer.innerHTML = '<div class="loading">Loading logs...</div>';
       this.analysisContainer.style.display = "none";
@@ -1035,7 +982,6 @@ ${JSON.stringify(logsForAnalysis, null, 2)}`;
           throw new Error("Authentication cookie not found");
         }
         this.authCookie = response.cookie;
-        console.log("SearchService initialized with auth cookie");
       } catch (error) {
         console.error("Failed to initialize SearchService:", error);
         throw new Error("Failed to authenticate with WaveMaker");
@@ -1464,6 +1410,7 @@ ${JSON.stringify(logsForAnalysis, null, 2)}`;
       this.logPanel = null;
       this.searchPanel = null;
       this.initialize();
+      this.setupToastObserver();
     }
     initialize() {
       this.sidebarElement = document.createElement("div");
@@ -1500,13 +1447,9 @@ ${JSON.stringify(logsForAnalysis, null, 2)}`;
     }
     async initializePanels() {
       const logContainer = this.sidebarElement.querySelector(".log-container");
-      console.log("Log container:", logContainer);
       if (!this.logPanel && logContainer) {
-        console.log("Creating new LogPanel");
         this.logPanel = new logPanel_default();
-        console.log("LogPanel created:", this.logPanel);
         logContainer.appendChild(this.logPanel.element);
-        console.log("LogPanel appended to container");
       }
       const searchContainer = this.sidebarElement.querySelector(".search-container");
       if (!this.searchPanel && searchContainer) {
@@ -1580,6 +1523,36 @@ ${JSON.stringify(logsForAnalysis, null, 2)}`;
           this.toggleSidebar();
         }
       });
+    }
+    setupToastObserver() {
+      const observer = new MutationObserver((mutations) => {
+        for (const mutation of mutations) {
+          if (mutation.type === "childList") {
+            mutation.addedNodes.forEach((node) => {
+              if (node.nodeType === 1 && // Element node
+              node.classList.contains("ngx-toastr") && node.classList.contains("toast-error")) {
+                this.openWithLogs();
+              }
+            });
+          }
+        }
+      });
+      observer.observe(document.body, {
+        childList: true,
+        subtree: true
+      });
+    }
+    async openWithLogs() {
+      if (!this.isOpen) {
+        this.toggleSidebar();
+      }
+      const logsTab = this.sidebarElement.querySelector('[data-tab="logs"]');
+      if (logsTab) {
+        await logsTab.click();
+        if (this.logPanel) {
+          await this.logPanel.analyzeLogs("server");
+        }
+      }
     }
     /*setupSearchPanel() {
             // Initialize search panel first
@@ -1656,24 +1629,18 @@ ${JSON.stringify(logsForAnalysis, null, 2)}`;
             </svg>
             <span>Copy</span>
         `;
-      console.log("Adding click handlers to button...");
       copyButton.onclick = function(e) {
-        console.log("Copy button clicked via onclick");
         handleCopy(e);
       };
       copyButton.addEventListener("click", function(e) {
-        console.log("Copy button clicked via addEventListener");
         handleCopy(e);
       });
       const handleCopy = async (e) => {
-        console.log("Handling copy...");
         e.preventDefault();
         e.stopPropagation();
         const span = copyButton.querySelector("span");
         try {
-          console.log("Attempting to copy code:", code);
           await navigator.clipboard.writeText(code);
-          console.log("Code copied successfully");
           copyButton.classList.add("copied");
           span.textContent = "Copied!";
         } catch (err) {
@@ -1901,12 +1868,10 @@ ${afterCursor}`
       };
     }
     initialize() {
-      console.log("CompletionManager initializing...");
       this.injectMonacoHelper();
       this.setupMessageListener();
       this.setupAPIKey();
       this.setupEditorObserver();
-      console.log("CompletionManager initialized");
     }
     setupAPIKey() {
       chrome.storage.sync.get(["openaiApiKey"], (result) => {
@@ -1935,29 +1900,23 @@ ${afterCursor}`
         const { type, data } = event.data;
         switch (type) {
           case "MONACO_HELPER_READY":
-            console.log("Monaco helper ready, setting up completion provider...");
             window.postMessage({
               type: "SETUP_COMPLETION_PROVIDER",
               languages: ["javascript", "typescript", "html", "css"]
             }, "*");
             break;
           case "GET_EDITOR_INSTANCE_RESPONSE":
-            console.log("Got editor instance response:", data);
             if (data && data.success) {
               this.monacoInstance = data.editor;
-              console.log("Monaco instance set:", this.monacoInstance);
             }
             break;
           case "SETUP_PROVIDER_RESPONSE":
-            console.log("Completion provider setup response:", data);
             if (data && data.success) {
-              console.log("Completion provider registered successfully");
             } else {
               console.error("Failed to setup completion provider:", data == null ? void 0 : data.error);
             }
             break;
           case "GET_INLINE_COMPLETIONS":
-            console.log("Getting inline completions for:", data);
             this.handleCompletionRequest(data);
             break;
         }
@@ -2007,7 +1966,6 @@ ${afterCursor}`
         }, "*");
       } catch (error) {
         if (error.name === "AbortError") {
-          console.log("Completion request cancelled");
         } else {
           console.error("Error handling completion request:", error);
         }
@@ -2035,7 +1993,6 @@ ${afterCursor}`
       };
     }
     setupEditorObserver() {
-      console.log("Setting up editor observer...");
       const observer = new MutationObserver((mutations) => {
         for (const mutation of mutations) {
           for (const node of mutation.addedNodes) {
@@ -2045,18 +2002,15 @@ ${afterCursor}`
                 ...node.matches("wms-editor, .wm-code-editor, .monaco-editor") ? [node] : []
               ];
               for (const container of containers) {
-                console.log("Found potential editor container:", container.className || container.tagName);
                 if (container.tagName.toLowerCase() === "wms-editor" && container.shadowRoot) {
                   const shadowEditor = container.shadowRoot.querySelector(".monaco-editor");
                   if (shadowEditor && !shadowEditor.classList.contains("rename-box")) {
-                    console.log("Found Monaco editor in shadow DOM");
                     this.setupEditorListeners(shadowEditor);
                   }
                   continue;
                 }
                 const editor = container.matches(".monaco-editor") ? container : container.querySelector(".monaco-editor");
                 if (editor && !editor.classList.contains("rename-box")) {
-                  console.log("Found Monaco editor");
                   this.setupEditorListeners(editor);
                 }
               }
@@ -2064,21 +2018,17 @@ ${afterCursor}`
           }
         }
       });
-      console.log("Checking for existing editors...");
       ["wms-editor", ".wm-code-editor", ".monaco-editor"].forEach((selector) => {
         const existingEditors = document.querySelectorAll(selector);
         existingEditors.forEach((container) => {
-          console.log("Found existing container:", selector);
           if (container.tagName.toLowerCase() === "wms-editor" && container.shadowRoot) {
             const shadowEditor = container.shadowRoot.querySelector(".monaco-editor");
             if (shadowEditor && !shadowEditor.classList.contains("rename-box")) {
-              console.log("Found existing Monaco editor in shadow DOM");
               this.setupEditorListeners(shadowEditor);
             }
           } else {
             const editor = container.matches(".monaco-editor") ? container : container.querySelector(".monaco-editor");
             if (editor && !editor.classList.contains("rename-box")) {
-              console.log("Found existing Monaco editor");
               this.setupEditorListeners(editor);
             }
           }
@@ -2088,34 +2038,27 @@ ${afterCursor}`
         childList: true,
         subtree: true
       });
-      console.log("Editor observer setup complete");
     }
     setupEditorListeners(editor) {
       if (!editor || !this.isWaveMakerEditor(editor)) {
-        console.log("Invalid editor or not a WaveMaker editor");
         return;
       }
-      console.log("Setting up editor listeners");
       try {
         const textArea = editor.querySelector(".inputarea");
         if (!textArea) {
-          console.log("Monaco input area not found");
           return;
         }
         const editorElement = editor.closest("[data-keybinding-context]");
         if (!editorElement) {
-          console.log("Editor context not found");
           return;
         }
         const editorId = editorElement.getAttribute("data-keybinding-context");
-        console.log("Found editor ID:", editorId);
         window.postMessage({
           type: "GET_EDITOR_INSTANCE",
           editorId
         }, "*");
         this.currentEditor = editor;
         editor.addEventListener("focus", () => {
-          console.log("Editor focused");
           this.setCurrentEditor(editor);
         });
         editor.addEventListener("click", () => {
@@ -2139,24 +2082,19 @@ ${afterCursor}`
     isWaveMakerEditor(element) {
       if (!element)
         return false;
-      console.log("Checking editor:", element.className);
       if (element.classList.contains("rename-box")) {
-        console.log("Skipping rename box widget");
         return false;
       }
       const isMonacoEditor = element.classList.contains("monaco-editor");
       const hasCorrectTheme = element.classList.contains("vs-dark") || element.classList.contains("vs");
       const isNotWidget = !element.hasAttribute("widgetid");
       if (isMonacoEditor && hasCorrectTheme && isNotWidget) {
-        console.log("Valid Monaco editor found");
         return true;
       }
       const wmContainer = element.closest("wms-editor, .wm-code-editor");
       if (wmContainer) {
-        console.log("Found within WaveMaker container:", wmContainer.tagName || wmContainer.className);
         return true;
       }
-      console.log("Not a valid WaveMaker editor");
       return false;
     }
     detectEditorType(editor) {
@@ -2184,10 +2122,8 @@ ${afterCursor}`
     setCurrentEditor(editor) {
       if (this.currentEditor === editor)
         return;
-      console.log("Setting current editor:", editor);
       this.currentEditor = editor;
       this.editorType = this.detectEditorType(editor);
-      console.log("Editor type:", this.editorType);
     }
   };
   var completionManager_default = CompletionManager;

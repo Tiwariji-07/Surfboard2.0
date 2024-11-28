@@ -52,12 +52,12 @@ class CompletionManager {
     }
 
     initialize() {
-        console.log('CompletionManager initializing...');
+        // console.log('CompletionManager initializing...');
         this.injectMonacoHelper();
         this.setupMessageListener();
         this.setupAPIKey();
         this.setupEditorObserver();
-        console.log('CompletionManager initialized');
+        // console.log('CompletionManager initialized');
     }
 
     setupAPIKey() {
@@ -91,7 +91,7 @@ class CompletionManager {
             
             switch (type) {
                 case 'MONACO_HELPER_READY':
-                    console.log('Monaco helper ready, setting up completion provider...');
+                    // console.log('Monaco helper ready, setting up completion provider...');
                     // Send message to page context
                     window.postMessage({
                         type: 'SETUP_COMPLETION_PROVIDER',
@@ -99,22 +99,22 @@ class CompletionManager {
                     }, '*');
                     break;
                 case 'GET_EDITOR_INSTANCE_RESPONSE':
-                    console.log('Got editor instance response:', data);
+                    // console.log('Got editor instance response:', data);
                     if (data && data.success) {
                         this.monacoInstance = data.editor;
-                        console.log('Monaco instance set:', this.monacoInstance);
+                        // console.log('Monaco instance set:', this.monacoInstance);
                     }
                     break;
                 case 'SETUP_PROVIDER_RESPONSE':
-                    console.log('Completion provider setup response:', data);
+                    // console.log('Completion provider setup response:', data);
                     if (data && data.success) {
-                        console.log('Completion provider registered successfully');
+                        // console.log('Completion provider registered successfully');
                     } else {
                         console.error('Failed to setup completion provider:', data?.error);
                     }
                     break;
                 case 'GET_INLINE_COMPLETIONS':
-                    console.log('Getting inline completions for:', data);
+                    // console.log('Getting inline completions for:', data);
                     this.handleCompletionRequest(data);
                     break;
             }
@@ -176,7 +176,7 @@ class CompletionManager {
             }, '*');
         } catch (error) {
             if (error.name === 'AbortError') {
-                console.log('Completion request cancelled');
+                // console.log('Completion request cancelled');
             } else {
                 console.error('Error handling completion request:', error);
             }
@@ -213,7 +213,7 @@ class CompletionManager {
     }
 
     setupEditorObserver() {
-        console.log('Setting up editor observer...');
+        // console.log('Setting up editor observer...');
         // Watch for WaveMaker editor elements being added to the DOM
         const observer = new MutationObserver((mutations) => {
             for (const mutation of mutations) {
@@ -226,13 +226,13 @@ class CompletionManager {
                         ];
                         
                         for (const container of containers) {
-                            console.log('Found potential editor container:', container.className || container.tagName);
+                            // console.log('Found potential editor container:', container.className || container.tagName);
                             
                             // For wms-editor, look inside the shadow DOM if it exists
                             if (container.tagName.toLowerCase() === 'wms-editor' && container.shadowRoot) {
                                 const shadowEditor = container.shadowRoot.querySelector('.monaco-editor');
                                 if (shadowEditor && !shadowEditor.classList.contains('rename-box')) {
-                                    console.log('Found Monaco editor in shadow DOM');
+                                    // console.log('Found Monaco editor in shadow DOM');
                                     this.setupEditorListeners(shadowEditor);
                                 }
                                 continue;
@@ -243,7 +243,7 @@ class CompletionManager {
                                 container : container.querySelector('.monaco-editor');
                                 
                             if (editor && !editor.classList.contains('rename-box')) {
-                                console.log('Found Monaco editor');
+                                // console.log('Found Monaco editor');
                                 this.setupEditorListeners(editor);
                             }
                         }
@@ -253,16 +253,16 @@ class CompletionManager {
         });
 
         // Check for existing editors
-        console.log('Checking for existing editors...');
+        // console.log('Checking for existing editors...');
         ['wms-editor', '.wm-code-editor', '.monaco-editor'].forEach(selector => {
             const existingEditors = document.querySelectorAll(selector);
             existingEditors.forEach(container => {
-                console.log('Found existing container:', selector);
+                // console.log('Found existing container:', selector);
                 
                 if (container.tagName.toLowerCase() === 'wms-editor' && container.shadowRoot) {
                     const shadowEditor = container.shadowRoot.querySelector('.monaco-editor');
                     if (shadowEditor && !shadowEditor.classList.contains('rename-box')) {
-                        console.log('Found existing Monaco editor in shadow DOM');
+                        // console.log('Found existing Monaco editor in shadow DOM');
                         this.setupEditorListeners(shadowEditor);
                     }
                 } else {
@@ -270,7 +270,7 @@ class CompletionManager {
                         container : container.querySelector('.monaco-editor');
                         
                     if (editor && !editor.classList.contains('rename-box')) {
-                        console.log('Found existing Monaco editor');
+                        // console.log('Found existing Monaco editor');
                         this.setupEditorListeners(editor);
                     }
                 }
@@ -282,34 +282,34 @@ class CompletionManager {
             subtree: true
         });
         
-        console.log('Editor observer setup complete');
+        // console.log('Editor observer setup complete');
     }
 
     setupEditorListeners(editor) {
         if (!editor || !this.isWaveMakerEditor(editor)) {
-            console.log('Invalid editor or not a WaveMaker editor');
+            // console.log('Invalid editor or not a WaveMaker editor');
             return;
         }
         
-        console.log('Setting up editor listeners');
+        // console.log('Setting up editor listeners');
         
         try {
             // Find the textarea that Monaco uses for input
             const textArea = editor.querySelector('.inputarea');
             if (!textArea) {
-                console.log('Monaco input area not found');
+                // console.log('Monaco input area not found');
                 return;
             }
 
             // Find the data-keybinding-context attribute which uniquely identifies the editor
             const editorElement = editor.closest('[data-keybinding-context]');
             if (!editorElement) {
-                console.log('Editor context not found');
+                // console.log('Editor context not found');
                 return;
             }
 
             const editorId = editorElement.getAttribute('data-keybinding-context');
-            console.log('Found editor ID:', editorId);
+            // console.log('Found editor ID:', editorId);
 
             // Use the injected helper to get editor instance
             window.postMessage({
@@ -321,7 +321,7 @@ class CompletionManager {
             
             // Handle focus events
             editor.addEventListener('focus', () => {
-                console.log('Editor focused');
+                // console.log('Editor focused');
                 this.setCurrentEditor(editor);
             });
             
@@ -352,11 +352,11 @@ class CompletionManager {
     isWaveMakerEditor(element) {
         if (!element) return false;
         
-        console.log('Checking editor:', element.className);
+        // console.log('Checking editor:', element.className);
         
         // Exclude rename box and other utility widgets
         if (element.classList.contains('rename-box')) {
-            console.log('Skipping rename box widget');
+            // console.log('Skipping rename box widget');
             return false;
         }
         
@@ -366,18 +366,18 @@ class CompletionManager {
         const isNotWidget = !element.hasAttribute('widgetid');
         
         if (isMonacoEditor && hasCorrectTheme && isNotWidget) {
-            console.log('Valid Monaco editor found');
+            // console.log('Valid Monaco editor found');
             return true;
         }
         
         // Check if it's within a WaveMaker editor container
         const wmContainer = element.closest('wms-editor, .wm-code-editor');
         if (wmContainer) {
-            console.log('Found within WaveMaker container:', wmContainer.tagName || wmContainer.className);
+            // console.log('Found within WaveMaker container:', wmContainer.tagName || wmContainer.className);
             return true;
         }
         
-        console.log('Not a valid WaveMaker editor');
+        // console.log('Not a valid WaveMaker editor');
         return false;
     }
 
@@ -415,10 +415,10 @@ class CompletionManager {
     setCurrentEditor(editor) {
         if (this.currentEditor === editor) return;
         
-        console.log('Setting current editor:', editor);
+        // console.log('Setting current editor:', editor);
         this.currentEditor = editor;
         this.editorType = this.detectEditorType(editor);
-        console.log('Editor type:', this.editorType);
+        // console.log('Editor type:', this.editorType);
     }
 
 }
