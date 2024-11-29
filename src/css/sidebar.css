@@ -31,8 +31,8 @@
 }
 
 .sidebar-toggle.active {
-    background: #0056b3;
-    transform: rotate(180deg);
+    /* background: #0056b3; */
+    /* transform: rotate(180deg); */
 }
 
 /* Sidebar Layout */
@@ -210,7 +210,9 @@
 
 /* Chat Container */
 .chat-container {
-    padding-bottom: 100px;
+    padding: 12px 16px;
+    gap: 1rem;
+    overflow: auto;
 }
 
 .chat-message {
@@ -300,51 +302,63 @@
 
 /* Input Area */
 .input-container {
-    padding: 16px;
+    padding: 12px 16px;
     border-top: 1px solid #e0e0e0;
     background: #fff;
-}
-
-textarea {
-    width: 100%;
-    padding: 12px;
-    border: 1px solid #e0e0e0;
-    border-radius: 4px;
-    resize: vertical;
-    min-height: 60px;
-    max-height: 200px;
-    font-family: inherit;
-    font-size: 14px;
-    line-height: 1.5;
-}
-
-textarea:focus {
-    outline: none;
-    border-color: #007bff;
-    box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.2);
-}
-
-.send-button {
-    background: #007bff;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    padding: 8px 12px;
-    cursor: pointer;
     display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: background-color 0.2s;
+    gap: 1rem;
+    flex-direction: row;
+    align-items: flex-end;
+    textarea {
+        width: 100%;
+        padding: 0;
+        border: 1px solid #e0e0e0;
+        border-radius: 4px;
+        resize: none;
+        min-height: 32px;
+        height: auto;
+        font-family: inherit;
+        font-size: 14px;
+        line-height: 1.5;
+        color: rgb(44, 62, 80);
+        outline: none;
+        border: none;
+        box-shadow: none;
+    }
+
+    textarea:focus {
+        outline: none;
+        border: none;
+        box-shadow: none;
+        /* border-color: #007bff;
+        box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.2); */
+    }
+        
+    .send-button {
+        aspect-ratio: 1;
+        background: #007bff;
+        color: white;
+        border: none;
+        border-radius: 50%;
+        padding: 8px 12px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transform: scale(1);
+        transition: all 0.2s;
+        &:hover {
+            background: #0056b3;
+            transform: scale(1.1);
+        }
+        svg {
+            width: 16px;
+            height: 16px;
+        }
+    }
 }
 
-.send-button:hover {
-    background: #0056b3;
-}
 
-.send-button svg {
-    width: 16px;
-    height: 16px;
-}
 
 /* Dark Mode */
 @media (prefers-color-scheme: dark) {
