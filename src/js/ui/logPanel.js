@@ -319,6 +319,16 @@ class LogPanel {
         analysisPanel.appendChild(content);
         analysisPanel.style.display = 'block';
     }
+
+    setLogType(type) {
+        const typeSelector = this.element.querySelector('.log-type-selector');
+        if (typeSelector) {
+            typeSelector.value = type;
+            // Trigger change event to update the UI
+            typeSelector.dispatchEvent(new Event('change'));
+        }
+        this.currentLogType = type;
+    }
 }
 
 export default LogPanel;

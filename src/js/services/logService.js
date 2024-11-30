@@ -9,7 +9,7 @@ export class LogService {
         this.initialized = false;
         this.setupMessageListener();
         // this.setupConsoleMonitor();
-        this.setupNetworkMonitor();
+        // this.setupNetworkMonitor();
     }
 
     setupMessageListener() {
@@ -32,7 +32,7 @@ export class LogService {
             return;
         }
         this.initialized = true;
-        this.injectNetworkMonitor();
+        // this.injectNetworkMonitor();
         try {
             // Get auth cookie from background script
             const response = await chrome.runtime.sendMessage({ type: 'GET_AUTH_COOKIE' });
@@ -85,98 +85,98 @@ export class LogService {
     //     };
     // }
 
-    setupNetworkMonitor() {
-        // Monitor XMLHttpRequest
-        const originalXHR = window.XMLHttpRequest.prototype.open;
-        window.XMLHttpRequest.prototype.open = function(...args) {
-            const xhr = this;
-            const url = args[1];
+    // setupNetworkMonitor() {
+    //     // Monitor XMLHttpRequest
+    //     const originalXHR = window.XMLHttpRequest.prototype.open;
+    //     window.XMLHttpRequest.prototype.open = function(...args) {
+    //         const xhr = this;
+    //         const url = args[1];
             
-            // Add event listeners for error handling
-            xhr.addEventListener('load', () => {
-                if (xhr.status >= 400) {
-                    console.error(`XHR Error: ${xhr.status} ${xhr.statusText}`);
-                    this.addLog({
-                        type: 'error',
-                        severity: 'ERROR',
-                        message: `XHR Error: ${xhr.status} ${xhr.statusText}`,
-                        details: {
-                            url: url,
-                            status: xhr.status,
-                            statusText: xhr.statusText,
-                            response: xhr.responseText
-                        },
-                        timestamp: new Date().toISOString(),
-                        source: 'network'
-                    });
-                }
-            });
+    //         // Add event listeners for error handling
+    //         xhr.addEventListener('load', () => {
+    //             if (xhr.status >= 400) {
+    //                 console.error(`XHR Error: ${xhr.status} ${xhr.statusText}`);
+    //                 this.addLog({
+    //                     type: 'error',
+    //                     severity: 'ERROR',
+    //                     message: `XHR Error: ${xhr.status} ${xhr.statusText}`,
+    //                     details: {
+    //                         url: url,
+    //                         status: xhr.status,
+    //                         statusText: xhr.statusText,
+    //                         response: xhr.responseText
+    //                     },
+    //                     timestamp: new Date().toISOString(),
+    //                     source: 'network'
+    //                 });
+    //             }
+    //         });
 
-            xhr.addEventListener('error', () => {
-                console.error('XHR Network Error');
-                this.addLog({
-                    type: 'error',
-                    severity: 'ERROR',
-                    message: `XHR Network Error`,
-                    details: {
-                        url: url,
-                        error: 'Network request failed'
-                    },
-                    timestamp: new Date().toISOString(),
-                    source: 'network'
-                });
-            });
+    //         xhr.addEventListener('error', () => {
+    //             console.error('XHR Network Error');
+    //             this.addLog({
+    //                 type: 'error',
+    //                 severity: 'ERROR',
+    //                 message: `XHR Network Error`,
+    //                 details: {
+    //                     url: url,
+    //                     error: 'Network request failed'
+    //                 },
+    //                 timestamp: new Date().toISOString(),
+    //                 source: 'network'
+    //             });
+    //         });
 
-            return originalXHR.apply(this, args);
-        };
+    //         return originalXHR.apply(this, args);
+    //     };
 
-        // Monitor Fetch API
-        const originalFetch = window.fetch;
-        window.fetch = async (...args) => {
-            try {
-                const response = await originalFetch(...args);
-                const url = typeof args[0] === 'string' ? args[0] : args[0].url;
+    //     // Monitor Fetch API
+    //     const originalFetch = window.fetch;
+    //     window.fetch = async (...args) => {
+    //         try {
+    //             const response = await originalFetch(...args);
+    //             const url = typeof args[0] === 'string' ? args[0] : args[0].url;
                 
-                if (!response.ok) {
-                    let errorDetails;
-                    try {
-                        errorDetails = await response.clone().text();
-                    } catch {
-                        errorDetails = 'Could not read response body';
-                    }
-                    console.error(`Fetch Error: ${response.status} ${response.statusText}`);
-                    this.addLog({
-                        type: 'error',
-                        severity: 'ERROR',
-                        message: `Fetch Error: ${response.status} ${response.statusText}`,
-                        details: {
-                            url: url,
-                            status: response.status,
-                            statusText: response.statusText,
-                            response: errorDetails
-                        },
-                        timestamp: new Date().toISOString(),
-                        source: 'network'
-                    });
-                }
-                return response;
-            } catch (error) {
-                const url = typeof args[0] === 'string' ? args[0] : args[0].url;
-                this.addLog({
-                    type: 'error',
-                    severity: 'ERROR',
-                    message: `Fetch Network Error: ${error.message}`,
-                    details: {
-                        url: url,
-                        error: error.message
-                    },
-                    timestamp: new Date().toISOString(),
-                    source: 'network'
-                });
-                throw error;
-            }
-        };
-    }
+    //             if (!response.ok) {
+    //                 let errorDetails;
+    //                 try {
+    //                     errorDetails = await response.clone().text();
+    //                 } catch {
+    //                     errorDetails = 'Could not read response body';
+    //                 }
+    //                 console.error(`Fetch Error: ${response.status} ${response.statusText}`);
+    //                 this.addLog({
+    //                     type: 'error',
+    //                     severity: 'ERROR',
+    //                     message: `Fetch Error: ${response.status} ${response.statusText}`,
+    //                     details: {
+    //                         url: url,
+    //                         status: response.status,
+    //                         statusText: response.statusText,
+    //                         response: errorDetails
+    //                     },
+    //                     timestamp: new Date().toISOString(),
+    //                     source: 'network'
+    //                 });
+    //             }
+    //             return response;
+    //         } catch (error) {
+    //             const url = typeof args[0] === 'string' ? args[0] : args[0].url;
+    //             this.addLog({
+    //                 type: 'error',
+    //                 severity: 'ERROR',
+    //                 message: `Fetch Network Error: ${error.message}`,
+    //                 details: {
+    //                     url: url,
+    //                     error: error.message
+    //                 },
+    //                 timestamp: new Date().toISOString(),
+    //                 source: 'network'
+    //             });
+    //             throw error;
+    //         }
+    //     };
+    // }
 
     async fetchLogs(type = 'server', limit = 1000) {
         try {

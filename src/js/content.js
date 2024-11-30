@@ -13,7 +13,7 @@ import { LogService } from './services/logService.js';
 
 class SurfboardAI {
     constructor() {
-        this.contextManager = new WMContextManager();
+        // this.contextManager = new WMContextManager();
         this.apiKey = null;
         this.model = 'llama3-8b-8192';
         this.apiEndpoint = 'https://api.groq.com/openai/v1';
@@ -40,7 +40,7 @@ class SurfboardAI {
             // Load API key
             this.apiKey=await this.loadConfiguration();
             this.sidebar = new WaveMakerCopilotSidebar();
-            await this.contextManager.initialize();
+            // await this.contextManager.initialize();
             this.setupMessageListener();
             this.isInitialized = true;
             
@@ -96,7 +96,7 @@ class SurfboardAI {
                     this.sidebar.addMessage('Thinking...', 'assistant');
                     
                     // Get current context
-                    const context = this.contextManager.getRelevantContext(message);
+                    // const context = this.contextManager.getRelevantContext(message);
                     
                     // Prepare the API request
                     const response = await fetch(this.apiEndpoint + '/chat/completions', {
@@ -110,7 +110,7 @@ class SurfboardAI {
                             messages: [
                                 {
                                     role: 'system',
-                                    content: `You are Surfboard AI, a WaveMaker development assistant. Current context: ${JSON.stringify(context)}`
+                                    content: `You are Surfboard AI, a WaveMaker development assistant.`
                                 },
                                 {
                                     role: 'user',

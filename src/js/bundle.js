@@ -1,422 +1,4 @@
 (() => {
-  // src/js/parser/wmParser.js
-  var WMParser = class {
-    constructor() {
-      this.bindingPatterns = {
-        variable: /Variables\.[^.\s}]+(\.dataSet)?/g,
-        widget: /Widgets\.[^.\s}]+/g,
-        binding: /bind:([^"'\s}]+)/g
-      };
-      this.widgetCategories = {
-        form: ["form-field", "liveform", "form-action"],
-        layout: ["layoutgrid", "gridrow", "gridcolumn"],
-        input: ["text", "select", "radioset", "checkboxset", "date", "number"],
-        container: ["page", "content", "container", "composite"],
-        navigation: ["wizard", "wizardstep"],
-        data: ["list", "table", "card", "search"],
-        display: ["label", "message"]
-      };
-    }
-    /**
-     * Parse WaveMaker markup and extract structure
-     * @param {string} markup - HTML string containing WaveMaker markup
-     * @returns {Object} Parsed structure with widgets, bindings, and relationships
-     */
-    parseMarkup(markup) {
-      const parser = new DOMParser();
-      const doc = parser.parseFromString(markup, "text/html");
-      return this.parseElement(doc.body.firstElementChild);
-    }
-    /**
-     * Parse individual WM element
-     * @param {Element} element - DOM element to parse
-     * @returns {Object} Parsed element structure
-     */
-    parseElement(element) {
-      if (!element)
-        return null;
-      const structure = {
-        type: element.tagName.toLowerCase(),
-        name: element.getAttribute("name") || "",
-        category: this.getWidgetCategory(element),
-        attributes: this.parseAttributes(element),
-        bindings: this.extractBindings(element),
-        children: [],
-        relationships: this.findRelationships(element)
-      };
-      for (const child of element.children) {
-        const parsedChild = this.parseElement(child);
-        if (parsedChild) {
-          structure.children.push(parsedChild);
-        }
-      }
-      return structure;
-    }
-    /**
-     * Parse element attributes
-     * @param {Element} element - DOM element
-     * @returns {Object} Parsed attributes with bindings
-     */
-    parseAttributes(element) {
-      const attrs = {};
-      for (const attr of element.attributes) {
-        attrs[attr.name] = {
-          value: attr.value,
-          hasBinding: attr.value.includes("bind:"),
-          bindings: this.extractBindingsFromValue(attr.value)
-        };
-      }
-      return attrs;
-    }
-    /**
-     * Extract all bindings from an element
-     * @param {Element} element - DOM element
-     * @returns {Object} Extracted bindings categorized by type
-     */
-    extractBindings(element) {
-      const html = element.outerHTML;
-      return {
-        variables: [...new Set(html.match(this.bindingPatterns.variable) || [])],
-        widgets: [...new Set(html.match(this.bindingPatterns.widget) || [])],
-        direct: [...new Set(html.match(this.bindingPatterns.binding) || [])].map((b) => b.replace("bind:", ""))
-      };
-    }
-    /**
-     * Extract bindings from a single value
-     * @param {string} value - Attribute value
-     * @returns {Array} Extracted bindings
-     */
-    extractBindingsFromValue(value) {
-      const bindings = [];
-      if (value.includes("bind:")) {
-        const bindingValue = value.replace("bind:", "");
-        bindings.push({
-          type: "direct",
-          value: bindingValue,
-          dependencies: this.extractDependencies(bindingValue)
-        });
-      }
-      return bindings;
-    }
-    /**
-     * Extract dependencies from a binding expression
-     * @param {string} expression - Binding expression
-     * @returns {Object} Extracted dependencies
-     */
-    extractDependencies(expression) {
-      return {
-        variables: [...new Set(expression.match(this.bindingPatterns.variable) || [])],
-        widgets: [...new Set(expression.match(this.bindingPatterns.widget) || [])]
-      };
-    }
-    /**
-     * Get widget category based on element type
-     * @param {Element} element - DOM element
-     * @returns {string} Widget category
-     */
-    getWidgetCategory(element) {
-      const tag = element.tagName.toLowerCase();
-      if (!tag.startsWith("wm-"))
-        return "other";
-      const widgetType = tag.substring(3);
-      for (const [category, types] of Object.entries(this.widgetCategories)) {
-        if (types.some((t) => widgetType.includes(t))) {
-          return category;
-        }
-      }
-      return "other";
-    }
-    /**
-     * Find relationships with other widgets
-     * @param {Element} element - DOM element
-     * @returns {Object} Related widgets and their relationships
-     */
-    findRelationships(element) {
-      const relationships = {
-        parent: null,
-        siblings: [],
-        dataSource: null,
-        eventHandlers: []
-      };
-      if (element.parentElement && element.parentElement.hasAttribute("name")) {
-        relationships.parent = {
-          name: element.parentElement.getAttribute("name"),
-          type: element.parentElement.tagName.toLowerCase()
-        };
-      }
-      const dataset = element.getAttribute("dataset");
-      if (dataset) {
-        relationships.dataSource = this.extractBindingsFromValue(dataset);
-      }
-      for (const attr of element.attributes) {
-        if (attr.name.startsWith("on-")) {
-          relationships.eventHandlers.push({
-            event: attr.name.replace("on-", ""),
-            handler: attr.value
-          });
-        }
-      }
-      return relationships;
-    }
-  };
-  var wmParser_default = WMParser;
-
-  // src/js/context/wmContext.js
-  var WMContextManager = class {
-    constructor() {
-      this.parser = new wmParser_default();
-      this.currentContext = {
-        page: null,
-        widgets: /* @__PURE__ */ new Map(),
-        variables: /* @__PURE__ */ new Map(),
-        bindings: /* @__PURE__ */ new Map(),
-        activeWidget: null
-      };
-      this.observers = /* @__PURE__ */ new Set();
-    }
-    /**
-     * Initialize context manager and start observing DOM changes
-     */
-    async initialize() {
-      this.setupMutationObserver();
-      await this.analyzeCurrentPage();
-      console.log("Context Manager initialized");
-    }
-    /**
-     * Set up mutation observer to track DOM changes
-     */
-    setupMutationObserver() {
-      const observer = new MutationObserver((mutations) => {
-        for (const mutation of mutations) {
-          if (this.isWaveMakerChange(mutation)) {
-            this.handleDOMChange(mutation);
-          }
-        }
-      });
-      observer.observe(document.body, {
-        childList: true,
-        subtree: true,
-        attributes: true,
-        attributeFilter: ["class", "style", "data-*"]
-      });
-    }
-    /**
-     * Check if mutation is related to WaveMaker
-     * @param {MutationRecord} mutation - DOM mutation record
-     * @returns {boolean} True if WaveMaker-related change
-     */
-    isWaveMakerChange(mutation) {
-      const target = mutation.target;
-      return target.tagName && (target.tagName.toLowerCase().startsWith("wm-") || target.hasAttribute("widget-id") || target.classList.contains("wm-app"));
-    }
-    /**
-     * Handle DOM changes
-     * @param {MutationRecord} mutation - DOM mutation record
-     */
-    async handleDOMChange(mutation) {
-      const target = mutation.target;
-      if (target.tagName && target.tagName.toLowerCase().startsWith("wm-")) {
-        const parsedElement = this.parser.parseElement(target);
-        this.updateContext(parsedElement);
-      }
-    }
-    /**
-     * Update the current context with new element information
-     * @param {Object} parsedElement - Parsed element data
-     */
-    updateContext(parsedElement) {
-      if (!parsedElement)
-        return;
-      if (parsedElement.type === "widget" && parsedElement.id) {
-        this.currentContext.widgets.set(parsedElement.id, parsedElement);
-      }
-      if (parsedElement.variables) {
-        parsedElement.variables.forEach((variable) => {
-          this.currentContext.variables.set(variable.name, variable);
-        });
-      }
-      if (parsedElement.bindings) {
-        parsedElement.bindings.forEach((binding) => {
-          this.currentContext.bindings.set(binding.id, binding);
-        });
-      }
-      if (document.activeElement === parsedElement.element) {
-        this.currentContext.activeWidget = parsedElement;
-      }
-      this.notifyObservers({
-        type: "contextUpdate",
-        element: parsedElement
-      });
-    }
-    /**
-     * Analyze current page structure
-     */
-    async analyzeCurrentPage() {
-      const pageElement = document.querySelector("wm-page");
-      if (!pageElement)
-        return;
-      const pageStructure = this.parser.parseElement(pageElement);
-      this.currentContext.page = {
-        name: pageElement.getAttribute("name"),
-        structure: pageStructure,
-        timestamp: Date.now()
-      };
-      this.extractPageComponents(pageStructure);
-    }
-    /**
-     * Extract and categorize page components
-     * @param {Object} pageStructure - Parsed page structure
-     */
-    extractPageComponents(pageStructure) {
-      const traverse = (node) => {
-        if (node.name) {
-          this.currentContext.widgets.set(node.name, {
-            type: node.type,
-            category: node.category,
-            bindings: node.bindings,
-            relationships: node.relationships
-          });
-          if (node.bindings.variables.length > 0) {
-            node.bindings.variables.forEach((variable) => {
-              if (!this.currentContext.variables.has(variable)) {
-                this.currentContext.variables.set(variable, {
-                  usedBy: /* @__PURE__ */ new Set([node.name]),
-                  type: this.inferVariableType(variable)
-                });
-              } else {
-                this.currentContext.variables.get(variable).usedBy.add(node.name);
-              }
-            });
-          }
-          node.bindings.direct.forEach((binding) => {
-            this.currentContext.bindings.set(`${node.name}:${binding}`, {
-              widget: node.name,
-              expression: binding,
-              dependencies: this.parser.extractDependencies(binding)
-            });
-          });
-        }
-        node.children.forEach(traverse);
-      };
-      traverse(pageStructure);
-    }
-    /**
-     * Infer variable type from usage
-     * @param {string} variable - Variable name
-     * @returns {string} Inferred type
-     */
-    inferVariableType(variable) {
-      if (variable.includes(".dataSet"))
-        return "dataset";
-      if (variable.startsWith("Variables.static"))
-        return "static";
-      if (variable.startsWith("Variables.sv"))
-        return "service";
-      return "unknown";
-    }
-    /**
-     * Get relevant context for AI processing
-     * @param {string} query - User query
-     * @returns {Object} Relevant context
-     */
-    getRelevantContext(query) {
-      const context = {
-        activeWidget: this.currentContext.activeWidget,
-        relevantWidgets: [],
-        relevantVariables: [],
-        relevantBindings: []
-      };
-      this.currentContext.widgets.forEach((widget, name) => {
-        if (this.isRelevantToQuery(query, name, widget)) {
-          context.relevantWidgets.push({
-            name,
-            ...widget
-          });
-        }
-      });
-      this.currentContext.variables.forEach((variable, name) => {
-        if (this.isRelevantToQuery(query, name, variable)) {
-          context.relevantVariables.push({
-            name,
-            ...variable
-          });
-        }
-      });
-      context.relevantBindings = this.findRelatedBindings(context.relevantWidgets);
-      return context;
-    }
-    /**
-     * Check if item is relevant to query
-     * @param {string} query - User query
-     * @param {string} name - Item name
-     * @param {Object} item - Item details
-     * @returns {boolean} True if relevant
-     */
-    isRelevantToQuery(query, name, item) {
-      const queryTerms = query.toLowerCase().split(/\s+/);
-      const itemTerms = name.toLowerCase().split(/[.-_]/);
-      return queryTerms.some(
-        (term) => {
-          var _a, _b;
-          return itemTerms.some((itemTerm) => itemTerm.includes(term)) || ((_a = item.type) == null ? void 0 : _a.toLowerCase().includes(term)) || ((_b = item.category) == null ? void 0 : _b.toLowerCase().includes(term));
-        }
-      );
-    }
-    /**
-     * Find bindings related to widgets
-     * @param {Array} widgets - Relevant widgets
-     * @returns {Array} Related bindings
-     */
-    findRelatedBindings(widgets) {
-      const bindings = [];
-      const widgetNames = new Set(widgets.map((w) => w.name));
-      this.currentContext.bindings.forEach((binding, key) => {
-        if (widgetNames.has(binding.widget)) {
-          bindings.push({
-            key,
-            ...binding
-          });
-        }
-      });
-      return bindings;
-    }
-    /**
-     * Set active widget
-     * @param {string} widgetName - Name of active widget
-     */
-    setActiveWidget(widgetName) {
-      this.currentContext.activeWidget = this.currentContext.widgets.get(widgetName) || null;
-      this.notifyObservers();
-    }
-    /**
-     * Add context change observer
-     * @param {Function} callback - Observer callback
-     */
-    addObserver(callback) {
-      this.observers.add(callback);
-    }
-    /**
-     * Remove context change observer
-     * @param {Function} callback - Observer callback
-     */
-    removeObserver(callback) {
-      this.observers.delete(callback);
-    }
-    /**
-     * Notify observers of context changes
-     */
-    notifyObservers(change) {
-      this.observers.forEach((callback) => {
-        try {
-          callback(this.currentContext, change);
-        } catch (error) {
-          console.error("Error in context observer:", error);
-        }
-      });
-    }
-  };
-  var wmContext_default = WMContextManager;
-
   // src/js/services/openaiService.js
   var OpenAIService = class {
     constructor() {
@@ -483,7 +65,6 @@ ${logs}`
       this.logs = [];
       this.initialized = false;
       this.setupMessageListener();
-      this.setupNetworkMonitor();
     }
     setupMessageListener() {
       window.addEventListener("message", (event) => {
@@ -503,7 +84,6 @@ ${logs}`
         return;
       }
       this.initialized = true;
-      this.injectNetworkMonitor();
       try {
         const response = await chrome.runtime.sendMessage({ type: "GET_AUTH_COOKIE" });
         if (!response.cookie) {
@@ -547,90 +127,93 @@ ${logs}`
     //         originalConsoleWarn.apply(console, args);
     //     };
     // }
-    setupNetworkMonitor() {
-      const originalXHR = window.XMLHttpRequest.prototype.open;
-      window.XMLHttpRequest.prototype.open = function(...args) {
-        const xhr = this;
-        const url = args[1];
-        xhr.addEventListener("load", () => {
-          if (xhr.status >= 400) {
-            console.error(`XHR Error: ${xhr.status} ${xhr.statusText}`);
-            this.addLog({
-              type: "error",
-              severity: "ERROR",
-              message: `XHR Error: ${xhr.status} ${xhr.statusText}`,
-              details: {
-                url,
-                status: xhr.status,
-                statusText: xhr.statusText,
-                response: xhr.responseText
-              },
-              timestamp: (/* @__PURE__ */ new Date()).toISOString(),
-              source: "network"
-            });
-          }
-        });
-        xhr.addEventListener("error", () => {
-          console.error("XHR Network Error");
-          this.addLog({
-            type: "error",
-            severity: "ERROR",
-            message: `XHR Network Error`,
-            details: {
-              url,
-              error: "Network request failed"
-            },
-            timestamp: (/* @__PURE__ */ new Date()).toISOString(),
-            source: "network"
-          });
-        });
-        return originalXHR.apply(this, args);
-      };
-      const originalFetch = window.fetch;
-      window.fetch = async (...args) => {
-        try {
-          const response = await originalFetch(...args);
-          const url = typeof args[0] === "string" ? args[0] : args[0].url;
-          if (!response.ok) {
-            let errorDetails;
-            try {
-              errorDetails = await response.clone().text();
-            } catch {
-              errorDetails = "Could not read response body";
-            }
-            console.error(`Fetch Error: ${response.status} ${response.statusText}`);
-            this.addLog({
-              type: "error",
-              severity: "ERROR",
-              message: `Fetch Error: ${response.status} ${response.statusText}`,
-              details: {
-                url,
-                status: response.status,
-                statusText: response.statusText,
-                response: errorDetails
-              },
-              timestamp: (/* @__PURE__ */ new Date()).toISOString(),
-              source: "network"
-            });
-          }
-          return response;
-        } catch (error) {
-          const url = typeof args[0] === "string" ? args[0] : args[0].url;
-          this.addLog({
-            type: "error",
-            severity: "ERROR",
-            message: `Fetch Network Error: ${error.message}`,
-            details: {
-              url,
-              error: error.message
-            },
-            timestamp: (/* @__PURE__ */ new Date()).toISOString(),
-            source: "network"
-          });
-          throw error;
-        }
-      };
-    }
+    // setupNetworkMonitor() {
+    //     // Monitor XMLHttpRequest
+    //     const originalXHR = window.XMLHttpRequest.prototype.open;
+    //     window.XMLHttpRequest.prototype.open = function(...args) {
+    //         const xhr = this;
+    //         const url = args[1];
+    //         // Add event listeners for error handling
+    //         xhr.addEventListener('load', () => {
+    //             if (xhr.status >= 400) {
+    //                 console.error(`XHR Error: ${xhr.status} ${xhr.statusText}`);
+    //                 this.addLog({
+    //                     type: 'error',
+    //                     severity: 'ERROR',
+    //                     message: `XHR Error: ${xhr.status} ${xhr.statusText}`,
+    //                     details: {
+    //                         url: url,
+    //                         status: xhr.status,
+    //                         statusText: xhr.statusText,
+    //                         response: xhr.responseText
+    //                     },
+    //                     timestamp: new Date().toISOString(),
+    //                     source: 'network'
+    //                 });
+    //             }
+    //         });
+    //         xhr.addEventListener('error', () => {
+    //             console.error('XHR Network Error');
+    //             this.addLog({
+    //                 type: 'error',
+    //                 severity: 'ERROR',
+    //                 message: `XHR Network Error`,
+    //                 details: {
+    //                     url: url,
+    //                     error: 'Network request failed'
+    //                 },
+    //                 timestamp: new Date().toISOString(),
+    //                 source: 'network'
+    //             });
+    //         });
+    //         return originalXHR.apply(this, args);
+    //     };
+    //     // Monitor Fetch API
+    //     const originalFetch = window.fetch;
+    //     window.fetch = async (...args) => {
+    //         try {
+    //             const response = await originalFetch(...args);
+    //             const url = typeof args[0] === 'string' ? args[0] : args[0].url;
+    //             if (!response.ok) {
+    //                 let errorDetails;
+    //                 try {
+    //                     errorDetails = await response.clone().text();
+    //                 } catch {
+    //                     errorDetails = 'Could not read response body';
+    //                 }
+    //                 console.error(`Fetch Error: ${response.status} ${response.statusText}`);
+    //                 this.addLog({
+    //                     type: 'error',
+    //                     severity: 'ERROR',
+    //                     message: `Fetch Error: ${response.status} ${response.statusText}`,
+    //                     details: {
+    //                         url: url,
+    //                         status: response.status,
+    //                         statusText: response.statusText,
+    //                         response: errorDetails
+    //                     },
+    //                     timestamp: new Date().toISOString(),
+    //                     source: 'network'
+    //                 });
+    //             }
+    //             return response;
+    //         } catch (error) {
+    //             const url = typeof args[0] === 'string' ? args[0] : args[0].url;
+    //             this.addLog({
+    //                 type: 'error',
+    //                 severity: 'ERROR',
+    //                 message: `Fetch Network Error: ${error.message}`,
+    //                 details: {
+    //                     url: url,
+    //                     error: error.message
+    //                 },
+    //                 timestamp: new Date().toISOString(),
+    //                 source: 'network'
+    //             });
+    //             throw error;
+    //         }
+    //     };
+    // }
     async fetchLogs(type = "server", limit = 1e3) {
       try {
         if (!this.authCookie) {
@@ -1111,6 +694,14 @@ ${JSON.stringify(logsForAnalysis, null, 2)}`;
       content.innerHTML = `<pre>${analysis}</pre>`;
       analysisPanel.appendChild(content);
       analysisPanel.style.display = "block";
+    }
+    setLogType(type) {
+      const typeSelector = this.element.querySelector(".log-type-selector");
+      if (typeSelector) {
+        typeSelector.value = type;
+        typeSelector.dispatchEvent(new Event("change"));
+      }
+      this.currentLogType = type;
     }
   };
   var logPanel_default = LogPanel;
@@ -1681,13 +1272,11 @@ ${JSON.stringify(logsForAnalysis, null, 2)}`;
         for (const mutation of mutations) {
           if (mutation.type === "childList") {
             mutation.addedNodes.forEach((node) => {
-              if (
-                // node.nodeType === 1 && // Element node
-                node.classList.contains("toast") && node.classList.contains("toast-error")
-              ) {
-                console.log("Error toast detected, opening sidebar and switching to logs");
+              if (node.nodeType === 1 && // Element node
+              node.classList.contains("toast") && node.classList.contains("toast-error")) {
                 const messageElement = node.querySelector(".toast-message");
-                if (messageElement && messageElement.ariaLabel) {
+                if (messageElement && !messageElement.ariaLabel) {
+                  console.log("Error toast detected, opening sidebar and switching to logs");
                   this.openWithLogs("application");
                 }
               }
@@ -1715,8 +1304,7 @@ ${JSON.stringify(logsForAnalysis, null, 2)}`;
       if (logsTab) {
         await logsTab.click();
         if (this.logPanel) {
-          this.logPanel.currentLogType = logType;
-          await this.logPanel.analyzeLogs(logType);
+          this.logPanel.setLogType(logType);
         }
       }
     }
@@ -2298,7 +1886,6 @@ ${afterCursor}`
   var copilotInstance = null;
   var SurfboardAI = class {
     constructor() {
-      this.contextManager = new wmContext_default();
       this.apiKey = null;
       this.model = "llama3-8b-8192";
       this.apiEndpoint = "https://api.groq.com/openai/v1";
@@ -2318,7 +1905,6 @@ ${afterCursor}`
         console.log("CompletionManager initialized");
         this.apiKey = await this.loadConfiguration();
         this.sidebar = new sidebar_default();
-        await this.contextManager.initialize();
         this.setupMessageListener();
         this.isInitialized = true;
         this.sidebar.addMessage(
@@ -2357,7 +1943,6 @@ ${afterCursor}`
         if (type === "user") {
           try {
             this.sidebar.addMessage("Thinking...", "assistant");
-            const context = this.contextManager.getRelevantContext(message);
             const response = await fetch(this.apiEndpoint + "/chat/completions", {
               method: "POST",
               headers: {
@@ -2369,7 +1954,7 @@ ${afterCursor}`
                 messages: [
                   {
                     role: "system",
-                    content: `You are Surfboard AI, a WaveMaker development assistant. Current context: ${JSON.stringify(context)}`
+                    content: `You are Surfboard AI, a WaveMaker development assistant.`
                   },
                   {
                     role: "user",

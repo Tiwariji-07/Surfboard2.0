@@ -177,12 +177,12 @@ class WaveMakerCopilotSidebar {
                     // Check added nodes for error toasts
                     mutation.addedNodes.forEach(node => {
                         if (
-                            // node.nodeType === 1 && // Element node
+                            node.nodeType === 1 && // Element node
                             node.classList.contains('toast') && 
                             node.classList.contains('toast-error')) {
-                                console.log('Error toast detected, opening sidebar and switching to logs');
                                 const messageElement = node.querySelector('.toast-message');
-                                if (messageElement && messageElement.ariaLabel) {
+                                if (messageElement && !messageElement.ariaLabel) {
+                                    console.log('Error toast detected, opening sidebar and switching to logs');
                                     this.openWithLogs("application");
                                 }
 
@@ -213,24 +213,20 @@ class WaveMakerCopilotSidebar {
 
     async openWithLogs(logType="server") {
         // Open sidebar
-       if(!this.isOpen){
-        
-           this.toggleSidebar();
-       }
-        
-        
-        // Switch to logs panel
+        if(!this.isOpen) {
+            this.toggleSidebar();
+        }
+
+        // Switch to logs tab
         const logsTab = this.sidebarElement.querySelector('[data-tab="logs"]');
         if (logsTab) {
             // Deactivate all tabs
-            await logsTab.click()
+            await logsTab.click();
             // await this.logPanel.initializeService();
             if(this.logPanel){
-                this.logPanel.currentLogType = logType
-                await this.logPanel.analyzeLogs(logType);
-
+                this.logPanel.setLogType(logType);
+                // await this.logPanel.analyzeLogs(logType);
             }
-            
         }
     }
 
