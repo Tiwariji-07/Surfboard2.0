@@ -15,10 +15,11 @@
 
 .log-type-selector {
     flex: 1;
-    padding: 6px;
     border: 1px solid #ddd;
     border-radius: 4px;
     font-size: 13px;
+    color: inherit;
+    padding: 0 6px;
 }
 
 .refresh-button,
@@ -385,8 +386,11 @@
     padding: 16px;
     background: #fff;
     border-radius: 8px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    margin-top: 16px;
+    box-shadow: none;
+    /* 0 2px 4px rgba(0,0,0,0.1); */
+    margin-top: 0;
+    overflow: auto;
+    border: none;
 }
 
 .analysis-panel h3 {
