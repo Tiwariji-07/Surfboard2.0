@@ -10,6 +10,7 @@ class WaveMakerCopilotSidebar {
         // this.searchPanel = null;
         this.logPanel = null;
         this.searchPanel = null;
+        this.observers = [];
         this.initialize();
         this.setupToastObserver();
     }
@@ -170,45 +171,66 @@ class WaveMakerCopilotSidebar {
     }
 
     setupToastObserver() {
-        // Create a mutation observer to watch for toasts
-        const observer = new MutationObserver((mutations) => {
-            for (const mutation of mutations) {
-                if (mutation.type === 'childList') {
-                    // Check added nodes for error toasts
-                    mutation.addedNodes.forEach(node => {
-                        if (
-                            node.nodeType === 1 && // Element node
-                            node.classList.contains('toast') && 
-                            node.classList.contains('toast-error')) {
-                                const messageElement = node.querySelector('.toast-message');
-                                if (messageElement && !messageElement.ariaLabel) {
-                                    console.log('Error toast detected, opening sidebar and switching to logs');
-                                    this.openWithLogs("application");
+        // Function to create and setup observer
+        const createObserver = (target) => {
+            const observer = new MutationObserver((mutations) => {
+                for (const mutation of mutations) {
+                    if (mutation.type === 'childList') {
+                        mutation.addedNodes.forEach(node => {
+                            if (node.nodeType === 1) {
+                                if (node.classList?.contains('toast') && 
+                                    node.classList?.contains('toast-error')) {
+                                    const messageElement = node.querySelector('.toast-message');
+                                    if (messageElement && !messageElement.ariaLabel) {
+                                        console.log('Error toast detected, opening sidebar and switching to logs');
+                                        this.openWithLogs("application");
+                                    }
+                                } else if (node.classList?.contains('ngx-toastr') && 
+                                         node.classList?.contains('toast-error')) {
+                                    const messageElement = node.querySelector('.toast-message');
+                                    if (messageElement && messageElement.textContent.trim().startsWith('{"headers":')) {
+                                        this.openWithLogs();
+                                    }
                                 }
-
-                            // console.log('Error toast detected, opening sidebar and switching to logs');
-                        }
-                        if (node.nodeType === 1 && // Element node
-                            node.classList.contains('ngx-toastr') && 
-                            node.classList.contains('toast-error')) {
-                                const messageElement = node.querySelector('.toast-message');
-                                if (messageElement && messageElement.textContent.trim().startsWith('{"headers":')) {
-                                    this.openWithLogs();
-                                }
-
-                            // console.log('Error toast detected, opening sidebar and switching to logs');
-                        }
-                        
-                    });
+                            }
+                        });
+                    }
                 }
-            }
-        });
+            });
 
-        // Start observing the body for toast elements
-        observer.observe(document.body, {
-            childList: true,
-            subtree: true
-        });
+            observer.observe(target, {
+                childList: true,
+                subtree: true
+            });
+
+            return observer;
+        };
+
+        // Observe main document body
+        const mainObserver = createObserver(document.body);
+        this.observers = [mainObserver];
+
+        // Setup iframe observer once
+        const setupIframeObserver = () => {
+            const iframe = document.querySelector('#app-view');
+            if (iframe?.contentDocument?.body) {
+                const iframeObserver = createObserver(iframe.contentDocument.body);
+                this.observers.push(iframeObserver);
+                return true;
+            }
+            return false;
+        };
+
+        // Try to set up iframe observer immediately
+        if (!setupIframeObserver()) {
+            // If immediate setup fails, wait for iframe to load
+            const iframe = document.querySelector('#app-view');
+            if (iframe) {
+                iframe.addEventListener('load', () => {
+                    setupIframeObserver();
+                }, { once: true }); // Ensure the event listener only fires once
+            }
+        }
     }
 
     async openWithLogs(logType="server") {
@@ -454,7 +476,11 @@ class WaveMakerCopilotSidebar {
         }
     }
 
-    
+    cleanup() {
+        if (this.observers) {
+            this.observers.forEach(observer => observer.disconnect());
+        }
+    }
 }
 
 export default WaveMakerCopilotSidebar;

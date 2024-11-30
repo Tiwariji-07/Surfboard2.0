@@ -1152,6 +1152,7 @@ ${JSON.stringify(logsForAnalysis, null, 2)}`;
       this.isOpen = false;
       this.logPanel = null;
       this.searchPanel = null;
+      this.observers = [];
       this.initialize();
       this.setupToastObserver();
     }
@@ -1268,33 +1269,56 @@ ${JSON.stringify(logsForAnalysis, null, 2)}`;
       });
     }
     setupToastObserver() {
-      const observer = new MutationObserver((mutations) => {
-        for (const mutation of mutations) {
-          if (mutation.type === "childList") {
-            mutation.addedNodes.forEach((node) => {
-              if (node.nodeType === 1 && // Element node
-              node.classList.contains("toast") && node.classList.contains("toast-error")) {
-                const messageElement = node.querySelector(".toast-message");
-                if (messageElement && !messageElement.ariaLabel) {
-                  console.log("Error toast detected, opening sidebar and switching to logs");
-                  this.openWithLogs("application");
+      const createObserver = (target) => {
+        const observer = new MutationObserver((mutations) => {
+          for (const mutation of mutations) {
+            if (mutation.type === "childList") {
+              mutation.addedNodes.forEach((node) => {
+                var _a, _b, _c, _d;
+                if (node.nodeType === 1) {
+                  if (((_a = node.classList) == null ? void 0 : _a.contains("toast")) && ((_b = node.classList) == null ? void 0 : _b.contains("toast-error"))) {
+                    const messageElement = node.querySelector(".toast-message");
+                    if (messageElement && !messageElement.ariaLabel) {
+                      console.log("Error toast detected, opening sidebar and switching to logs");
+                      this.openWithLogs("application");
+                    }
+                  } else if (((_c = node.classList) == null ? void 0 : _c.contains("ngx-toastr")) && ((_d = node.classList) == null ? void 0 : _d.contains("toast-error"))) {
+                    const messageElement = node.querySelector(".toast-message");
+                    if (messageElement && messageElement.textContent.trim().startsWith('{"headers":')) {
+                      this.openWithLogs();
+                    }
+                  }
                 }
-              }
-              if (node.nodeType === 1 && // Element node
-              node.classList.contains("ngx-toastr") && node.classList.contains("toast-error")) {
-                const messageElement = node.querySelector(".toast-message");
-                if (messageElement && messageElement.textContent.trim().startsWith('{"headers":')) {
-                  this.openWithLogs();
-                }
-              }
-            });
+              });
+            }
           }
+        });
+        observer.observe(target, {
+          childList: true,
+          subtree: true
+        });
+        return observer;
+      };
+      const mainObserver = createObserver(document.body);
+      this.observers = [mainObserver];
+      const setupIframeObserver = () => {
+        var _a;
+        const iframe = document.querySelector("#app-view");
+        if ((_a = iframe == null ? void 0 : iframe.contentDocument) == null ? void 0 : _a.body) {
+          const iframeObserver = createObserver(iframe.contentDocument.body);
+          this.observers.push(iframeObserver);
+          return true;
         }
-      });
-      observer.observe(document.body, {
-        childList: true,
-        subtree: true
-      });
+        return false;
+      };
+      if (!setupIframeObserver()) {
+        const iframe = document.querySelector("#app-view");
+        if (iframe) {
+          iframe.addEventListener("load", () => {
+            setupIframeObserver();
+          }, { once: true });
+        }
+      }
     }
     async openWithLogs(logType = "server") {
       if (!this.isOpen) {
@@ -1477,6 +1501,11 @@ ${JSON.stringify(logsForAnalysis, null, 2)}`;
       const loader = this.sidebarElement.querySelector(".loading-spinner");
       if (loader) {
         loader.remove();
+      }
+    }
+    cleanup() {
+      if (this.observers) {
+        this.observers.forEach((observer) => observer.disconnect());
       }
     }
   };
