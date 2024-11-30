@@ -11,7 +11,8 @@
     "cookies"
   ],
   "host_permissions": [
-    "https://*.wavemakeronline.com/*project-id*"
+    "https://*.wavemakeronline.com/*project-id*",
+    "https://*.wavemakeronline.com/run*"
   ],
   "content_security_policy": {
     "extension_pages": "script-src 'self'; object-src 'self'",
@@ -32,7 +33,9 @@
   },
   "content_scripts": [
     {
-      "matches": ["https://*.wavemakeronline.com/*project-id*"],
+      "matches": ["https://*.wavemakeronline.com/*project-id*",
+    "https://*.wavemakeronline.com/run*"
+    ],
       "css": [
         "src/css/sidebar.css",
         "src/css/logPanel.css",
@@ -42,7 +45,7 @@
       ],
       "js": [
         "src/js/prism.js",
-        "src/js/bundle.js"
+        "src/js/bundle.js" 
       ],
       "run_at": "document_end"
     }
@@ -54,6 +57,10 @@
         "src/js/inject/*",
         "src/css/*"
       ],
+      "matches": ["https://*.wavemakeronline.com/*"]
+    },
+    {
+      "resources": ["js/inject/networkMonitor.js"],
       "matches": ["https://*.wavemakeronline.com/*"]
     }
   ],

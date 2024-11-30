@@ -480,8 +480,30 @@ ${logs}`
       this.baseUrl = "https://www.wavemakeronline.com/studio/services/studio/logs";
       this.authCookie = null;
       this.openaiService = openaiService_default;
+      this.logs = [];
+      this.initialized = false;
+      this.setupMessageListener();
+      this.setupNetworkMonitor();
+    }
+    setupMessageListener() {
+      window.addEventListener("message", (event) => {
+        if (event.data.type === "SURFBOARD_NETWORK_ERROR") {
+          this.addLog(event.data.error);
+        }
+      });
+    }
+    injectNetworkMonitor() {
+      const script = document.createElement("script");
+      script.src = chrome.runtime.getURL("src/js/inject/networkMonitor.js");
+      (document.head || document.documentElement).appendChild(script);
+      script.onload = () => script.remove();
     }
     async initialize(apiKey) {
+      if (this.initialized) {
+        return;
+      }
+      this.initialized = true;
+      this.injectNetworkMonitor();
       try {
         const response = await chrome.runtime.sendMessage({ type: "GET_AUTH_COOKIE" });
         if (!response.cookie) {
@@ -496,6 +518,118 @@ ${logs}`
         console.error("Failed to initialize LogService:", error);
         throw error;
       }
+    }
+    // setupConsoleMonitor() {
+    //     const originalConsoleError = console.error;
+    //     const originalConsoleWarn = console.warn;
+    //     console.error = (...args) => {
+    //         this.addLog({
+    //             type: 'error',
+    //             severity: 'ERROR',
+    //             message: args.map(arg => 
+    //                 typeof arg === 'object' ? JSON.stringify(arg) : String(arg)
+    //             ).join(' '),
+    //             timestamp: new Date().toISOString(),
+    //             source: 'console'
+    //         });
+    //         originalConsoleError.apply(console, args);
+    //     };
+    //     console.warn = (...args) => {
+    //         this.addLog({
+    //             type: 'warning',
+    //             severity: 'WARN',
+    //             message: args.map(arg => 
+    //                 typeof arg === 'object' ? JSON.stringify(arg) : String(arg)
+    //             ).join(' '),
+    //             timestamp: new Date().toISOString(),
+    //             source: 'console'
+    //         });
+    //         originalConsoleWarn.apply(console, args);
+    //     };
+    // }
+    setupNetworkMonitor() {
+      const originalXHR = window.XMLHttpRequest.prototype.open;
+      window.XMLHttpRequest.prototype.open = function(...args) {
+        const xhr = this;
+        const url = args[1];
+        xhr.addEventListener("load", () => {
+          if (xhr.status >= 400) {
+            console.error(`XHR Error: ${xhr.status} ${xhr.statusText}`);
+            this.addLog({
+              type: "error",
+              severity: "ERROR",
+              message: `XHR Error: ${xhr.status} ${xhr.statusText}`,
+              details: {
+                url,
+                status: xhr.status,
+                statusText: xhr.statusText,
+                response: xhr.responseText
+              },
+              timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+              source: "network"
+            });
+          }
+        });
+        xhr.addEventListener("error", () => {
+          console.error("XHR Network Error");
+          this.addLog({
+            type: "error",
+            severity: "ERROR",
+            message: `XHR Network Error`,
+            details: {
+              url,
+              error: "Network request failed"
+            },
+            timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+            source: "network"
+          });
+        });
+        return originalXHR.apply(this, args);
+      };
+      const originalFetch = window.fetch;
+      window.fetch = async (...args) => {
+        try {
+          const response = await originalFetch(...args);
+          const url = typeof args[0] === "string" ? args[0] : args[0].url;
+          if (!response.ok) {
+            let errorDetails;
+            try {
+              errorDetails = await response.clone().text();
+            } catch {
+              errorDetails = "Could not read response body";
+            }
+            console.error(`Fetch Error: ${response.status} ${response.statusText}`);
+            this.addLog({
+              type: "error",
+              severity: "ERROR",
+              message: `Fetch Error: ${response.status} ${response.statusText}`,
+              details: {
+                url,
+                status: response.status,
+                statusText: response.statusText,
+                response: errorDetails
+              },
+              timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+              source: "network"
+            });
+          }
+          return response;
+        } catch (error) {
+          const url = typeof args[0] === "string" ? args[0] : args[0].url;
+          this.addLog({
+            type: "error",
+            severity: "ERROR",
+            message: `Fetch Network Error: ${error.message}`,
+            details: {
+              url,
+              error: error.message
+            },
+            timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+            source: "network"
+          });
+          throw error;
+        }
+      };
     }
     async fetchLogs(type = "server", limit = 1e3) {
       try {
@@ -683,39 +817,45 @@ ${logs}`
       }
       return "info";
     }
-    async analyzeBatch(logSections) {
+    async analyzeBatch(logSections, isConsole = false) {
       try {
+        console.log("Starting batch analysis:", logSections);
         console.log("Inside analyzeBatch:");
-        let section = logSections[0];
-        let logsForAnalysis = section.logs.map((log) => ({
-          timestamp: log.timestamp,
-          severity: log.severity,
-          component: log.component,
-          message: log.message,
-          stackTrace: log.stackTrace,
-          ...log.requestId && { requestId: log.requestId },
-          ...log.projectPath && { projectPath: log.projectPath },
-          ...log.appId && { appId: log.appId },
-          thread: log.thread
-        }));
-        if (logsForAnalysis.length === 0) {
-          return "No logs available for analysis.";
+        let logsForAnalysis;
+        if (!isConsole) {
+          let section = logSections[0];
+          logsForAnalysis = section.logs.map((log) => ({
+            timestamp: log.timestamp,
+            severity: log.severity,
+            component: log.component,
+            message: log.message,
+            stackTrace: log.stackTrace,
+            ...log.requestId && { requestId: log.requestId },
+            ...log.projectPath && { projectPath: log.projectPath },
+            ...log.appId && { appId: log.appId },
+            thread: log.thread
+          }));
+          if (logsForAnalysis.length === 0) {
+            return "No logs available for analysis.";
+          }
+          logsForAnalysis.sort((a, b) => {
+            const severityOrder = { error: 3, warn: 2, debug: 1, info: 0 };
+            const severityDiff = (severityOrder[b.severity] || 0) - (severityOrder[a.severity] || 0);
+            if (severityDiff !== 0)
+              return severityDiff;
+            return b.timestamp.localeCompare(a.timestamp);
+          });
+          const errorLogs = logsForAnalysis.filter((log) => log.severity === "error").slice(0, 10);
+          const warnLogs = logsForAnalysis.filter((log) => log.severity === "warn").slice(0, 5);
+          const otherLogs = logsForAnalysis.filter((log) => !["error", "warn"].includes(log.severity)).slice(0, 5);
+          logsForAnalysis = [...errorLogs, ...warnLogs, ...otherLogs];
+          logsForAnalysis = logsForAnalysis.map((log) => ({
+            ...log,
+            stackTrace: log.stackTrace.length > 10 ? [...log.stackTrace.slice(0, 8), "... truncated ...", log.stackTrace[log.stackTrace.length - 1]] : log.stackTrace
+          }));
+        } else {
+          logsForAnalysis = logSections[0];
         }
-        logsForAnalysis.sort((a, b) => {
-          const severityOrder = { error: 3, warn: 2, debug: 1, info: 0 };
-          const severityDiff = (severityOrder[b.severity] || 0) - (severityOrder[a.severity] || 0);
-          if (severityDiff !== 0)
-            return severityDiff;
-          return b.timestamp.localeCompare(a.timestamp);
-        });
-        const errorLogs = logsForAnalysis.filter((log) => log.severity === "error").slice(0, 10);
-        const warnLogs = logsForAnalysis.filter((log) => log.severity === "warn").slice(0, 5);
-        const otherLogs = logsForAnalysis.filter((log) => !["error", "warn"].includes(log.severity)).slice(0, 5);
-        logsForAnalysis = [...errorLogs, ...warnLogs, ...otherLogs];
-        logsForAnalysis = logsForAnalysis.map((log) => ({
-          ...log,
-          stackTrace: log.stackTrace.length > 10 ? [...log.stackTrace.slice(0, 8), "... truncated ...", log.stackTrace[log.stackTrace.length - 1]] : log.stackTrace
-        }));
         const prompt = `Analyze these logs and provide a VERY concise, human-friendly explanation:
 1. What's the problem? (1 short sentence)
 2. Where is it? (file and line number)
@@ -726,10 +866,22 @@ Keep it extremely simple - imagine explaining to someone who's not technical.
 Logs to analyze: (${logsForAnalysis.length} most significant logs):
 ${JSON.stringify(logsForAnalysis, null, 2)}`;
         const aiAnalysis = await this.openaiService.analyzeLogs(prompt);
+        console.log("Received analysis from OpenAI:", aiAnalysis);
         return aiAnalysis;
       } catch (error) {
         console.error("Error in batch analysis:", error);
         throw error;
+      }
+    }
+    addLog(log) {
+      var _a, _b, _c, _d;
+      if (log.source === "network" && (((_b = (_a = log.details) == null ? void 0 : _a.url) == null ? void 0 : _b.includes("api.groq.com")) || ((_d = (_c = log.details) == null ? void 0 : _c.url) == null ? void 0 : _d.includes("127.0.0.1")))) {
+        return;
+      }
+      this.logs.push(log);
+      if (log.severity === "ERROR" || log.severity === "WARN") {
+        if (this.logs.length > 0)
+          this.analyzeBatch(this.logs, true);
       }
     }
   };
@@ -1529,6 +1681,16 @@ ${JSON.stringify(logsForAnalysis, null, 2)}`;
         for (const mutation of mutations) {
           if (mutation.type === "childList") {
             mutation.addedNodes.forEach((node) => {
+              if (
+                // node.nodeType === 1 && // Element node
+                node.classList.contains("toast") && node.classList.contains("toast-error")
+              ) {
+                console.log("Error toast detected, opening sidebar and switching to logs");
+                const messageElement = node.querySelector(".toast-message");
+                if (messageElement && messageElement.ariaLabel) {
+                  this.openWithLogs("application");
+                }
+              }
               if (node.nodeType === 1 && // Element node
               node.classList.contains("ngx-toastr") && node.classList.contains("toast-error")) {
                 const messageElement = node.querySelector(".toast-message");
@@ -1545,7 +1707,7 @@ ${JSON.stringify(logsForAnalysis, null, 2)}`;
         subtree: true
       });
     }
-    async openWithLogs() {
+    async openWithLogs(logType = "server") {
       if (!this.isOpen) {
         this.toggleSidebar();
       }
@@ -1553,7 +1715,8 @@ ${JSON.stringify(logsForAnalysis, null, 2)}`;
       if (logsTab) {
         await logsTab.click();
         if (this.logPanel) {
-          await this.logPanel.analyzeLogs("server");
+          this.logPanel.currentLogType = logType;
+          await this.logPanel.analyzeLogs(logType);
         }
       }
     }
@@ -2142,14 +2305,18 @@ ${afterCursor}`
       this.isInitialized = false;
       this.sidebar = null;
       this.completionManager = null;
+      this.logService = null;
       this.initialize();
+      this.initializeLogService();
     }
     async initialize() {
       try {
         console.log("Initializing SurfboardAI...");
+        this.logService = new LogService();
+        await this.initializeLogService();
         this.completionManager = new completionManager_default();
         console.log("CompletionManager initialized");
-        await this.loadConfiguration();
+        this.apiKey = await this.loadConfiguration();
         this.sidebar = new sidebar_default();
         await this.contextManager.initialize();
         this.setupMessageListener();
@@ -2160,8 +2327,29 @@ ${afterCursor}`
         );
         console.log("Surfboard.AI initialized successfully");
       } catch (error) {
-        console.error("Error initializing SurfboardAI:", error);
+        console.error("Failed to initialize SurfboardAI:", error);
       }
+    }
+    async initializeLogService() {
+      try {
+        const apiKey = await this.getOpenAIKey();
+        if (!apiKey) {
+          console.warn("OpenAI API key not found");
+          this.showError("OpenAI API key not configured. AI analysis will not be available.");
+          return;
+        }
+        await this.logService.initialize(apiKey);
+      } catch (error) {
+        console.error("Error initializing LogService:", error);
+        this.showError("Failed to initialize log service: " + error.message);
+      }
+    }
+    async getOpenAIKey() {
+      return new Promise((resolve) => {
+        chrome.storage.sync.get(["openaiApiKey"], (result) => {
+          resolve(result.openaiApiKey);
+        });
+      });
     }
     setupMessageListener() {
       document.addEventListener("surfboard-message", async (event) => {
@@ -2210,11 +2398,11 @@ ${afterCursor}`
       });
     }
     async loadConfiguration() {
-      const result = await chrome.storage.sync.get(["apiKey"]);
-      this.apiKey = result.apiKey;
-      if (!this.apiKey) {
-        throw new Error("API key not found");
-      }
+      return new Promise((resolve) => {
+        chrome.storage.sync.get(["groqApiKey"], (result) => {
+          resolve(result.groqApiKey);
+        });
+      });
     }
   };
   window.addEventListener("load", () => {

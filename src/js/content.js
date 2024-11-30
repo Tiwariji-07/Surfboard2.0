@@ -9,6 +9,7 @@ let copilotInstance = null;
 import WMContextManager from './context/wmContext.js';
 import WaveMakerCopilotSidebar from './ui/sidebar.js';
 import CompletionManager from './completion/completionManager.js';
+import { LogService } from './services/logService.js';
 
 class SurfboardAI {
     constructor() {
@@ -19,19 +20,25 @@ class SurfboardAI {
         this.isInitialized = false;
         this.sidebar = null;
         this.completionManager = null;
+        this.logService = null;
         this.initialize();
+        this.initializeLogService();
     }
 
     async initialize() {
         try {
             console.log('Initializing SurfboardAI...');
             
+            // Initialize log service first to catch any initialization errors
+            this.logService = new LogService();
+            await this.initializeLogService();
+
             // Initialize completion manager first
             this.completionManager = new CompletionManager();
             console.log('CompletionManager initialized');
             
             // Load API key
-            await this.loadConfiguration();
+            this.apiKey=await this.loadConfiguration();
             this.sidebar = new WaveMakerCopilotSidebar();
             await this.contextManager.initialize();
             this.setupMessageListener();
@@ -50,8 +57,33 @@ class SurfboardAI {
             
             console.log('Surfboard.AI initialized successfully');
         } catch (error) {
-            console.error('Error initializing SurfboardAI:', error);
+            console.error('Failed to initialize SurfboardAI:', error);
         }
+    }
+    async initializeLogService() {
+        try {
+            // Get OpenAI API key
+            const apiKey = await this.getOpenAIKey();
+            if (!apiKey) {
+                console.warn('OpenAI API key not found');
+                this.showError('OpenAI API key not configured. AI analysis will not be available.');
+                return;
+            }
+
+            // Initialize service with API key
+            await this.logService.initialize(apiKey);
+            // await this.refreshLogs();
+        } catch (error) {
+            console.error('Error initializing LogService:', error);
+            this.showError('Failed to initialize log service: ' + error.message);
+        }
+    }
+    async getOpenAIKey() {
+        return new Promise((resolve) => {
+            chrome.storage.sync.get(['openaiApiKey'], (result) => {
+                resolve(result.openaiApiKey);
+            });
+        });
     }
 
     setupMessageListener() {
@@ -90,12 +122,23 @@ class SurfboardAI {
                         })
                     });
 
+                    // const response = await fetch(this.apiEndpoint, {
+                    //     method: 'POST',
+                    //     headers: {
+                    //         'Content-Type': 'application/json',
+                    //     },
+                    //     body: JSON.stringify({
+                    //         "query": message,
+                    //     })
+                    // });
+
                     if (!response.ok) {
                         throw new Error('API request failed');
                     }
 
                     const data = await response.json();
                     const reply = data.choices[0].message.content;
+                    // const reply = data.answer;
 
                     // Remove thinking message
                     this.sidebar.chatContainer.lastChild.remove();
@@ -115,12 +158,11 @@ class SurfboardAI {
 
     async loadConfiguration() {
         // Load API key from storage
-        const result = await chrome.storage.sync.get(['apiKey']);
-        this.apiKey = result.apiKey;
-        
-        if (!this.apiKey) {
-            throw new Error('API key not found');
-        }
+        return new Promise((resolve) => {
+            chrome.storage.sync.get(['groqApiKey'], (result) => {
+                resolve(result.groqApiKey);
+            });
+        });
     }
 }
 

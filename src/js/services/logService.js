@@ -5,9 +5,34 @@ export class LogService {
         this.baseUrl = 'https://www.wavemakeronline.com/studio/services/studio/logs';
         this.authCookie = null;
         this.openaiService = openaiService;
+        this.logs = [];
+        this.initialized = false;
+        this.setupMessageListener();
+        // this.setupConsoleMonitor();
+        this.setupNetworkMonitor();
+    }
+
+    setupMessageListener() {
+        window.addEventListener('message', (event) => {
+            if (event.data.type === 'SURFBOARD_NETWORK_ERROR') {
+                this.addLog(event.data.error);
+            }
+        });
+    }
+
+    injectNetworkMonitor() {
+        const script = document.createElement('script');
+        script.src = chrome.runtime.getURL('src/js/inject/networkMonitor.js');
+        (document.head || document.documentElement).appendChild(script);
+        script.onload = () => script.remove();
     }
 
     async initialize(apiKey) {
+        if (this.initialized) {
+            return;
+        }
+        this.initialized = true;
+        this.injectNetworkMonitor();
         try {
             // Get auth cookie from background script
             const response = await chrome.runtime.sendMessage({ type: 'GET_AUTH_COOKIE' });
@@ -27,6 +52,130 @@ export class LogService {
             console.error('Failed to initialize LogService:', error);
             throw error;
         }
+    }
+
+    // setupConsoleMonitor() {
+    //     const originalConsoleError = console.error;
+    //     const originalConsoleWarn = console.warn;
+        
+    //     console.error = (...args) => {
+    //         this.addLog({
+    //             type: 'error',
+    //             severity: 'ERROR',
+    //             message: args.map(arg => 
+    //                 typeof arg === 'object' ? JSON.stringify(arg) : String(arg)
+    //             ).join(' '),
+    //             timestamp: new Date().toISOString(),
+    //             source: 'console'
+    //         });
+    //         originalConsoleError.apply(console, args);
+    //     };
+
+    //     console.warn = (...args) => {
+    //         this.addLog({
+    //             type: 'warning',
+    //             severity: 'WARN',
+    //             message: args.map(arg => 
+    //                 typeof arg === 'object' ? JSON.stringify(arg) : String(arg)
+    //             ).join(' '),
+    //             timestamp: new Date().toISOString(),
+    //             source: 'console'
+    //         });
+    //         originalConsoleWarn.apply(console, args);
+    //     };
+    // }
+
+    setupNetworkMonitor() {
+        // Monitor XMLHttpRequest
+        const originalXHR = window.XMLHttpRequest.prototype.open;
+        window.XMLHttpRequest.prototype.open = function(...args) {
+            const xhr = this;
+            const url = args[1];
+            
+            // Add event listeners for error handling
+            xhr.addEventListener('load', () => {
+                if (xhr.status >= 400) {
+                    console.error(`XHR Error: ${xhr.status} ${xhr.statusText}`);
+                    this.addLog({
+                        type: 'error',
+                        severity: 'ERROR',
+                        message: `XHR Error: ${xhr.status} ${xhr.statusText}`,
+                        details: {
+                            url: url,
+                            status: xhr.status,
+                            statusText: xhr.statusText,
+                            response: xhr.responseText
+                        },
+                        timestamp: new Date().toISOString(),
+                        source: 'network'
+                    });
+                }
+            });
+
+            xhr.addEventListener('error', () => {
+                console.error('XHR Network Error');
+                this.addLog({
+                    type: 'error',
+                    severity: 'ERROR',
+                    message: `XHR Network Error`,
+                    details: {
+                        url: url,
+                        error: 'Network request failed'
+                    },
+                    timestamp: new Date().toISOString(),
+                    source: 'network'
+                });
+            });
+
+            return originalXHR.apply(this, args);
+        };
+
+        // Monitor Fetch API
+        const originalFetch = window.fetch;
+        window.fetch = async (...args) => {
+            try {
+                const response = await originalFetch(...args);
+                const url = typeof args[0] === 'string' ? args[0] : args[0].url;
+                
+                if (!response.ok) {
+                    let errorDetails;
+                    try {
+                        errorDetails = await response.clone().text();
+                    } catch {
+                        errorDetails = 'Could not read response body';
+                    }
+                    console.error(`Fetch Error: ${response.status} ${response.statusText}`);
+                    this.addLog({
+                        type: 'error',
+                        severity: 'ERROR',
+                        message: `Fetch Error: ${response.status} ${response.statusText}`,
+                        details: {
+                            url: url,
+                            status: response.status,
+                            statusText: response.statusText,
+                            response: errorDetails
+                        },
+                        timestamp: new Date().toISOString(),
+                        source: 'network'
+                    });
+                }
+                return response;
+            } catch (error) {
+                const url = typeof args[0] === 'string' ? args[0] : args[0].url;
+                this.addLog({
+                    type: 'error',
+                    severity: 'ERROR',
+                    message: `Fetch Network Error: ${error.message}`,
+                    details: {
+                        url: url,
+                        error: error.message
+                    },
+                    timestamp: new Date().toISOString(),
+                    source: 'network'
+                });
+                throw error;
+            }
+        };
     }
 
     async fetchLogs(type = 'server', limit = 1000) {
@@ -282,57 +431,64 @@ export class LogService {
         return 'info';
     }
 
-    async analyzeBatch(logSections) {
+    async analyzeBatch(logSections,isConsole=false) {
         try {
-            // console.log('Starting batch analysis:', logSections);
+            console.log('Starting batch analysis:', logSections);
             
             // Prepare logs for analysis
             console.log("Inside analyzeBatch:");
-            let section = logSections[0];
-            // let logsForAnalysis = logSections.flatMap(section => 
-                let logsForAnalysis = section.logs.map(log => ({
-                    timestamp: log.timestamp,
-                    severity: log.severity,
-                    component: log.component,
-                    message: log.message,
-                    stackTrace: log.stackTrace,
-                    ...(log.requestId && { requestId: log.requestId }),
-                    ...(log.projectPath && { projectPath: log.projectPath }),
-                    ...(log.appId && { appId: log.appId }),
-                    thread: log.thread
-                }))
-            // );
+            let logsForAnalysis;
+            if(!isConsole){
+                    let section = logSections[0];
+                // let logsForAnalysis = logSections.flatMap(section => 
+                     logsForAnalysis = section.logs.map(log => ({
+                        timestamp: log.timestamp,
+                        severity: log.severity,
+                        component: log.component,
+                        message: log.message,
+                        stackTrace: log.stackTrace,
+                        ...(log.requestId && { requestId: log.requestId }),
+                        ...(log.projectPath && { projectPath: log.projectPath }),
+                        ...(log.appId && { appId: log.appId }),
+                        thread: log.thread
+                    }))
+                // );
 
-            if (logsForAnalysis.length === 0) {
-                return "No logs available for analysis.";
+                if (logsForAnalysis.length === 0) {
+                    return "No logs available for analysis.";
+                }
+
+                // Sort logs by severity and recency
+                logsForAnalysis.sort((a, b) => {
+                    // First sort by severity
+                    const severityOrder = { error: 3, warn: 2, debug: 1, info: 0 };
+                    const severityDiff = (severityOrder[b.severity] || 0) - (severityOrder[a.severity] || 0);
+                    if (severityDiff !== 0) return severityDiff;
+                    
+                    // Then by timestamp (most recent first)
+                    return b.timestamp.localeCompare(a.timestamp);
+                });
+
+                // Limit to most important logs to avoid token limit
+                // Keep more error logs than other types
+                const errorLogs = logsForAnalysis.filter(log => log.severity === 'error').slice(0, 10);
+                const warnLogs = logsForAnalysis.filter(log => log.severity === 'warn').slice(0, 5);
+                const otherLogs = logsForAnalysis.filter(log => !['error', 'warn'].includes(log.severity)).slice(0, 5);
+                
+                logsForAnalysis = [...errorLogs, ...warnLogs, ...otherLogs];
+
+                // Truncate stack traces if they're too long
+                logsForAnalysis = logsForAnalysis.map(log => ({
+                    ...log,
+                    stackTrace: log.stackTrace.length > 10 ? 
+                        [...log.stackTrace.slice(0, 8), '... truncated ...', log.stackTrace[log.stackTrace.length - 1]] :
+                        log.stackTrace
+                }));
+            }else{
+                logsForAnalysis = logSections[0];
             }
 
-            // Sort logs by severity and recency
-            logsForAnalysis.sort((a, b) => {
-                // First sort by severity
-                const severityOrder = { error: 3, warn: 2, debug: 1, info: 0 };
-                const severityDiff = (severityOrder[b.severity] || 0) - (severityOrder[a.severity] || 0);
-                if (severityDiff !== 0) return severityDiff;
-                
-                // Then by timestamp (most recent first)
-                return b.timestamp.localeCompare(a.timestamp);
-            });
-
-            // Limit to most important logs to avoid token limit
-            // Keep more error logs than other types
-            const errorLogs = logsForAnalysis.filter(log => log.severity === 'error').slice(0, 10);
-            const warnLogs = logsForAnalysis.filter(log => log.severity === 'warn').slice(0, 5);
-            const otherLogs = logsForAnalysis.filter(log => !['error', 'warn'].includes(log.severity)).slice(0, 5);
             
-            logsForAnalysis = [...errorLogs, ...warnLogs, ...otherLogs];
-
-            // Truncate stack traces if they're too long
-            logsForAnalysis = logsForAnalysis.map(log => ({
-                ...log,
-                stackTrace: log.stackTrace.length > 10 ? 
-                    [...log.stackTrace.slice(0, 8), '... truncated ...', log.stackTrace[log.stackTrace.length - 1]] :
-                    log.stackTrace
-            }));
 
             // Create prompt for OpenAI
             const prompt = `Analyze these logs and provide a VERY concise, human-friendly explanation:
@@ -347,7 +503,7 @@ ${JSON.stringify(logsForAnalysis, null, 2)}`;
 
             // console.log('Sending batch analysis request to OpenAI');
             const aiAnalysis = await this.openaiService.analyzeLogs(prompt);
-            // console.log('Received analysis from OpenAI:', aiAnalysis);
+            console.log('Received analysis from OpenAI:', aiAnalysis);
             
             return aiAnalysis;
         } catch (error) {
@@ -356,6 +512,21 @@ ${JSON.stringify(logsForAnalysis, null, 2)}`;
         }
     }   
 
+    addLog(log) {
+        // Don't log requests to our own API
+        if (log.source === 'network' && 
+            (log.details?.url?.includes('api.groq.com') || 
+             log.details?.url?.includes('127.0.0.1'))) {
+            return;
+        }
+        
+        this.logs.push(log);
+        // Analyze the log immediately if it's an error or warning
+        if (log.severity === 'ERROR' || log.severity === 'WARN') {
+            if(this.logs.length > 0)
+            this.analyzeBatch(this.logs,true);
+        }
+    }
 }
 
 // export default LogService;

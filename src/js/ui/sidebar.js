@@ -176,6 +176,18 @@ class WaveMakerCopilotSidebar {
                 if (mutation.type === 'childList') {
                     // Check added nodes for error toasts
                     mutation.addedNodes.forEach(node => {
+                        if (
+                            // node.nodeType === 1 && // Element node
+                            node.classList.contains('toast') && 
+                            node.classList.contains('toast-error')) {
+                                console.log('Error toast detected, opening sidebar and switching to logs');
+                                const messageElement = node.querySelector('.toast-message');
+                                if (messageElement && messageElement.ariaLabel) {
+                                    this.openWithLogs("application");
+                                }
+
+                            // console.log('Error toast detected, opening sidebar and switching to logs');
+                        }
                         if (node.nodeType === 1 && // Element node
                             node.classList.contains('ngx-toastr') && 
                             node.classList.contains('toast-error')) {
@@ -186,6 +198,7 @@ class WaveMakerCopilotSidebar {
 
                             // console.log('Error toast detected, opening sidebar and switching to logs');
                         }
+                        
                     });
                 }
             }
@@ -198,7 +211,7 @@ class WaveMakerCopilotSidebar {
         });
     }
 
-    async openWithLogs() {
+    async openWithLogs(logType="server") {
         // Open sidebar
        if(!this.isOpen){
         
@@ -213,7 +226,8 @@ class WaveMakerCopilotSidebar {
             await logsTab.click()
             // await this.logPanel.initializeService();
             if(this.logPanel){
-                await this.logPanel.analyzeLogs("server");
+                this.logPanel.currentLogType = logType
+                await this.logPanel.analyzeLogs(logType);
 
             }
             
