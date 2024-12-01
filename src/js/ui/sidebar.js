@@ -24,9 +24,9 @@ class WaveMakerCopilotSidebar {
         this.sidebarElement.innerHTML = `
             <div class="sidebar-header">
                 <h2>Surfboard AI</h2>
-                <div class="tab-buttons">
-                    <button class="tab-button active" data-tab="chat">Chat</button>
-                    <button class="tab-button" data-tab="logs">Logs</button>
+                <div class="tab-buttons">              
+                    <button class="tab-button" data-tab="logs" style="display: none;">Logs</button>
+                    <button class="tab-button active" data-tab="chat" style="display: none;">Chat</button>
                     <!-- <button class="tab-button" data-tab="search">Search</button> -->
                 </div>
                 <button class="minimize-button">X</button>
@@ -243,7 +243,7 @@ class WaveMakerCopilotSidebar {
         }
     }
 
-    async openWithLogs(logType="server") {
+    async openWithLogs(logType="application") {
         // Open sidebar
         if(!this.isOpen) {
             this.toggleSidebar();

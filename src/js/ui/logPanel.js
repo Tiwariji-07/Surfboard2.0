@@ -53,17 +53,21 @@ class LogPanel {
         // Create log type selector
         const typeSelector = document.createElement('select');
         typeSelector.className = 'log-type-selector';
-        ['server', 'application'].forEach(type => {
+        ['application', 'server'].forEach(type => {
             const option = document.createElement('option');
             option.value = type;
-            option.textContent = `${type.charAt(0).toUpperCase() + type.slice(1)} Logs`;
+            //option.textContent = `${type.charAt(0).toUpperCase() + type.slice(1)} Logs`;
+            option.textContent = `${type.charAt(0).toUpperCase() + type.slice(1)}`;
+
             typeSelector.appendChild(option);
         });
 
         // Create refresh button
+        /*   
         const refreshButton = document.createElement('button');
         refreshButton.className = 'refresh-button';
         refreshButton.innerHTML = '🔄 Refresh';
+        */
 
         // Create analyze button
         const analyzeButton = document.createElement('button');
@@ -71,7 +75,7 @@ class LogPanel {
         analyzeButton.innerHTML = '🔍 Analyze';
 
         header.appendChild(typeSelector);
-        header.appendChild(refreshButton);
+        //header.appendChild(refreshButton);
         header.appendChild(analyzeButton);
         this.element.appendChild(header);
     }
@@ -105,8 +109,10 @@ class LogPanel {
         });
 
         // Handle refresh
+        /*
         const refreshButton = this.element.querySelector('.refresh-button');
         refreshButton.addEventListener('click', () => this.refreshLogs());
+        */
 
         // Handle analyze
         const analyzeButton = this.element.querySelector('.analyze-button');
