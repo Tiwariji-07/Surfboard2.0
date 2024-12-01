@@ -510,9 +510,9 @@ export class LogService {
 
             // Create prompt for OpenAI
             const prompt = `Analyze these logs and provide a VERY concise, human-friendly explanation:
-        1. What's the problem and posible root cause? (1 short sentence)
-        2. Where is it? (file and line number)
-        3. How to fix it? (concise and actionable steps)
+            What's the problem and posible root cause: (1 short sentence)
+            Where is it: (file and line number)
+            How to fix it: (concise and actionable steps)
 
         Keep it extremely simple - imagine explaining to someone who's not technical.
 
