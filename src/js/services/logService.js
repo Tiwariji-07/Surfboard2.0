@@ -1,4 +1,5 @@
 import openaiService from './openaiService.js';
+import { marked } from 'marked';
 
 export class LogService {
     constructor() {
@@ -520,8 +521,13 @@ export class LogService {
             // console.log('Sending batch analysis request to OpenAI');
             const aiAnalysis = await this.openaiService.analyzeLogs(prompt);
             console.log('Received analysis from OpenAI:', aiAnalysis);
-            
-            return aiAnalysis;
+            const cleanedAnalysis = aiAnalysis
+                        .trim()
+                        .replace(/\r\n|\n/g, '\n');
+            const htmlResponse = marked(cleanedAnalysis);
+            console.log('htmlResponse:', htmlResponse);
+            return htmlResponse;
+
         } catch (error) {
             console.error('Error in batch analysis:', error);
             throw error;
