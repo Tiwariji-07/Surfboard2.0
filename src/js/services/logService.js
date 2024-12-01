@@ -273,16 +273,24 @@ export class LogService {
                                 continue; // Skip adding to parsedLogs, wait for stack trace
                             }
                         } else {
-                            const [, timestamp, projectPath, appId, thread, level, component, message] = mainLogMatch;
+                            let [, timestamp, projectPath, appId, thread, level, component, message] = mainLogMatch;
                             // Convert timestamp to ISO format
+
+                            if (!timestamp) {
+                                timestamp = new Date().toISOString();
+                              }
+
+                            if (!message && mainLogMatch[0]) {
+                                message = mainLogMatch[0];
+                              }
                             const date = new Date(timestamp);
                             const isoTimestamp = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')} ${timestamp.split(' ').pop()}`;
                             
                             currentLog = {
                                 timestamp: isoTimestamp,
                                 timeSection: isoTimestamp.slice(0, -4),
-                                projectPath: projectPath.startsWith('-') ? projectPath.slice(1) : projectPath,
-                                appId: appId.startsWith('-') ? appId.slice(1) : appId,
+                                projectPath: projectPath && projectPath.startsWith('-') ? projectPath.slice(1) : projectPath,
+                                appId: appId && appId.startsWith('-') ? appId.slice(1) : appId,
                                 thread,
                                 severity: this.getSeverity({ level, message: message || '' }),
                                 component,
@@ -314,6 +322,19 @@ export class LogService {
                         } else if (line_trimmed.startsWith('at ')) {
                             // Stack trace line
                             if (currentLog.stackTrace) {
+                                currentLog.stackTrace.push(line_trimmed);
+                            }
+                        }
+
+                        // Handling regular error cases: Caused by and Exception/Error
+                        if (line_trimmed.startsWith('Caused by:') || line_trimmed.includes('Exception:') || line_trimmed.includes('Error:')) {
+                            // This indicates a nested exception or error that should be captured
+                            if (!currentLog.message) {
+                                // If there is no message yet, use this as the first message
+                                currentLog.message = line_trimmed;
+                            } else {
+                                // If the message exists, append this error detail
+                                currentLog.stackTrace = currentLog.stackTrace || [];
                                 currentLog.stackTrace.push(line_trimmed);
                             }
                         }
@@ -413,21 +434,17 @@ export class LogService {
     getSeverity(log) {
         // First check explicit level
         const level = (log.level || '').toLowerCase();
-        if (level === 'error') return 'error';
-        if (level === 'warn' || level === 'warning') return 'warn';
-        if (level === 'debug') return 'debug';
-        if (level === 'info') return 'info';
+        if (['error', 'warn', 'debug', 'info'].includes(level)) return level;
 
         // Then check message content
         const message = (log.message || '').toLowerCase();
+
         if (message.includes('error') || message.includes('exception') || message.includes('fail')) {
             return 'error';
-        } else if (message.includes('warn') || message.includes('warning')) {
-            return 'warn';
-        } else if (message.includes('debug')) {
-            return 'debug';
         }
-        
+        else if (message.includes('warn')) return 'warn';
+        else if (message.includes('debug')) return 'debug';
+
         return 'info';
     }
 
@@ -491,9 +508,10 @@ export class LogService {
             
 
             // Create prompt for OpenAI
-            const prompt = `Analyze these logs and provide a VERY concise, human-friendly explanation:
-1. What's the problem? (1 short sentence)
-2. Where is it? (file and line number)
+            const prompt = `Analyze these logs and provide a VERY detailed, human-friendly explanation:
+            application-context: this apps runa on java 17 & spring framework  6.XX and higher versions.
+1. What's the problem and posible root cause? (1 short sentence)
+2. Where is it? (file and line numbeAr)
 3. How to fix it? (1-2 simple steps)
 
 Keep it extremely simple - imagine explaining to someone who's not technical.
