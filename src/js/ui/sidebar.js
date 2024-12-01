@@ -27,9 +27,9 @@ class WaveMakerCopilotSidebar {
                 <div class="tab-buttons">
                     <button class="tab-button active" data-tab="chat">Chat</button>
                     <button class="tab-button" data-tab="logs">Logs</button>
-                    <button class="tab-button" data-tab="search">Search</button>
+                    <!-- <button class="tab-button" data-tab="search">Search</button> -->
                 </div>
-                <button class="minimize-button">−</button>
+                <button class="minimize-button">X</button>
             </div>
             <div class="sidebar-content">
                 <div class="chat-container active"></div>
@@ -82,9 +82,11 @@ class WaveMakerCopilotSidebar {
         const toggleButton = document.createElement('button');
         toggleButton.className = 'sidebar-toggle';
         toggleButton.innerHTML = `
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <!-- <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-            </svg>
+            </svg> -->
+            <img src="https://wm-ps-igniters.s3.amazonaws.com/surfboard-2.0/surfboard.jpg" alt="Send" class="send-icon" />
+
         `;
         document.body.appendChild(toggleButton);
 
@@ -103,6 +105,7 @@ class WaveMakerCopilotSidebar {
         // Send button and textarea
         const sendButton = this.sidebarElement.querySelector('.send-button');
         const textarea = this.sidebarElement.querySelector('textarea');
+        const inputContainer = this.sidebarElement.querySelector('.input-container');
         
         const sendMessage = () => {
             const message = textarea.value.trim();
@@ -153,6 +156,13 @@ class WaveMakerCopilotSidebar {
                 const container = this.sidebarElement.querySelector(`.${containerClass}-container`);
                 if (container) {
                     container.classList.add('active');
+                }
+
+                 // Toggle input-container visibility
+                if (tabName === 'chat') {
+                    inputContainer.style.display = 'block';
+                } else {
+                    inputContainer.style.display = 'none';
                 }
 
                 // Initialize log panel if logs tab is selected
@@ -289,7 +299,7 @@ class WaveMakerCopilotSidebar {
         
         // Update minimize button text
         const minimizeButton = this.sidebarElement.querySelector('.minimize-button');
-        minimizeButton.textContent = this.isOpen ? '−' : '+';
+        minimizeButton.textContent = this.isOpen ? 'X' : '+';
     }
 
     addMessage(message, type) {

@@ -34,6 +34,11 @@
     /* background: #0056b3; */
     /* transform: rotate(180deg); */
 }
+.send-icon {
+    width: 20px;  /* Adjust the size as needed */
+    height: 20px; /* Adjust the size as needed */
+    object-fit: contain; /* Ensures the image keeps its aspect ratio */
+}
 
 /* Sidebar Layout */
 .wm-copilot-sidebar {
