@@ -23,7 +23,7 @@ class WaveMakerCopilotSidebar {
         // Add sidebar content
         this.sidebarElement.innerHTML = `
             <div class="sidebar-header">
-                <h2>Surfboard AI</h2>
+                <h2><img src="https://wm-ps-igniters.s3.amazonaws.com/surfboard-2.0/surfboard-logo.png" alt="Send" style="width:30px;" /> Surfboard AI</h2>
                 <div class="tab-buttons">              
                     <button class="tab-button" data-tab="logs" style="display: none;">Logs</button>
                     <button class="tab-button active" data-tab="chat" style="display: none;">Chat</button>
@@ -85,7 +85,7 @@ class WaveMakerCopilotSidebar {
             <!-- <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
             </svg> -->
-            <img src="https://wm-ps-igniters.s3.amazonaws.com/surfboard-2.0/surfboard.jpg" alt="Send" class="send-icon" />
+            <img src="https://wm-ps-igniters.s3.amazonaws.com/surfboard-2.0/surfboard-logo.png" alt="Send" class="send-icon" />
 
         `;
         document.body.appendChild(toggleButton);

@@ -8,20 +8,23 @@
     width: 48px;
     height: 48px;
     border-radius: 50%;
-    background: #007bff;
+    background: none;
     border: none;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    /* box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15); */
     cursor: pointer;
     z-index: 9998;
     display: flex;
     align-items: center;
     justify-content: center;
     transition: all 0.3s ease;
+    img{width: 48px;
+        height: 48px;
+            }
 }
 
 .sidebar-toggle:hover {
-    background: #0056b3;
-    transform: scale(1.05);
+    background: none;
+    transform: scale(1.15);
 }
 
 .sidebar-toggle svg {
@@ -200,7 +203,7 @@
 
 /* Minimize Button */
 .minimize-button {
-    background: none;
+    background-color: #e9ecef;
     border: none;
     padding: 4px 8px;
     cursor: pointer;
@@ -210,8 +213,8 @@
 }
 
 .minimize-button:hover {
-    background-color: #e9ecef;
-    color: #2c3e50;
+    background-color: #2c3e50;
+    color: #e9ecef;
 }
 
 /* Chat Container */
