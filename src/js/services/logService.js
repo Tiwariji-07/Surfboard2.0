@@ -508,16 +508,14 @@ export class LogService {
             
 
             // Create prompt for OpenAI
-            const prompt = `Analyze these logs and provide a VERY detailed, human-friendly explanation:
-            application-context: this apps runa on java 17 & spring framework  6.XX and higher versions.
-1. What's the problem and posible root cause? (1 short sentence)
-2. Where is it? (file and line numbeAr)
-3. How to fix it? (1-2 simple steps)
+            const prompt = `Analyze these logs and provide a VERY concise, human-friendly explanation:
+        1. What's the problem and posible root cause? (1 short sentence)
+        2. Where is it? (file and line number)
+        3. How to fix it? (concise and actionable steps)
 
-Keep it extremely simple - imagine explaining to someone who's not technical.
+        Keep it extremely simple - imagine explaining to someone who's not technical.
 
-Logs to analyze: (${logsForAnalysis.length} most significant logs):
-${JSON.stringify(logsForAnalysis, null, 2)}`;
+        ${JSON.stringify(logsForAnalysis, null, 2)}`;
 
             // console.log('Sending batch analysis request to OpenAI');
             const aiAnalysis = await this.openaiService.analyzeLogs(prompt);
