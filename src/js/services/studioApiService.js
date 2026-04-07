@@ -31,30 +31,109 @@ class StudioApiService {
         await this.initializationPromise;
     }
 
-    async fetchJson(url) {
+    async request(url, options = {}) {
         await this.initialize();
 
+        const {
+            method = 'GET',
+            accept = 'application/json',
+            contentType,
+            responseType = 'json',
+            body
+        } = options;
+        const headers = {
+            Accept: accept,
+            Cookie: `auth_cookie=${this.authCookie}`
+        };
+
+        if (contentType) {
+            headers['Content-Type'] = contentType;
+        }
+
         const response = await fetch(url, {
-            method: 'GET',
+            method,
             credentials: 'include',
-            headers: {
-                Accept: 'application/json',
-                'Content-Type': 'application/json',
-                Cookie: `auth_cookie=${this.authCookie}`
-            }
+            headers,
+            body
         });
 
         if (!response.ok) {
             if (response.status === 401) {
                 this.authCookie = null;
                 await this.initialize();
-                return this.fetchJson(url);
+                return this.request(url, options);
             }
 
             throw new Error(`Studio API request failed: ${response.status} ${response.statusText}`);
         }
 
+        if (responseType === 'text') {
+            return response.text();
+        }
+
         return response.json();
+    }
+
+    async fetchJson(url) {
+        return this.request(url, {
+            method: 'GET',
+            accept: 'application/json',
+            responseType: 'json'
+        });
+    }
+
+    async fetchText(url) {
+        return this.request(url, {
+            method: 'GET',
+            accept: 'text/plain, */*',
+            responseType: 'text'
+        });
+    }
+
+    async postText(url, content) {
+        return this.request(url, {
+            method: 'POST',
+            accept: 'application/json, text/plain, */*',
+            contentType: 'text/plain',
+            responseType: 'text',
+            body: content
+        });
+    }
+
+    buildProjectResourceUrl(projectId, resourcePath) {
+        const normalizedProjectId = String(projectId || '').trim();
+        const normalizedPath = String(resourcePath || '')
+            .split('/')
+            .map((segment) => segment.trim())
+            .filter(Boolean)
+            .map((segment) => encodeURIComponent(segment))
+            .join('/');
+
+        if (!normalizedProjectId || !normalizedPath) {
+            throw new Error('Project ID and resource path are required');
+        }
+
+        return `${this.projectBaseUrl}/${encodeURIComponent(normalizedProjectId)}/${normalizedPath}`;
+    }
+
+    async readProjectTextFile(projectId, resourcePath) {
+        return this.fetchText(this.buildProjectResourceUrl(projectId, resourcePath));
+    }
+
+    async writeProjectTextFile(projectId, resourcePath, content) {
+        if (typeof content !== 'string') {
+            throw new Error('Project file content must be a string');
+        }
+
+        return this.postText(this.buildProjectResourceUrl(projectId, resourcePath), content);
+    }
+
+    async readPageFile(projectId, pageName, fileName) {
+        return this.readProjectTextFile(projectId, `pages/${pageName}/${fileName}`);
+    }
+
+    async writePageFile(projectId, pageName, fileName, content) {
+        return this.writeProjectTextFile(projectId, `pages/${pageName}/${fileName}`, content);
     }
 
     async getProjectServices(projectId) {
