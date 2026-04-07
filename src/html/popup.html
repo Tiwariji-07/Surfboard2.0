@@ -126,13 +126,28 @@
 <body>
     <div class="container">
         <div class="input-group">
-            <label for="groqApiKey">Groq API Key</label>
-            <input type="text" id="groqApiKey" placeholder="Enter your Groq API key (gsk_...)">
+            <label for="litellmApiKey">LiteLLM API Key</label>
+            <input type="text" id="litellmApiKey" placeholder="Enter your LiteLLM key">
         </div>
 
         <div class="input-group">
-            <label for="openaiApiKey">OpenAI API Key</label>
-            <input type="text" id="openaiApiKey" placeholder="Enter your OpenAI API key (sk-...)">
+            <label for="litellmBaseUrl">LiteLLM Base URL</label>
+            <input type="text" id="litellmBaseUrl" placeholder="http://localhost:4000">
+        </div>
+
+        <div class="input-group">
+            <label for="litellmChatModel">Chat Model</label>
+            <input type="text" id="litellmChatModel" placeholder="claude-sonnet">
+        </div>
+
+        <div class="input-group">
+            <label for="litellmCompletionModel">Completion Model</label>
+            <input type="text" id="litellmCompletionModel" placeholder="gemini/gemini-3.1-flash-lite-preview">
+        </div>
+
+        <div class="input-group">
+            <label for="litellmLogModel">Log Analysis Model</label>
+            <input type="text" id="litellmLogModel" placeholder="claude-sonnet">
         </div>
 
         <div class="toggle-group">
@@ -146,6 +161,6 @@
         <button id="saveButton">Save Settings</button>
         <div id="status" class="status"></div>
     </div>
-    <script src="../js/popup.js"></script>
+    <script type="module" src="../js/popup.js"></script>
 </body>
 </html>

@@ -1,193 +1,273 @@
-// Script that runs in the page context to access Monaco
+(function initSurfboardMonacoHelper() {
+    if (window.__surfboardMonacoHelperInitialized) {
+        return;
+    }
+    window.__surfboardMonacoHelperInitialized = true;
 
-let activeEditor = null;
+    const PAGE_MESSAGES = {
+        EDITOR_CONTENT_REQUEST: 'SURFBOARD_EDITOR_CONTENT_REQUEST',
+        EDITOR_CONTENT_RESPONSE: 'SURFBOARD_EDITOR_CONTENT_RESPONSE',
+        INLINE_COMPLETIONS_REQUEST: 'SURFBOARD_INLINE_COMPLETIONS_REQUEST',
+        INLINE_COMPLETIONS_RESPONSE: 'SURFBOARD_INLINE_COMPLETIONS_RESPONSE',
+        MONACO_HELPER_READY: 'SURFBOARD_MONACO_HELPER_READY',
+        NAVIGATE_TO_FILE: 'SURFBOARD_NAVIGATE_TO_FILE'
+    };
 
-function initMonacoHelper() {
-    // console.log('Initializing Monaco helper...');
-    
+    let activeEditor = null;
+    const registeredLanguages = new Set();
+
     function waitForMonaco(callback) {
         if (typeof monaco !== 'undefined') {
             callback();
-        } else {
-            setTimeout(() => waitForMonaco(callback), 100);
+            return;
         }
+
+        window.setTimeout(() => waitForMonaco(callback), 100);
+    }
+
+    function setActiveEditor(editor) {
+        activeEditor = editor;
+    }
+
+    function registerInlineCompletionProvider(language) {
+        if (registeredLanguages.has(language)) {
+            return;
+        }
+
+        monaco.languages.registerInlineCompletionsProvider(language, {
+            provideInlineCompletions: async (model, position) => {
+                const lineCount = model.getLineCount();
+                const contextWindow = 10;
+                const startLine = Math.max(1, position.lineNumber - contextWindow);
+                const endLine = Math.min(lineCount, position.lineNumber + contextWindow);
+                const contextRange = {
+                    startLineNumber: startLine,
+                    startColumn: 1,
+                    endLineNumber: endLine,
+                    endColumn: model.getLineMaxColumn(endLine)
+                };
+                const requestId = `${model.id}:${Date.now()}:${Math.random().toString(16).slice(2)}`;
+                const globalCursorOffset = model.getOffsetAt(position);
+                const windowStartOffset = model.getOffsetAt({
+                    lineNumber: startLine,
+                    column: 1
+                });
+                const cursorOffset = globalCursorOffset - windowStartOffset;
+                const wordUntil = model.getWordUntilPosition(position);
+                const insertColumn = wordUntil && wordUntil.word ? wordUntil.startColumn : position.column;
+
+                window.postMessage(
+                    {
+                        type: PAGE_MESSAGES.INLINE_COMPLETIONS_REQUEST,
+                        data: {
+                            contextText: model.getValueInRange(contextRange),
+                            cursorOffset,
+                            fileName: getFileName(model),
+                            filePath: getFilePath(model),
+                            insertColumn,
+                            language: model.getLanguageId(),
+                            modelId: model.id,
+                            position: {
+                                lineNumber: position.lineNumber,
+                                column: position.column
+                            },
+                            relatedFiles: collectRelatedModels(model),
+                            requestId
+                        }
+                    },
+                    '*'
+                );
+
+                return new Promise((resolve) => {
+                    const timeoutId = window.setTimeout(() => {
+                        window.removeEventListener('message', handleResponse);
+                        resolve({ items: [] });
+                    }, 5000);
+
+                    const handleResponse = (event) => {
+                        const payload = event.data;
+                        if (
+                            payload?.type !== PAGE_MESSAGES.INLINE_COMPLETIONS_RESPONSE ||
+                            payload?.data?.requestId !== requestId ||
+                            payload?.data?.modelId !== model.id
+                        ) {
+                            return;
+                        }
+
+                        window.clearTimeout(timeoutId);
+                        window.removeEventListener('message', handleResponse);
+
+                        const items = (payload.data.items || []).map((item) => ({
+                            insertText: item.text,
+                            range: new monaco.Range(
+                                item.range.startLineNumber,
+                                item.range.startColumn,
+                                item.range.endLineNumber,
+                                item.range.endColumn
+                            )
+                        }));
+
+                        resolve({
+                            items,
+                            suppressSuggestions: false
+                        });
+                    };
+
+                    window.addEventListener('message', handleResponse);
+                });
+            },
+            freeInlineCompletions: () => {}
+        });
+
+        registeredLanguages.add(language);
+    }
+
+    function registerEditor(editor) {
+        setActiveEditor(editor);
+
+        if (typeof editor.onDidFocusEditorText === 'function') {
+            editor.onDidFocusEditorText(() => setActiveEditor(editor));
+        }
+
+        if (typeof editor.onDidChangeModel === 'function') {
+            editor.onDidChangeModel(() => setActiveEditor(editor));
+        }
+
+        if (typeof editor.updateOptions === 'function') {
+            editor.updateOptions({
+                inlineSuggest: {
+                    enabled: true
+                }
+            });
+        }
+    }
+
+    function getFilePath(model) {
+        if (!model || !model.uri) {
+            return '';
+        }
+
+        return model.uri.path || model.uri.toString() || '';
+    }
+
+    function getFileName(model) {
+        const path = getFilePath(model);
+        if (!path) {
+            return '';
+        }
+
+        const segments = path.split('/');
+        return segments[segments.length - 1];
+    }
+
+    function getFileBaseName(fileName) {
+        if (!fileName) {
+            return '';
+        }
+
+        const lastDot = fileName.lastIndexOf('.');
+        return lastDot === -1 ? fileName : fileName.slice(0, lastDot);
+    }
+
+    function collectRelatedModels(currentModel) {
+        const currentFileName = getFileName(currentModel);
+        const baseName = getFileBaseName(currentFileName);
+
+        if (!baseName) {
+            return [];
+        }
+
+        return monaco.editor
+            .getModels()
+            .filter((model) => model && model.id !== currentModel.id)
+            .map((model) => ({
+                fileName: getFileName(model),
+                filePath: getFilePath(model),
+                language: model.getLanguageId(),
+                content: model.getValue()
+            }))
+            .filter((model) => getFileBaseName(model.fileName) === baseName)
+            .slice(0, 3);
+    }
+
+    function getActiveEditorContent() {
+        try {
+            if (!activeEditor) {
+                const editors = monaco.editor.getEditors();
+                if (editors.length > 0) {
+                    activeEditor = editors[0];
+                }
+            }
+
+            if (!activeEditor) {
+                return { error: 'No active editor found' };
+            }
+
+            const model = activeEditor.getModel();
+            if (!model) {
+                return { error: 'No active document found' };
+            }
+
+            return {
+                content: model.getValue(),
+                fileName: getFileName(model),
+                filename: getFileName(model),
+                filePath: getFilePath(model),
+                language: model.getLanguageId()
+            };
+        } catch (error) {
+            return {
+                error: error.message || 'Failed to get editor content'
+            };
+        }
+    }
+
+    function navigateToFile(line, column) {
+        if (!activeEditor) {
+            return;
+        }
+
+        try {
+            activeEditor.setPosition({
+                lineNumber: parseInt(line, 10),
+                column: parseInt(column, 10) || 1
+            });
+            activeEditor.revealLineInCenter(parseInt(line, 10));
+            activeEditor.focus();
+        } catch (error) {
+            console.error('Failed to navigate inside active editor:', error);
+        }
+    }
+
+    function setupWindowListeners() {
+        window.addEventListener('message', (event) => {
+            if (event.data?.type === PAGE_MESSAGES.EDITOR_CONTENT_REQUEST) {
+                window.postMessage(
+                    {
+                        type: PAGE_MESSAGES.EDITOR_CONTENT_RESPONSE,
+                        ...getActiveEditorContent()
+                    },
+                    '*'
+                );
+            }
+
+            if (event.data?.type === PAGE_MESSAGES.NAVIGATE_TO_FILE) {
+                navigateToFile(event.data.data?.line, event.data.data?.column);
+            }
+        });
     }
 
     waitForMonaco(() => {
-        // Store reference to active editor
+        ['javascript', 'typescript', 'html', 'css'].forEach(registerInlineCompletionProvider);
+
         monaco.editor.onDidCreateEditor((editor) => {
-            activeEditor = editor;
+            registerEditor(editor);
         });
 
-        // Listen for messages from the extension
-        window.addEventListener('message', async (event) => {
-            if (event.data.type === 'GET_EDITOR_CONTENT') {
-                const editor = getActiveEditorContent();
-                window.postMessage({
-                    type: 'EDITOR_CONTENT_RESPONSE',
-                    content: editor.content,
-                    filename: editor.filename,
-                    error: editor.error
-                }, '*');
-            }
-        });
+        const existingEditors = monaco.editor.getEditors();
+        existingEditors.forEach(registerEditor);
 
-        // Listen for navigation messages
-        window.addEventListener('message', (event) => {
-            if (event.data.type === 'NAVIGATE_TO_FILE') {
-                const { filename, line, column } = event.data.data;
-                navigateToFile(filename, line, column);
-            }
-        });
-
-        // Register completion provider for all supported languages
-        const languages = ['javascript', 'typescript', 'html', 'css'];
-        
-        languages.forEach(language => {
-            monaco.languages.registerInlineCompletionsProvider(language, {
-                provideInlineCompletions: async (model, position, context, token) => {
-                    try {
-                        const lineContent = model.getLineContent(position.lineNumber);
-                        const wordUntil = model.getWordUntilPosition(position);
-                        const lineCount = model.getLineCount();
-                        
-                        // Get surrounding lines for context
-                        const contextWindow = 10;
-                        const startLine = Math.max(1, position.lineNumber - contextWindow);
-                        const endLine = Math.min(lineCount, position.lineNumber + contextWindow);
-                        
-                        // Get the text content for the context window
-                        const contextRange = {
-                            startLineNumber: startLine,
-                            startColumn: 1,
-                            endLineNumber: endLine,
-                            endColumn: model.getLineMaxColumn(endLine)
-                        };
-                        
-                        const requestData = {
-                            type: 'GET_INLINE_COMPLETIONS',
-                            data: {
-                                modelId: model.id,
-                                position: position,
-                                language: model.getLanguageId(),
-                                lineContent: lineContent,
-                                wordUntil: wordUntil,
-                                lineCount: lineCount,
-                                // Send actual text content
-                                contextText: model.getValueInRange(contextRange),
-                                cursorOffset: model.getOffsetAt(position)
-                            }
-                        };
-
-                        // Send request to content script
-                        window.postMessage(requestData, '*');
-
-                        // Wait for response
-                        return new Promise((resolve) => {
-                            const messageHandler = (event) => {
-                                if (event.data.type === 'INLINE_COMPLETIONS_RESPONSE' 
-                                    && event.data.data.modelId === model.id) {
-                                    window.removeEventListener('message', messageHandler);
-                                    
-                                    // Format completions for Monaco
-                                    const items = event.data.data.items.map(item => ({
-                                        insertText: item.text,
-                                        range: new monaco.Range(
-                                            item.range.startLineNumber,
-                                            item.range.startColumn,
-                                            item.range.endLineNumber,
-                                            item.range.endColumn
-                                        )
-                                    }));
-
-                                    resolve({
-                                        items: items,
-                                        suppressSuggestions: false
-                                    });
-                                }
-                            };
-
-                            window.addEventListener('message', messageHandler);
-                        });
-                    } catch (error) {
-                        console.error('Error in provideInlineCompletions:', error);
-                        return { items: [] };
-                    }
-                }
-            });
-        });
-        
-        // console.log('Monaco helper initialized');
+        setupWindowListeners();
+        window.postMessage({ type: PAGE_MESSAGES.MONACO_HELPER_READY }, '*');
     });
-}
-
-/**
- * Get content from the active editor
- */
-function getActiveEditorContent() {
-    try {
-        if (!activeEditor) {
-            const editors = monaco.editor.getEditors();
-            if (editors.length > 0) {
-                activeEditor = editors[0];
-            } else {
-                return {
-                    error: 'No active editor found'
-                };
-            }
-        }
-
-        const model = activeEditor.getModel();
-        if (!model) {
-            return {
-                error: 'No active document found'
-            };
-        }
-
-        return {
-            content: model.getValue(),
-            filename: model.uri.path.split('/').pop()
-        };
-    } catch (error) {
-        return {
-            error: error.message || 'Failed to get editor content'
-        };
-    }
-}
-
-/**
- * Navigate to a specific file and position
- */
-function navigateToFile(filename, line, column) {
-    const editor = getActiveEditor();
-    if (!editor) {
-        console.error('No active editor found');
-        return;
-    }
-
-    try {
-        // Set cursor position
-        editor.setPosition({
-            lineNumber: parseInt(line, 10),
-            column: parseInt(column, 10) || 1
-        });
-
-        // Reveal the line
-        editor.revealLineInCenter(parseInt(line, 10));
-
-        // Focus the editor
-        editor.focus();
-    } catch (error) {
-        console.error('Failed to navigate:', error);
-    }
-}
-
-/**
- * Get the active editor
- */
-function getActiveEditor() {
-    return activeEditor;
-}
-
-// Initialize the helper
-initMonacoHelper();
+})();

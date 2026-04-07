@@ -1,4 +1,5 @@
 import SearchService from '../services/searchService.js';
+import { PAGE_MESSAGES } from '../constants/messages.js';
 
 /**
  * SearchPanel - UI component for code search functionality
@@ -204,7 +205,7 @@ class SearchPanel {
 
         // Send message to navigate to file and line
         window.postMessage({
-            type: 'NAVIGATE_TO_FILE',
+            type: PAGE_MESSAGES.NAVIGATE_TO_FILE,
             data: {
                 filename: result.filename,
                 line: result.line,

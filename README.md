@@ -2,7 +2,7 @@
 
 ![Surfboard.AI Logo](src/icons/sticker.png)
 
-A powerful AI-powered Chrome extension designed to enhance the WaveMaker low-code development experience with intelligent coding assistance and contextual suggestions.
+A Chrome extension designed to enhance the WaveMaker low-code development experience with intelligent coding assistance and contextual suggestions.
 
 ## ✨ Features
 
@@ -31,7 +31,7 @@ A powerful AI-powered Chrome extension designed to enhance the WaveMaker low-cod
 ### Prerequisites
 - Google Chrome browser
 - WaveMaker development environment
-- OpenAI API key ([Get one here](https://platform.openai.com))
+- LiteLLM proxy or gateway access
 - Node.js and npm installed
 
 ### Installation for Development
@@ -51,7 +51,7 @@ npm install
 ```bash
 cp .env.example .env
 ```
-Edit `.env` and add your OpenAI API key.
+Edit `.env` and add your LiteLLM settings if you use environment-based local development.
 
 4. Build the extension:
 ```bash
@@ -84,12 +84,12 @@ npm run build:prod
 ### Architecture
 - Chrome Extension Manifest V3
 - Monaco Editor integration
-- OpenAI GPT-3.5 Turbo
+- LiteLLM-compatible chat completions endpoint
 - Event-driven messaging
 
 ### Components
 - **AI Service**
-  - OpenAI API integration
+  - LiteLLM API integration
   - Completion generation
   - Context management
 
@@ -143,7 +143,8 @@ wavemaker-copilot/
 
 1. Environment Variables (`.env`):
 ```env
-OPENAI_API_KEY=your-api-key-here
+LITELLM_API_KEY=your-api-key-here
+LITELLM_BASE_URL=http://localhost:4000
 EXTENSION_ENV=development
 DEBUG_MODE=false
 ```
@@ -157,8 +158,8 @@ DEBUG_MODE=false
 
 1. **API Key Management**:
    - Never commit API keys
-   - Use environment variables
-   - Store keys securely in extension storage
+   - Use environment variables for local development when needed
+   - Store LiteLLM keys securely in extension storage
 
 2. **Code Style**:
    - Follow ESLint configuration

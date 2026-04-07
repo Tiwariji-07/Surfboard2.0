@@ -1,19 +1,40 @@
+import {
+    DEFAULT_LITELLM_COMPLETION_MODEL,
+    normalizeLiteLLMBaseUrl,
+    validateLiteLLMBaseUrlForRuntime
+} from '../constants/litellm.js';
+import { RUNTIME_MESSAGES } from '../constants/messages.js';
+
 class AIService {
     constructor() {
-        this.API_KEY = ''; // Will be set through extension settings
-        this.API_URL = 'https://api.openai.com/v1/chat/completions';
-        this.MODEL = 'gpt-3.5-turbo';
-        this.CONFIG = {
+        this.apiKey = '';
+        this.apiBaseUrl = normalizeLiteLLMBaseUrl();
+        this.model = DEFAULT_LITELLM_COMPLETION_MODEL;
+        this.requestConfig = {
             max_tokens: 150,
-            temperature: 0.2, // Lower temperature for more focused completions
-            top_p: 0.95,     // Slightly reduce randomness
-            presence_penalty: 0.1, // Slight penalty for repetition
-            frequency_penalty: 0.1 // Slight penalty for common tokens
+            temperature: 0.2,
+            top_p: 0.95,
+            presence_penalty: 0.1,
+            frequency_penalty: 0.1
         };
     }
 
+    configure({ apiKey, baseUrl, model } = {}) {
+        if (typeof apiKey === 'string') {
+            this.apiKey = apiKey;
+        }
+
+        if (typeof baseUrl === 'string') {
+            this.apiBaseUrl = normalizeLiteLLMBaseUrl(baseUrl);
+        }
+
+        if (typeof model === 'string' && model.trim()) {
+            this.model = model.trim();
+        }
+    }
+
     setApiKey(key) {
-        this.API_KEY = key;
+        this.apiKey = key;
     }
 
     createPrompt(context, language) {
@@ -31,7 +52,8 @@ class AIService {
 3. Maintain consistent style with the surrounding code
 4. Only provide the completion text, no explanations
 5. Ensure syntactic correctness
-6. Use existing variables and functions when appropriate`
+6. Use existing variables and functions when appropriate
+7. Preserve WaveMaker conventions such as Variables.*, Widgets.*, service variable names, and page-specific naming when present`
             },
             {
                 role: 'user',
@@ -47,33 +69,59 @@ ${afterCursor}`
     }
 
     async makeAPIRequest(messages, n = 1, signal = null) {
-        if (!this.API_KEY) {
-            throw new Error('OpenAI API key not set');
+        if (!this.apiKey) {
+            throw new Error('LiteLLM API key not set');
         }
 
         try {
-            const response = await fetch(this.API_URL, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${this.API_KEY}`
-                },
-                body: JSON.stringify({
-                    model: this.MODEL,
-                    messages,
-                    ...this.CONFIG,
-                    n
-                }),
-                signal // Add abort signal to fetch request
+            const requestBaseUrl = validateLiteLLMBaseUrlForRuntime(this.apiBaseUrl);
+            const payload = {
+                model: this.model,
+                messages,
+                ...this.requestConfig,
+                n
+            };
+
+            const responsePromise = new Promise((resolve, reject) => {
+                chrome.runtime.sendMessage(
+                    {
+                        type: RUNTIME_MESSAGES.LITELLM_CHAT_COMPLETIONS,
+                        data: {
+                            apiKey: this.apiKey,
+                            baseUrl: requestBaseUrl,
+                            body: payload
+                        }
+                    },
+                    (response) => {
+                        if (chrome.runtime.lastError) {
+                            reject(new Error(chrome.runtime.lastError.message));
+                            return;
+                        }
+
+                        if (!response?.success) {
+                            reject(new Error(response?.error || 'LiteLLM completion request failed'));
+                            return;
+                        }
+
+                        resolve(response.data);
+                    }
+                );
             });
 
-            if (!response.ok) {
-                const error = await response.json();
-                throw new Error(error.error?.message || 'API request failed');
-            }
+            const responseData = signal
+                ? await Promise.race([
+                      responsePromise,
+                      new Promise((_, reject) => {
+                          signal.addEventListener(
+                              'abort',
+                              () => reject(new DOMException('Request aborted', 'AbortError')),
+                              { once: true }
+                          );
+                      })
+                  ])
+                : await responsePromise;
 
-            const data = await response.json();
-            return data.choices;
+            return responseData.choices;
         } catch (error) {
             console.error('API request failed:', error);
             throw error;

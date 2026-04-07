@@ -19,16 +19,15 @@ class LogPanel {
 
     async initializeService() {
         try {
-            // Get OpenAI API key
-            const apiKey = await this.getOpenAIKey();
+            const { apiKey, baseUrl, model } = await this.getLiteLLMConfig();
             if (!apiKey) {
-                console.warn('OpenAI API key not found');
-                this.showError('OpenAI API key not configured. AI analysis will not be available.');
+                console.warn('LiteLLM API key not found');
+                this.showError('LiteLLM API key not configured. AI analysis will not be available.');
                 return;
             }
 
             // Initialize service with API key
-            await this.logService.initialize(apiKey);
+            await this.logService.initialize(apiKey, baseUrl, model);
             await this.refreshLogs();
         } catch (error) {
             console.error('Error initializing LogService:', error);
@@ -36,10 +35,14 @@ class LogPanel {
         }
     }
 
-    async getOpenAIKey() {
+    async getLiteLLMConfig() {
         return new Promise((resolve) => {
-            chrome.storage.sync.get(['openaiApiKey'], (result) => {
-                resolve(result.openaiApiKey);
+            chrome.storage.sync.get(['litellmApiKey', 'litellmBaseUrl', 'litellmLogModel'], (result) => {
+                resolve({
+                    apiKey: result.litellmApiKey,
+                    baseUrl: result.litellmBaseUrl,
+                    model: result.litellmLogModel
+                });
             });
         });
     }

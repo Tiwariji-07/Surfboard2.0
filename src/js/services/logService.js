@@ -1,9 +1,10 @@
 import openaiService from './openaiService.js';
 import { marked } from 'marked';
+import { RUNTIME_MESSAGES } from '../constants/messages.js';
 
 export class LogService {
     constructor() {
-        this.baseUrl = 'https://www.wavemakeronline.com/studio/services/studio/logs';
+        this.baseUrl = `${window.location.origin}/studio/services/studio/logs`;
         this.authCookie = null;
         this.openaiService = openaiService;
         this.logs = [];
@@ -28,7 +29,7 @@ export class LogService {
         script.onload = () => script.remove();
     }
 
-    async initialize(apiKey) {
+    async initialize(apiKey, baseUrl = '', model = '') {
         if (this.initialized) {
             return;
         }
@@ -36,7 +37,7 @@ export class LogService {
         // this.injectNetworkMonitor();
         try {
             // Get auth cookie from background script
-            const response = await chrome.runtime.sendMessage({ type: 'GET_AUTH_COOKIE' });
+            const response = await chrome.runtime.sendMessage({ type: RUNTIME_MESSAGES.GET_AUTH_COOKIE });
             if (!response.cookie) {
                 throw new Error('Authentication cookie not found');
             }
@@ -44,9 +45,9 @@ export class LogService {
 
             // Initialize OpenAI service
             if (!apiKey) {
-                throw new Error('OpenAI API key is required');
+                throw new Error('LiteLLM API key is required');
             }
-            await this.openaiService.setApiKey(apiKey);
+            await this.openaiService.configure({ apiKey, baseUrl, model });
             
             // console.log('LogService initialized with auth cookie and API key');
         } catch (error) {
@@ -537,7 +538,8 @@ export class LogService {
     addLog(log) {
         // Don't log requests to our own API
         if (log.source === 'network' && 
-            (log.details?.url?.includes('api.groq.com') || 
+            (log.details?.url?.includes('localhost:4000') || 
+             log.details?.url?.includes('/chat/completions') ||
              log.details?.url?.includes('127.0.0.1'))) {
             return;
         }

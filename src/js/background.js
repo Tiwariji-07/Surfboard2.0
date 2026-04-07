@@ -1,11 +1,11 @@
-/**
- * WaveMaker Copilot Background Service Worker
- * Handles background tasks and messaging
- */
+import { RUNTIME_MESSAGES } from './constants/messages.js';
+import {
+    buildLiteLLMChatCompletionsUrl,
+    validateLiteLLMBaseUrlForRuntime
+} from './constants/litellm.js';
+import { getStudioOrigin, isConfiguredStudioUrl } from './constants/studio.js';
 
-// Initialize state
 const state = {
-    apiKey: null,
     activeTabId: null,
     readyTabs: new Set()
 };
@@ -66,30 +66,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
     try {
         switch (message.type) {
-            case 'API_KEY_UPDATED':
-                handleApiKeyUpdate(message.apiKey);
-                sendResponse({ success: true });
-                break;
-
-            case 'GET_API_KEY':
-                sendResponse({ apiKey: state.apiKey });
-                break;
-
-            case 'GET_CONTEXT':
-                handleContextRequest(sender.tab.id)
-                    .then(sendResponse)
-                    .catch(error => {
-                        console.error('Error handling context request:', error);
-                        sendResponse({ error: error.message });
-                    });
-                return true;
-
-            case 'TOGGLE_COPILOT':
+            case RUNTIME_MESSAGES.TOGGLE_COPILOT:
                 handleToggleCopilot(sender.tab ? sender.tab.id : state.activeTabId);
                 sendResponse({ success: true });
                 break;
 
-            case 'CONTENT_SCRIPT_READY':
+            case RUNTIME_MESSAGES.CONTENT_SCRIPT_READY:
                 if (sender.tab) {
                     state.readyTabs.add(sender.tab.id);
                     console.log('Content script ready in tab:', sender.tab.id);
@@ -97,14 +79,20 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                 }
                 break;
 
-            case 'GET_AUTH_COOKIE':
+            case RUNTIME_MESSAGES.GET_AUTH_COOKIE:
                 chrome.cookies.get({
-                    url: 'https://www.wavemakeronline.com',
+                    url: getCookieOrigin(sender?.tab?.url),
                     name: 'auth_cookie'
                 }, (cookie) => {
                     sendResponse({ cookie: cookie ? cookie.value : null });
                 });
                 return true; // Required for async response
+
+            case RUNTIME_MESSAGES.LITELLM_CHAT_COMPLETIONS:
+                handleLiteLLMChatCompletions(message.data)
+                    .then((result) => sendResponse({ success: true, data: result }))
+                    .catch((error) => sendResponse({ success: false, error: error.message }));
+                return true;
 
             default:
                 console.warn('Unknown message type:', message.type);
@@ -117,52 +105,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
     return true;
 });
-
-/**
- * Handle API key update
- * @param {string} newApiKey - New API key
- */
-function handleApiKeyUpdate(newApiKey) {
-    state.apiKey = newApiKey;
-    
-    // Save to storage
-    chrome.storage.sync.set({ apiKey: newApiKey })
-        .catch(error => console.error('Error saving API key:', error));
-
-    // Notify only ready tabs
-    chrome.tabs.query({}, (tabs) => {
-        for (const tab of tabs) {
-            if (state.readyTabs.has(tab.id) && isWaveMakerPage(tab.url)) {
-                chrome.tabs.sendMessage(tab.id, {
-                    type: 'API_KEY_UPDATED',
-                    apiKey: newApiKey
-                }).catch(() => {
-                    state.readyTabs.delete(tab.id);
-                    console.log('Tab no longer ready:', tab.id);
-                });
-            }
-        }
-    });
-}
-
-/**
- * Handle context request from content script
- * @param {number} tabId - ID of the requesting tab
- * @returns {Promise<Object>} Context data
- */
-async function handleContextRequest(tabId) {
-    const tab = await chrome.tabs.get(tabId);
-    
-    if (!isWaveMakerPage(tab.url)) {
-        throw new Error('Not a WaveMaker page');
-    }
-
-    return {
-        url: tab.url,
-        title: tab.title,
-        timestamp: new Date().toISOString()
-    };
-}
 
 /**
  * Handle toggling the copilot sidebar
@@ -179,7 +121,7 @@ function handleToggleCopilot(tabId) {
         return;
     }
 
-    chrome.tabs.sendMessage(tabId, { type: 'TOGGLE_COPILOT' })
+    chrome.tabs.sendMessage(tabId, { type: RUNTIME_MESSAGES.TOGGLE_COPILOT })
         .catch(error => {
             console.error('Error toggling copilot:', error);
             state.readyTabs.delete(tabId);
@@ -192,22 +134,46 @@ function handleToggleCopilot(tabId) {
  * @returns {boolean} True if WaveMaker page
  */
 function isWaveMakerPage(url) {
-    if (!url) return false;
-    
-    return url.includes('wavemaker.com') || 
-           url.includes('wavemakeronline.com') ||
-           url.includes('localhost');
+    return isConfiguredStudioUrl(url);
 }
 
-// Load saved API key on startup
-chrome.storage.sync.get('apiKey')
-    .then(({ apiKey }) => {
-        if (apiKey) {
-            state.apiKey = apiKey;
-            console.log('API key loaded from storage');
-        }
-    })
-    .catch(error => console.error('Error loading API key:', error));
+function getCookieOrigin(url) {
+    return getStudioOrigin(url);
+}
+
+async function handleLiteLLMChatCompletions(request = {}) {
+    const { apiKey, baseUrl, body } = request;
+
+    if (!apiKey) {
+        throw new Error('LiteLLM API key not set');
+    }
+
+    if (!body || typeof body !== 'object') {
+        throw new Error('LiteLLM request body is required');
+    }
+
+    const requestBaseUrl = validateLiteLLMBaseUrlForRuntime(baseUrl);
+    const response = await fetch(buildLiteLLMChatCompletionsUrl(requestBaseUrl), {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${apiKey}`
+        },
+        body: JSON.stringify(body)
+    });
+
+    const responseData = await response.json().catch(() => null);
+
+    if (!response.ok) {
+        throw new Error(
+            responseData?.error?.message ||
+                responseData?.error ||
+                `LiteLLM API error: ${response.status} ${response.statusText}`
+        );
+    }
+
+    return responseData;
+}
 
 // Handle extension icon click
 chrome.action.onClicked.addListener((tab) => {

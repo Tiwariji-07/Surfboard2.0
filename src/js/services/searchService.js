@@ -2,11 +2,13 @@
  * SearchService - Intelligent code search for WaveMaker projects
  */
 
+import { PAGE_MESSAGES, RUNTIME_MESSAGES } from '../constants/messages.js';
+
 class SearchService {
     constructor() {
         this.fileCache = new Map();
         this.projectId = null;
-        this.baseUrl = 'https://www.wavemakeronline.com/studio/services/projects';
+        this.baseUrl = `${window.location.origin}/studio/services/projects`;
         this.authCookie = null;
         this.initialize();
     }
@@ -17,7 +19,7 @@ class SearchService {
     async initialize() {
         try {
             // Get auth cookie from background script
-            const response = await chrome.runtime.sendMessage({ type: 'GET_AUTH_COOKIE' });
+            const response = await chrome.runtime.sendMessage({ type: RUNTIME_MESSAGES.GET_AUTH_COOKIE });
             if (!response.cookie) {
                 throw new Error('Authentication cookie not found');
             }
@@ -86,7 +88,7 @@ class SearchService {
         return new Promise((resolve, reject) => {
             // Setup message listener
             const messageHandler = (event) => {
-                if (event.data.type === 'EDITOR_CONTENT_RESPONSE') {
+                if (event.data.type === PAGE_MESSAGES.EDITOR_CONTENT_RESPONSE) {
                     window.removeEventListener('message', messageHandler);
                     
                     if (event.data.error) {
@@ -103,7 +105,7 @@ class SearchService {
             window.addEventListener('message', messageHandler);
 
             // Request editor content
-            window.postMessage({ type: 'GET_EDITOR_CONTENT' }, '*');
+            window.postMessage({ type: PAGE_MESSAGES.EDITOR_CONTENT_REQUEST }, '*');
 
             // Add timeout
             setTimeout(() => {

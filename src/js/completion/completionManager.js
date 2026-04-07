@@ -1,426 +1,204 @@
+import PageContextManager from '../context/pageContext.js';
+import {
+    DEFAULT_LITELLM_COMPLETION_MODEL,
+    normalizeLiteLLMBaseUrl
+} from '../constants/litellm.js';
+import { PAGE_MESSAGES } from '../constants/messages.js';
 import aiService from '../services/aiService.js';
 
 class CompletionManager {
-    constructor() {
-        this.currentEditor = null;
-        this.editorType = null;
-        this.monacoInstance = null;
-        this.inlineDecorationIds = [];
-        this.lastInlineText = '';
-        this.isProcessingInline = false;
-        this.initializeAttempts = 0;
-        this.maxInitializeAttempts = 20; // 10 seconds total (20 * 500ms)
-        this._inlineProviderRegistered = false;
-        this.contextWindow = 5; // Number of lines to include for context
-        
-        // Configuration for inline completions
+    constructor({ enabled = true } = {}) {
+        this.enabled = enabled;
+        this.helperInjected = false;
         this.inlineConfig = {
-            debounceTime: 500,      // Increased to 500ms
-            minRequestInterval: 750, // Minimum time between requests
-            maxPendingRequests: 1    // Maximum number of pending requests
+            debounceTime: 400,
+            minRequestInterval: 700
         };
+        this.pageContextManager = new PageContextManager();
+        this.pendingController = null;
+        this.lastRequestTime = 0;
 
-        // Create debounced handlers
-        this.debouncedHandleContentChange = this.debounce(
-            this.handleContentChange.bind(this),
-            this.inlineConfig.debounceTime
-        );
-
-        // Start initialization
-        this.initialize();
-    }
-
-    debounce(func, wait) {
-        let timeout;
-        return (...args) => {
-            clearTimeout(timeout);
-            timeout = setTimeout(() => {
-                func.apply(this, args);
-            }, wait);
-        };
-    }
-
-    throttle(func, limit) {
-        let inThrottle;
-        return (...args) => {
-            if (!inThrottle) {
-                func.apply(this, args);
-                inThrottle = true;
-                setTimeout(() => inThrottle = false, limit);
-            }
-        };
-    }
-
-    initialize() {
-        // console.log('CompletionManager initializing...');
         this.injectMonacoHelper();
-        this.setupMessageListener();
         this.setupAPIKey();
-        this.setupEditorObserver();
-        // console.log('CompletionManager initialized');
+        this.setupMessageListener();
+    }
+
+    setEnabled(enabled) {
+        this.enabled = enabled;
     }
 
     setupAPIKey() {
-        // Get API key from storage
-        chrome.storage.sync.get(['openaiApiKey'], (result) => {
-            if (result.openaiApiKey) {
-                aiService.setApiKey(result.openaiApiKey);
+        chrome.storage.sync.get(
+            ['litellmApiKey', 'litellmBaseUrl', 'litellmCompletionModel'],
+            (result) => {
+                aiService.configure({
+                    apiKey: result.litellmApiKey || '',
+                    baseUrl: normalizeLiteLLMBaseUrl(result.litellmBaseUrl),
+                    model: result.litellmCompletionModel || DEFAULT_LITELLM_COMPLETION_MODEL
+                });
             }
-        });
+        );
 
-        // Listen for API key changes
-        chrome.storage.onChanged.addListener((changes) => {
-            if (changes.openaiApiKey) {
-                aiService.setApiKey(changes.openaiApiKey.newValue);
+        chrome.storage.onChanged.addListener((changes, areaName) => {
+            if (areaName !== 'sync') {
+                return;
+            }
+
+            if (changes.litellmApiKey || changes.litellmBaseUrl || changes.litellmCompletionModel) {
+                chrome.storage.sync.get(
+                    ['litellmApiKey', 'litellmBaseUrl', 'litellmCompletionModel'],
+                    (result) => {
+                        aiService.configure({
+                            apiKey: result.litellmApiKey || '',
+                            baseUrl: normalizeLiteLLMBaseUrl(result.litellmBaseUrl),
+                            model:
+                                result.litellmCompletionModel || DEFAULT_LITELLM_COMPLETION_MODEL
+                        });
+                    }
+                );
             }
         });
     }
 
     injectMonacoHelper() {
-        var s = document.createElement('script');
-        s.src = chrome.runtime.getURL('src/js/inject/monacoHelper.js');
-        s.onload = function() { this.remove(); };
-        (document.head || document.documentElement).appendChild(s);
+        if (this.helperInjected) {
+            return;
+        }
+
+        const script = document.createElement('script');
+        script.src = chrome.runtime.getURL('src/js/inject/monacoHelper.js');
+        script.dataset.surfboardMonacoHelper = 'true';
+        script.onload = function () {
+            this.remove();
+        };
+        (document.head || document.documentElement).appendChild(script);
+
+        this.helperInjected = true;
     }
 
     setupMessageListener() {
         window.addEventListener('message', (event) => {
-            if (event.source !== window) return;
+            if (event.source !== window || !event.data?.type) {
+                return;
+            }
 
-            const { type, data } = event.data;
-            
-            switch (type) {
-                case 'MONACO_HELPER_READY':
-                    // console.log('Monaco helper ready, setting up completion provider...');
-                    // Send message to page context
-                    window.postMessage({
-                        type: 'SETUP_COMPLETION_PROVIDER',
-                        languages: ['javascript', 'typescript', 'html', 'css']
-                    }, '*');
-                    break;
-                case 'GET_EDITOR_INSTANCE_RESPONSE':
-                    // console.log('Got editor instance response:', data);
-                    if (data && data.success) {
-                        this.monacoInstance = data.editor;
-                        // console.log('Monaco instance set:', this.monacoInstance);
-                    }
-                    break;
-                case 'SETUP_PROVIDER_RESPONSE':
-                    // console.log('Completion provider setup response:', data);
-                    if (data && data.success) {
-                        // console.log('Completion provider registered successfully');
-                    } else {
-                        console.error('Failed to setup completion provider:', data?.error);
-                    }
-                    break;
-                case 'GET_INLINE_COMPLETIONS':
-                    // console.log('Getting inline completions for:', data);
-                    this.handleCompletionRequest(data);
-                    break;
+            if (event.data.type === PAGE_MESSAGES.INLINE_COMPLETIONS_REQUEST) {
+                this.handleCompletionRequest(event.data.data);
             }
         });
     }
 
     async handleCompletionRequest(data) {
-        // Check if we should skip this request
-        const now = Date.now();
-        if (now - this._lastRequestTime < this.inlineConfig.minRequestInterval) {
+        const requestId = data?.requestId;
+        const modelId = data?.modelId;
+
+        if (!requestId || !modelId || !this.enabled) {
+            this.sendInlineCompletionsResponse(requestId, modelId, []);
             return;
         }
-        this._lastRequestTime = now;
+
+        const now = Date.now();
+        if (now - this.lastRequestTime < this.inlineConfig.minRequestInterval) {
+            this.sendInlineCompletionsResponse(requestId, modelId, []);
+            return;
+        }
+        this.lastRequestTime = now;
 
         try {
-            const context = this.getContext(data);
-            if (!context) return;
-
-            // Cancel any pending request
-            if (this._pendingRequest) {
-                this._pendingRequest.abort();
+            if (this.pendingController) {
+                this.pendingController.abort();
             }
 
-            // Create new request
             const controller = new AbortController();
-            this._pendingRequest = controller;
+            this.pendingController = controller;
 
-            // Get completions from AI service
+            const requestContext = this.buildRequestContext(data);
             const completions = await aiService.getMultipleCompletions(
-                context.text,
-                context.language,
-                3, // Number of completions
-                controller.signal // Pass signal separately
+                requestContext.prompt,
+                requestContext.language,
+                3,
+                controller.signal
             );
-            
-            // Clear pending request if this one completed
-            if (this._pendingRequest === controller) {
-                this._pendingRequest = null;
+
+            if (this.pendingController === controller) {
+                this.pendingController = null;
             }
 
-            // Calculate proper range based on word position
-            const startColumn = data.wordUntil ? data.wordUntil.endColumn : data.position.column;
-            
-            // Send completions back to the editor
-            window.postMessage({
-                type: 'INLINE_COMPLETIONS_RESPONSE',
-                data: {
-                    modelId: data.modelId,
-                    items: completions.map(completion => ({
-                        text: completion,
-                        range: {
-                            startLineNumber: data.position.lineNumber,
-                            startColumn: startColumn,
-                            endLineNumber: data.position.lineNumber,
-                            endColumn: startColumn
-                        }
-                    }))
-                }
-            }, '*');
+            this.sendInlineCompletionsResponse(
+                requestId,
+                modelId,
+                completions.map((completion) => ({
+                    text: completion,
+                    range: {
+                        startLineNumber: data.position.lineNumber,
+                        startColumn: data.insertColumn,
+                        endLineNumber: data.position.lineNumber,
+                        endColumn: data.insertColumn
+                    }
+                }))
+            );
         } catch (error) {
-            if (error.name === 'AbortError') {
-                // console.log('Completion request cancelled');
-            } else {
+            if (error.name !== 'AbortError') {
                 console.error('Error handling completion request:', error);
             }
-            // Send empty completions on error
-            window.postMessage({
-                type: 'INLINE_COMPLETIONS_RESPONSE',
-                data: {
-                    modelId: data.modelId,
-                    items: []
-                }
-            }, '*');
+
+            this.sendInlineCompletionsResponse(requestId, modelId, []);
         }
     }
 
-    getContext(data) {
-        const { contextText, position, language, cursorOffset } = data;
-        
-        // Split the text into before and after cursor
-        const prefix = contextText.slice(0, cursorOffset);
-        const suffix = contextText.slice(cursorOffset);
-        
-        // Calculate relative cursor position
-        const lines = prefix.split('\n');
-        const cursorLine = lines.length;
-        const cursorColumn = lines[lines.length - 1].length + 1;
-        
-        // Combine the context with cursor position marker
+    buildRequestContext(data) {
+        const prefix = data.contextText.slice(0, data.cursorOffset);
+        const suffix = data.contextText.slice(data.cursorOffset);
+        const pageContext = this.pageContextManager.getCompletionContext({
+            fileName: data.fileName,
+            filePath: data.filePath,
+            language: data.language,
+            position: data.position
+        });
+        const promptPrefix = this.pageContextManager.toPromptPrefix(pageContext);
+        const relatedFilesContext = this.buildRelatedFilesContext(data.relatedFiles || []);
+
         return {
-            text: `${prefix}▼${suffix}`,
-            language,
-            cursorLine,
-            cursorColumn
+            language: data.language || 'javascript',
+            pageContext,
+            prompt: `${promptPrefix}${relatedFilesContext}\n\n${prefix}▼${suffix}`
         };
     }
 
-    setupEditorObserver() {
-        // console.log('Setting up editor observer...');
-        // Watch for WaveMaker editor elements being added to the DOM
-        const observer = new MutationObserver((mutations) => {
-            for (const mutation of mutations) {
-                for (const node of mutation.addedNodes) {
-                    if (node.nodeType === Node.ELEMENT_NODE) {
-                        // Try all possible WaveMaker editor containers
-                        const containers = [
-                            ...node.querySelectorAll('wms-editor, .wm-code-editor, .monaco-editor'),
-                            ...(node.matches('wms-editor, .wm-code-editor, .monaco-editor') ? [node] : [])
-                        ];
-                        
-                        for (const container of containers) {
-                            // console.log('Found potential editor container:', container.className || container.tagName);
-                            
-                            // For wms-editor, look inside the shadow DOM if it exists
-                            if (container.tagName.toLowerCase() === 'wms-editor' && container.shadowRoot) {
-                                const shadowEditor = container.shadowRoot.querySelector('.monaco-editor');
-                                if (shadowEditor && !shadowEditor.classList.contains('rename-box')) {
-                                    // console.log('Found Monaco editor in shadow DOM');
-                                    this.setupEditorListeners(shadowEditor);
-                                }
-                                continue;
-                            }
-                            
-                            // For regular containers, look for Monaco editor directly
-                            const editor = container.matches('.monaco-editor') ? 
-                                container : container.querySelector('.monaco-editor');
-                                
-                            if (editor && !editor.classList.contains('rename-box')) {
-                                // console.log('Found Monaco editor');
-                                this.setupEditorListeners(editor);
-                            }
-                        }
-                    }
+    buildRelatedFilesContext(relatedFiles) {
+        const sections = relatedFiles
+            .filter((file) => file?.fileName && file?.content)
+            .slice(0, 3)
+            .map((file) => {
+                const truncatedContent =
+                    file.content.length > 1500
+                        ? `${file.content.slice(0, 1500)}\n...truncated...`
+                        : file.content;
+
+                return [
+                    '',
+                    `[Related file: ${file.fileName} | language: ${file.language || 'unknown'}]`,
+                    truncatedContent,
+                    `[/Related file: ${file.fileName}]`
+                ].join('\n');
+            });
+
+        return sections.length ? `\n${sections.join('\n')}` : '';
+    }
+
+    sendInlineCompletionsResponse(requestId, modelId, items) {
+        window.postMessage(
+            {
+                type: PAGE_MESSAGES.INLINE_COMPLETIONS_RESPONSE,
+                data: {
+                    requestId,
+                    modelId,
+                    items
                 }
-            }
-        });
-
-        // Check for existing editors
-        // console.log('Checking for existing editors...');
-        ['wms-editor', '.wm-code-editor', '.monaco-editor'].forEach(selector => {
-            const existingEditors = document.querySelectorAll(selector);
-            existingEditors.forEach(container => {
-                // console.log('Found existing container:', selector);
-                
-                if (container.tagName.toLowerCase() === 'wms-editor' && container.shadowRoot) {
-                    const shadowEditor = container.shadowRoot.querySelector('.monaco-editor');
-                    if (shadowEditor && !shadowEditor.classList.contains('rename-box')) {
-                        // console.log('Found existing Monaco editor in shadow DOM');
-                        this.setupEditorListeners(shadowEditor);
-                    }
-                } else {
-                    const editor = container.matches('.monaco-editor') ? 
-                        container : container.querySelector('.monaco-editor');
-                        
-                    if (editor && !editor.classList.contains('rename-box')) {
-                        // console.log('Found existing Monaco editor');
-                        this.setupEditorListeners(editor);
-                    }
-                }
-            });
-        });
-
-        observer.observe(document.body, {
-            childList: true,
-            subtree: true
-        });
-        
-        // console.log('Editor observer setup complete');
+            },
+            '*'
+        );
     }
-
-    setupEditorListeners(editor) {
-        if (!editor || !this.isWaveMakerEditor(editor)) {
-            // console.log('Invalid editor or not a WaveMaker editor');
-            return;
-        }
-        
-        // console.log('Setting up editor listeners');
-        
-        try {
-            // Find the textarea that Monaco uses for input
-            const textArea = editor.querySelector('.inputarea');
-            if (!textArea) {
-                // console.log('Monaco input area not found');
-                return;
-            }
-
-            // Find the data-keybinding-context attribute which uniquely identifies the editor
-            const editorElement = editor.closest('[data-keybinding-context]');
-            if (!editorElement) {
-                // console.log('Editor context not found');
-                return;
-            }
-
-            const editorId = editorElement.getAttribute('data-keybinding-context');
-            // console.log('Found editor ID:', editorId);
-
-            // Use the injected helper to get editor instance
-            window.postMessage({
-                type: 'GET_EDITOR_INSTANCE',
-                editorId: editorId
-            }, '*');
-
-            this.currentEditor = editor;
-            
-            // Handle focus events
-            editor.addEventListener('focus', () => {
-                // console.log('Editor focused');
-                this.setCurrentEditor(editor);
-            });
-            
-            // Handle click events
-            editor.addEventListener('click', () => {
-                this.setCurrentEditor(editor);
-            });
-            
-            // Handle content changes through the textarea
-            this.monacoInstance.onDidChangeModelContent((event) => {
-                this.debouncedHandleContentChange(event);
-            });
-
-        } catch (error) {
-            console.error('Error setting up editor listeners:', error);
-        }
-    }
-
-    handleContentChange(event) {
-        if (this.isProcessingInline || !this.monacoInstance) return;
-        
-        const position = this.monacoInstance.getPosition();
-        if (position) {
-            this.monacoInstance.trigger('inline', 'editor.action.inlineCompletion');
-        }
-    }
-
-    isWaveMakerEditor(element) {
-        if (!element) return false;
-        
-        // console.log('Checking editor:', element.className);
-        
-        // Exclude rename box and other utility widgets
-        if (element.classList.contains('rename-box')) {
-            // console.log('Skipping rename box widget');
-            return false;
-        }
-        
-        // Check if it's a Monaco editor with the correct classes
-        const isMonacoEditor = element.classList.contains('monaco-editor');
-        const hasCorrectTheme = element.classList.contains('vs-dark') || element.classList.contains('vs');
-        const isNotWidget = !element.hasAttribute('widgetid');
-        
-        if (isMonacoEditor && hasCorrectTheme && isNotWidget) {
-            // console.log('Valid Monaco editor found');
-            return true;
-        }
-        
-        // Check if it's within a WaveMaker editor container
-        const wmContainer = element.closest('wms-editor, .wm-code-editor');
-        if (wmContainer) {
-            // console.log('Found within WaveMaker container:', wmContainer.tagName || wmContainer.className);
-            return true;
-        }
-        
-        // console.log('Not a valid WaveMaker editor');
-        return false;
-    }
-
-    detectEditorType(editor) {
-        if (!editor) return null;
-        
-        // Find the WaveMaker Studio editor container
-        const container = editor.closest('.wm-code-editor');
-        if (!container) return null;
-
-        // Try to get the mode from the editor's data attributes or class names
-        const editorClasses = editor.className;
-        
-        if (editorClasses.includes('html-editor') || container.getAttribute('data-mode-id') === 'html') {
-            return 'markup';
-        } else if (editorClasses.includes('css-editor') || container.getAttribute('data-mode-id') === 'css') {
-            return 'style';
-        } else if (editorClasses.includes('js-editor') || container.getAttribute('data-mode-id') === 'javascript') {
-            return 'script';
-        }
-        
-        // Fallback: try to detect from the content or file extension
-        const editorContent = editor.textContent.trim().toLowerCase();
-        if (editorContent.startsWith('<!doctype') || editorContent.includes('<html')) {
-            return 'markup';
-        } else if (editorContent.includes('{') && editorContent.includes('}') && 
-                   (editorContent.includes(':') || editorContent.includes(';'))) {
-            return 'style';
-        }
-        
-        // Default to script if we can't determine
-        return 'script';
-    }
-
-    setCurrentEditor(editor) {
-        if (this.currentEditor === editor) return;
-        
-        // console.log('Setting current editor:', editor);
-        this.currentEditor = editor;
-        this.editorType = this.detectEditorType(editor);
-        // console.log('Editor type:', this.editorType);
-    }
-
 }
 
 export default CompletionManager;

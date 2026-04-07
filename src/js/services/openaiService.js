@@ -1,7 +1,27 @@
+import {
+    DEFAULT_LITELLM_LOG_MODEL,
+    normalizeLiteLLMBaseUrl,
+    validateLiteLLMBaseUrlForRuntime
+} from '../constants/litellm.js';
+import { RUNTIME_MESSAGES } from '../constants/messages.js';
+
 class OpenAIService {
     constructor() {
         this.apiKey = null;
-        this.baseURL = 'https://api.openai.com/v1/chat/completions';
+        this.baseURL = normalizeLiteLLMBaseUrl();
+        this.model = DEFAULT_LITELLM_LOG_MODEL;
+    }
+
+    async configure({ apiKey, baseUrl, model } = {}) {
+        if (typeof apiKey === 'string') {
+            this.apiKey = apiKey;
+        }
+        if (typeof baseUrl === 'string') {
+            this.baseURL = normalizeLiteLLMBaseUrl(baseUrl);
+        }
+        if (typeof model === 'string' && model.trim()) {
+            this.model = model.trim();
+        }
     }
 
     async setApiKey(key) {
@@ -10,7 +30,7 @@ class OpenAIService {
 
     async analyzeLogs(logs) {
         if (!this.apiKey) {
-            throw new Error('OpenAI API key not set');
+            throw new Error('LiteLLM API key not set');
         }
 
         // const messages = [
@@ -42,26 +62,26 @@ class OpenAIService {
           ];
 
         try {
-            const response = await fetch(this.baseURL, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${this.apiKey}`
-                },
-                body: JSON.stringify({
-                    model: 'gpt-4o-mini',
-                    messages: messages,
-                    temperature: 0.2,
-                    max_tokens: 500
-                })
+            const requestBaseUrl = validateLiteLLMBaseUrlForRuntime(this.baseURL);
+            const response = await chrome.runtime.sendMessage({
+                type: RUNTIME_MESSAGES.LITELLM_CHAT_COMPLETIONS,
+                data: {
+                    apiKey: this.apiKey,
+                    baseUrl: requestBaseUrl,
+                    body: {
+                        model: this.model,
+                        messages,
+                        temperature: 0.2,
+                        max_tokens: 500
+                    }
+                }
             });
 
-            if (!response.ok) {
-                throw new Error(`OpenAI API error: ${response.statusText}`);
+            if (!response?.success) {
+                throw new Error(response?.error || 'LiteLLM API error');
             }
 
-            const data = await response.json();
-            return data.choices[0].message.content;
+            return response.data.choices[0].message.content;
         } catch (error) {
             console.error('Error analyzing logs:', error);
             throw error;

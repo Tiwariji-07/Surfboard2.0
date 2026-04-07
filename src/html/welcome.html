@@ -165,17 +165,16 @@
             <h2>Getting Started</h2>
             <ol class="setup-steps">
                 <li>
-                    <strong>Set up your API key</strong>
+                    <strong>Set up your LiteLLM access</strong>
                     <div class="api-key-section">
-                        <p>You'll need an OpenAI API key to use WaveMaker Copilot. Get your key from:</p>
-                        <a href="https://platform.openai.com/account/api-keys" target="_blank" class="button">
-                            OpenAI API Dashboard
-                        </a>
+                        <p>You'll need a LiteLLM API key and base URL to use WaveMaker Copilot.</p>
+                        <p>By default the extension assumes a LiteLLM proxy running at <code>http://localhost:4000</code>.</p>
+                        <p>When Studio is served over HTTPS, any non-local LiteLLM endpoint must also use HTTPS.</p>
                     </div>
                 </li>
                 <li>
                     <strong>Configure the extension</strong>
-                    <p>Click the extension icon and enter your API key when prompted.</p>
+                    <p>Click the extension icon and enter your LiteLLM key, base URL, and the model aliases exposed by your LiteLLM deployment.</p>
                 </li>
                 <li>
                     <strong>Start using Copilot</strong>
