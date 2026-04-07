@@ -243,6 +243,71 @@
     background: #f5f5f5;
     margin-right: auto;
     color: #333;
+    white-space: normal;
+}
+
+.assistant-message-body > :first-child {
+    margin-top: 0;
+}
+
+.assistant-message-body > :last-child {
+    margin-bottom: 0;
+}
+
+.assistant-message-body pre {
+    background: #1e1e1e;
+    border-radius: 6px;
+    margin: 8px 0;
+    overflow-x: auto;
+    padding: 12px;
+}
+
+.assistant-message-body code {
+    font-family: 'Consolas', 'Monaco', monospace;
+    font-size: 13px;
+}
+
+.assistant-message-body :not(pre) > code {
+    background: rgba(0, 0, 0, 0.06);
+    border-radius: 4px;
+    padding: 1px 4px;
+}
+
+.message-sources {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 10px;
+}
+
+.message-source-chip {
+    background: #e8eef9;
+    border-radius: 999px;
+    color: #24458f;
+    font-size: 12px;
+    padding: 4px 8px;
+}
+
+.message-followups {
+    border-top: 1px solid rgba(0, 0, 0, 0.08);
+    margin-top: 12px;
+    padding-top: 10px;
+}
+
+.message-followups strong {
+    display: block;
+    font-size: 12px;
+    margin-bottom: 6px;
+    text-transform: uppercase;
+}
+
+.message-followups ul {
+    margin: 0;
+    padding-left: 18px;
+}
+
+.chat-message.assistant.streaming {
+    opacity: 0.95;
 }
 
 /* Code Blocks */

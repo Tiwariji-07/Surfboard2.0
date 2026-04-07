@@ -10,6 +10,37 @@ const state = {
     readyTabs: new Set()
 };
 
+chrome.runtime.onConnect.addListener((port) => {
+    if (port.name !== RUNTIME_MESSAGES.ECOSYSTEM_AGENT_CHAT_STREAM) {
+        return;
+    }
+
+    const controller = new AbortController();
+
+    port.onDisconnect.addListener(() => {
+        controller.abort();
+    });
+
+    port.onMessage.addListener(async (message) => {
+        if (message?.type !== 'start') {
+            return;
+        }
+
+        try {
+            await handleEcosystemAgentChatStream(port, message.data, controller.signal);
+        } catch (error) {
+            if (controller.signal.aborted) {
+                return;
+            }
+
+            port.postMessage({
+                type: 'error',
+                error: error.message || 'Ecosystem agent streaming failed'
+            });
+        }
+    });
+});
+
 // Listen for extension installation
 chrome.runtime.onInstalled.addListener((details) => {
     console.log('Extension installed:', details.reason);
@@ -173,6 +204,84 @@ async function handleLiteLLMChatCompletions(request = {}) {
     }
 
     return responseData;
+}
+
+async function handleEcosystemAgentChatStream(port, request = {}, signal) {
+    const { baseUrl, body } = request;
+
+    if (!baseUrl) {
+        throw new Error('Ecosystem agent base URL is required');
+    }
+
+    if (!body || typeof body !== 'object') {
+        throw new Error('Ecosystem agent request body is required');
+    }
+
+    const response = await fetch(`${String(baseUrl).replace(/\/+$/, '')}/api/v1/chat/stream`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(body),
+        signal
+    });
+
+    if (!response.ok) {
+        const responseText = await response.text().catch(() => '');
+        throw new Error(
+            responseText || `Ecosystem agent API error: ${response.status} ${response.statusText}`
+        );
+    }
+
+    if (!response.body) {
+        throw new Error('Ecosystem agent response body is not readable');
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+        const { done, value } = await reader.read();
+
+        if (done) {
+            break;
+        }
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+            const trimmedLine = line.trim();
+            if (!trimmedLine) {
+                continue;
+            }
+
+            try {
+                port.postMessage({
+                    type: 'event',
+                    event: JSON.parse(trimmedLine)
+                });
+            } catch (error) {
+                console.warn('Failed to parse ecosystem agent stream line:', trimmedLine, error);
+            }
+        }
+    }
+
+    const trailingLine = buffer.trim();
+    if (trailingLine) {
+        try {
+            port.postMessage({
+                type: 'event',
+                event: JSON.parse(trailingLine)
+            });
+        } catch (error) {
+            console.warn('Failed to parse trailing ecosystem agent stream line:', trailingLine, error);
+        }
+    }
+
+    port.postMessage({ type: 'done' });
 }
 
 // Handle extension icon click

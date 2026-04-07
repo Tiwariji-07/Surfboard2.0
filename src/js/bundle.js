@@ -166,6 +166,7 @@
     API_KEYS_UPDATED: "SURFBOARD_API_KEYS_UPDATED",
     CONTENT_SCRIPT_READY: "SURFBOARD_CONTENT_SCRIPT_READY",
     COPILOT_STATUS_CHANGED: "SURFBOARD_COPILOT_STATUS_CHANGED",
+    ECOSYSTEM_AGENT_CHAT_STREAM: "SURFBOARD_ECOSYSTEM_AGENT_CHAT_STREAM",
     GET_AUTH_COOKIE: "SURFBOARD_GET_AUTH_COOKIE",
     LITELLM_CHAT_COMPLETIONS: "SURFBOARD_LITELLM_CHAT_COMPLETIONS",
     TOGGLE_COPILOT: "SURFBOARD_TOGGLE_COPILOT"
@@ -1064,72 +1065,6 @@ ${sections.join("\n")}` : "";
     }
     return getConfiguredMatchPatterns().some((pattern) => convertMatchPatternToRegex(pattern).test(url));
   }
-
-  // src/js/services/openaiService.js
-  var OpenAIService = class {
-    constructor() {
-      this.apiKey = null;
-      this.baseURL = normalizeLiteLLMBaseUrl();
-      this.model = DEFAULT_LITELLM_LOG_MODEL;
-    }
-    async configure({ apiKey, baseUrl, model } = {}) {
-      if (typeof apiKey === "string") {
-        this.apiKey = apiKey;
-      }
-      if (typeof baseUrl === "string") {
-        this.baseURL = normalizeLiteLLMBaseUrl(baseUrl);
-      }
-      if (typeof model === "string" && model.trim()) {
-        this.model = model.trim();
-      }
-    }
-    async setApiKey(key) {
-      this.apiKey = key;
-    }
-    async analyzeLogs(logs) {
-      if (!this.apiKey) {
-        throw new Error("LiteLLM API key not set");
-      }
-      const messages = [
-        {
-          role: "system",
-          content: `You are an expert log analyzer. Analyze for issues, including possible compatibility problems (e.g., framework updates or namespace changes like javax to jakarta). Provide concise explanations and actionable solutions.
-              `
-        },
-        {
-          role: "user",
-          content: `Analyze this log for the problem, root cause, and solution. Consider dependency compatibility, namespace changes, or other breaking changes.
-              :
-
-${logs}`
-        }
-      ];
-      try {
-        const requestBaseUrl = validateLiteLLMBaseUrlForRuntime(this.baseURL);
-        const response = await chrome.runtime.sendMessage({
-          type: RUNTIME_MESSAGES.LITELLM_CHAT_COMPLETIONS,
-          data: {
-            apiKey: this.apiKey,
-            baseUrl: requestBaseUrl,
-            body: {
-              model: this.model,
-              messages,
-              temperature: 0.2,
-              max_tokens: 500
-            }
-          }
-        });
-        if (!(response == null ? void 0 : response.success)) {
-          throw new Error((response == null ? void 0 : response.error) || "LiteLLM API error");
-        }
-        return response.data.choices[0].message.content;
-      } catch (error) {
-        console.error("Error analyzing logs:", error);
-        throw error;
-      }
-    }
-  };
-  var openaiService_default = new OpenAIService();
 
   // node_modules/.pnpm/marked@12.0.2/node_modules/marked/lib/marked.esm.js
   function _getDefaults() {
@@ -3143,6 +3078,72 @@ ${content}</tr>
   var parser = _Parser.parse;
   var lexer = _Lexer.lex;
 
+  // src/js/services/openaiService.js
+  var OpenAIService = class {
+    constructor() {
+      this.apiKey = null;
+      this.baseURL = normalizeLiteLLMBaseUrl();
+      this.model = DEFAULT_LITELLM_LOG_MODEL;
+    }
+    async configure({ apiKey, baseUrl, model } = {}) {
+      if (typeof apiKey === "string") {
+        this.apiKey = apiKey;
+      }
+      if (typeof baseUrl === "string") {
+        this.baseURL = normalizeLiteLLMBaseUrl(baseUrl);
+      }
+      if (typeof model === "string" && model.trim()) {
+        this.model = model.trim();
+      }
+    }
+    async setApiKey(key) {
+      this.apiKey = key;
+    }
+    async analyzeLogs(logs) {
+      if (!this.apiKey) {
+        throw new Error("LiteLLM API key not set");
+      }
+      const messages = [
+        {
+          role: "system",
+          content: `You are an expert log analyzer. Analyze for issues, including possible compatibility problems (e.g., framework updates or namespace changes like javax to jakarta). Provide concise explanations and actionable solutions.
+              `
+        },
+        {
+          role: "user",
+          content: `Analyze this log for the problem, root cause, and solution. Consider dependency compatibility, namespace changes, or other breaking changes.
+              :
+
+${logs}`
+        }
+      ];
+      try {
+        const requestBaseUrl = validateLiteLLMBaseUrlForRuntime(this.baseURL);
+        const response = await chrome.runtime.sendMessage({
+          type: RUNTIME_MESSAGES.LITELLM_CHAT_COMPLETIONS,
+          data: {
+            apiKey: this.apiKey,
+            baseUrl: requestBaseUrl,
+            body: {
+              model: this.model,
+              messages,
+              temperature: 0.2,
+              max_tokens: 500
+            }
+          }
+        });
+        if (!(response == null ? void 0 : response.success)) {
+          throw new Error((response == null ? void 0 : response.error) || "LiteLLM API error");
+        }
+        return response.data.choices[0].message.content;
+      } catch (error) {
+        console.error("Error analyzing logs:", error);
+        throw error;
+      }
+    }
+  };
+  var openaiService_default = new OpenAIService();
+
   // src/js/services/logService.js
   var LogService = class {
     constructor() {
@@ -4474,22 +4475,72 @@ ${content}</tr>
       const messageDiv = document.createElement("div");
       messageDiv.className = `chat-message ${type}`;
       if (type === "assistant") {
-        messageDiv.innerHTML = this.processMarkdown(message);
+        messageDiv.innerHTML = this.renderAssistantMessage({ text: message, sources: [], followups: [] });
       } else {
         messageDiv.textContent = message;
       }
       this.chatContainer.appendChild(messageDiv);
       this.chatContainer.scrollTop = this.chatContainer.scrollHeight;
+      return messageDiv;
+    }
+    createStreamingAssistantMessage() {
+      const messageDiv = document.createElement("div");
+      messageDiv.className = "chat-message assistant streaming";
+      this.chatContainer.appendChild(messageDiv);
+      this.updateStreamingAssistantMessage(messageDiv, {
+        text: "",
+        sources: [],
+        followups: []
+      });
+      this.chatContainer.scrollTop = this.chatContainer.scrollHeight;
+      return messageDiv;
+    }
+    updateStreamingAssistantMessage(messageDiv, state) {
+      messageDiv.innerHTML = this.renderAssistantMessage(state);
+      this.chatContainer.scrollTop = this.chatContainer.scrollHeight;
+    }
+    finalizeStreamingAssistantMessage(messageDiv, state) {
+      messageDiv.classList.remove("streaming");
+      messageDiv.innerHTML = this.renderAssistantMessage(state);
+      this.chatContainer.scrollTop = this.chatContainer.scrollHeight;
+    }
+    renderAssistantMessage({ text = "", sources = [], followups = [] }) {
+      const messageBody = (text == null ? void 0 : text.trim()) ? this.processMarkdown(text) : "<p><em>Thinking...</em></p>";
+      const sourceMarkup = sources.length ? `
+                <div class="message-sources">
+                    ${sources.map((source) => `<span class="message-source-chip">${this.escapeHtml(source)}</span>`).join("")}
+                </div>
+            ` : "";
+      const followupMarkup = followups.length ? `
+                <div class="message-followups">
+                    <strong>Suggested follow-ups</strong>
+                    <ul>
+                        ${followups.map((question) => `<li>${this.escapeHtml(question)}</li>`).join("")}
+                    </ul>
+                </div>
+            ` : "";
+      return `
+            <div class="assistant-message-body">${messageBody}</div>
+            ${sourceMarkup}
+            ${followupMarkup}
+        `;
     }
     processMarkdown(text) {
-      text = text.replace(/```(\w+)?\n([\s\S]+?)\n```/g, (match, lang, code) => {
-        const codeBlock = this.createCodeBlock(code.trim(), lang);
-        const tempContainer = document.createElement("div");
-        tempContainer.appendChild(codeBlock);
-        return tempContainer.innerHTML;
-      });
-      text = text.replace(/`([^`]+)`/g, "<code>$1</code>");
-      return text;
+      if (!text) {
+        return "";
+      }
+      try {
+        return marked.parse(text, {
+          breaks: true,
+          gfm: true
+        });
+      } catch (error) {
+        console.warn("Failed to render markdown:", error);
+        return `<p>${this.escapeHtml(text)}</p>`;
+      }
+    }
+    escapeHtml(value) {
+      return String(value).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
     }
     createCodeBlock(code, language) {
       const codeBlock = document.createElement("div");
@@ -4576,15 +4627,27 @@ ${content}</tr>
         `;
     }
     formatContextDetails(context) {
-      var _a, _b;
+      var _a, _b, _c, _d, _e, _f;
       if (!context)
         return "<p>No context available</p>";
+      const widgets = ((_b = (_a = context.symbols) == null ? void 0 : _a.widgets) == null ? void 0 : _b.slice(0, 6).join(", ")) || "N/A";
+      const variables = ((_d = (_c = context.apiContext) == null ? void 0 : _c.pageVariables) == null ? void 0 : _d.slice(0, 6).join(", ")) || "N/A";
+      const services = ((_f = (_e = context.apiContext) == null ? void 0 : _e.services) == null ? void 0 : _f.slice(0, 6).join(", ")) || "N/A";
       return `
             <div class="context-item">
-                <strong>Page:</strong> ${((_a = context.activePage) == null ? void 0 : _a.name) || "N/A"}
+                <strong>Page:</strong> ${context.pageName || "N/A"}
             </div>
             <div class="context-item">
-                <strong>Component:</strong> ${((_b = context.activeComponent) == null ? void 0 : _b.type) || "N/A"}
+                <strong>File:</strong> ${context.activeFile || "N/A"}
+            </div>
+            <div class="context-item">
+                <strong>Widgets:</strong> ${widgets}
+            </div>
+            <div class="context-item">
+                <strong>Page variables:</strong> ${variables}
+            </div>
+            <div class="context-item">
+                <strong>Services:</strong> ${services}
             </div>
             <div class="context-item">
                 <strong>Last Updated:</strong> ${(/* @__PURE__ */ new Date()).toLocaleTimeString()}
@@ -4615,6 +4678,7 @@ ${content}</tr>
 
   // src/js/content.js
   var copilotInstance = null;
+  var ECOSYSTEM_AGENT_BASE_URL = "https://ecosystem-agent.wavemaker.ai";
   var SurfboardAI = class {
     constructor() {
       this.apiKey = null;
@@ -4624,6 +4688,10 @@ ${content}</tr>
       this.model = DEFAULT_LITELLM_CHAT_MODEL;
       this.sidebar = null;
       this.completionManager = null;
+      this.pageContextManager = new pageContext_default();
+      this.chatHistory = [];
+      this.maxChatHistory = 6;
+      this.chatSessionId = crypto.randomUUID();
     }
     async initialize() {
       if (!this.isWaveMakerStudioPage()) {
@@ -4642,6 +4710,9 @@ ${content}</tr>
         this.setupStorageListener();
         this.notifyReady();
         this.isInitialized = true;
+        this.refreshSidebarContext().catch((error) => {
+          console.warn("Failed to initialize sidebar context:", error);
+        });
         this.sidebar.addMessage(
           "Hello! I'm your Surfboard AI assistant.\n\n- I can answer WaveMaker questions\n- I can help with JS, HTML, and CSS\n- I can suggest page-aware code changes\n\nHow can I help?",
           "assistant"
@@ -4663,7 +4734,7 @@ ${content}</tr>
     }
     setupChatListener() {
       document.addEventListener("surfboard-message", async (event) => {
-        var _a, _b, _c, _d, _e;
+        var _a, _b;
         if (!this.isEnabled) {
           (_a = this.sidebar) == null ? void 0 : _a.showError("Surfboard AI is disabled. Enable it from the extension popup.");
           return;
@@ -4672,52 +4743,201 @@ ${content}</tr>
         if (type !== "user") {
           return;
         }
-        if (!this.apiKey) {
-          (_b = this.sidebar) == null ? void 0 : _b.showError("LiteLLM API key not configured.");
-          return;
-        }
         try {
-          this.sidebar.addMessage("Thinking...", "assistant");
-          const reply = await this.fetchChatReply(message);
-          if ((_d = (_c = this.sidebar) == null ? void 0 : _c.chatContainer) == null ? void 0 : _d.lastChild) {
-            this.sidebar.chatContainer.lastChild.remove();
-          }
-          this.sidebar.addMessage(reply, "assistant");
+          const pageContext = await this.refreshSidebarContext();
+          const streamingMessage = this.sidebar.createStreamingAssistantMessage();
+          const reply = await this.fetchChatReplyStream(message, pageContext, streamingMessage);
+          this.recordChatTurn("user", message);
+          this.recordChatTurn("assistant", reply);
         } catch (error) {
           console.error("Failed to process message:", error);
-          (_e = this.sidebar) == null ? void 0 : _e.showError(error.message || "Failed to process your message.");
+          (_b = this.sidebar) == null ? void 0 : _b.showError(error.message || "Failed to process your message.");
         }
       });
     }
-    async fetchChatReply(message) {
-      var _a, _b, _c;
-      const requestBaseUrl = validateLiteLLMBaseUrlForRuntime(this.apiBaseUrl);
-      const response = await chrome.runtime.sendMessage({
-        type: RUNTIME_MESSAGES.LITELLM_CHAT_COMPLETIONS,
-        data: {
-          apiKey: this.apiKey,
-          baseUrl: requestBaseUrl,
-          body: {
-            model: this.model,
-            messages: [
-              {
-                role: "system",
-                content: "You are Surfboard AI, a WaveMaker development assistant."
-              },
-              {
-                role: "user",
-                content: message
-              }
-            ],
-            temperature: 0.4,
-            max_tokens: 1500
+    async fetchChatReplyStream(message, pageContext, streamingMessage) {
+      const requestBody = this.buildChatStreamRequest(message, pageContext);
+      const streamState = {
+        text: "",
+        sources: [],
+        followups: []
+      };
+      this.sidebar.updateStreamingAssistantMessage(streamingMessage, streamState);
+      return new Promise((resolve, reject) => {
+        let settled = false;
+        const port = chrome.runtime.connect({
+          name: RUNTIME_MESSAGES.ECOSYSTEM_AGENT_CHAT_STREAM
+        });
+        const cleanup = () => {
+          port.onMessage.removeListener(handlePortMessage);
+          port.onDisconnect.removeListener(handleDisconnect);
+          try {
+            port.disconnect();
+          } catch (error) {
           }
-        }
+        };
+        const finish = (result) => {
+          if (settled) {
+            return;
+          }
+          settled = true;
+          this.sidebar.finalizeStreamingAssistantMessage(streamingMessage, streamState);
+          cleanup();
+          resolve(result);
+        };
+        const fail = (error) => {
+          if (settled) {
+            return;
+          }
+          settled = true;
+          if (!streamState.text.trim()) {
+            streamingMessage.remove();
+          } else {
+            this.sidebar.finalizeStreamingAssistantMessage(streamingMessage, streamState);
+          }
+          cleanup();
+          reject(error instanceof Error ? error : new Error(String(error)));
+        };
+        const handleDisconnect = () => {
+          if (!settled && chrome.runtime.lastError) {
+            fail(new Error(chrome.runtime.lastError.message));
+          }
+        };
+        const handlePortMessage = (payload) => {
+          if ((payload == null ? void 0 : payload.type) === "event") {
+            this.handleStreamEvent(payload.event, streamState, streamingMessage, fail);
+            return;
+          }
+          if ((payload == null ? void 0 : payload.type) === "done") {
+            finish(streamState.text.trim() || "No response received.");
+            return;
+          }
+          if ((payload == null ? void 0 : payload.type) === "error") {
+            fail(new Error(payload.error || "Chat request failed"));
+          }
+        };
+        port.onMessage.addListener(handlePortMessage);
+        port.onDisconnect.addListener(handleDisconnect);
+        port.postMessage({
+          type: "start",
+          data: {
+            baseUrl: ECOSYSTEM_AGENT_BASE_URL,
+            body: requestBody
+          }
+        });
       });
-      if (!(response == null ? void 0 : response.success)) {
-        throw new Error((response == null ? void 0 : response.error) || "Chat request failed");
+    }
+    handleStreamEvent(event, streamState, streamingMessage, fail) {
+      var _a;
+      if (!(event == null ? void 0 : event.type)) {
+        return;
       }
-      return ((_c = (_b = (_a = response.data.choices) == null ? void 0 : _a[0]) == null ? void 0 : _b.message) == null ? void 0 : _c.content) || "No response received.";
+      if (event.type === "text") {
+        streamState.text += event.content || "";
+        this.sidebar.updateStreamingAssistantMessage(streamingMessage, streamState);
+        return;
+      }
+      if (event.type === "source_ref") {
+        const sourceLabel = event.label || event.source;
+        if (sourceLabel && !streamState.sources.includes(sourceLabel)) {
+          streamState.sources.push(sourceLabel);
+          this.sidebar.updateStreamingAssistantMessage(streamingMessage, streamState);
+        }
+        return;
+      }
+      if (event.type === "followups") {
+        streamState.followups = Array.isArray(event.suggestions) ? event.suggestions.slice(0, 4) : [];
+        this.sidebar.updateStreamingAssistantMessage(streamingMessage, streamState);
+        return;
+      }
+      if (event.type === "error") {
+        const errorMessage = ((_a = event.data) == null ? void 0 : _a.answer) || event.error || "Ecosystem agent chat request failed.";
+        fail(new Error(errorMessage));
+      }
+    }
+    buildChatStreamRequest(message, pageContext) {
+      return {
+        message,
+        sessionId: this.chatSessionId,
+        context: this.buildEcosystemChatContext(pageContext),
+        history: this.getChatHistoryMessages()
+      };
+    }
+    buildEcosystemChatContext(pageContext) {
+      var _a, _b, _c;
+      const widgets = ((_a = pageContext.symbols) == null ? void 0 : _a.widgets) || [];
+      const services = ((_b = pageContext.apiContext) == null ? void 0 : _b.services) || [];
+      const pageVariables = ((_c = pageContext.apiContext) == null ? void 0 : _c.pageVariables) || [];
+      const pageSummary = [
+        `WaveMaker Studio page ${pageContext.pageName || "unknown"}.`,
+        `Active file: ${pageContext.activeFile || "unknown"} (${pageContext.activeFileType || "unknown"}).`,
+        `Widgets: ${widgets.slice(0, 12).join(", ") || "none"}.`,
+        `Page variables: ${pageVariables.slice(0, 12).join(", ") || "none"}.`,
+        `Services: ${services.slice(0, 12).join(", ") || "none"}.`,
+        this.pageContextManager.buildPromptArtifacts(pageContext)
+      ].filter(Boolean).join("\n");
+      return {
+        pageTitle: pageContext.pageName || "WaveMaker Studio",
+        pageSlug: pageContext.pageName || "wavemaker-studio",
+        pageCategory: `WaveMaker Studio ${pageContext.activeFileType || "page"} editor`,
+        pageSummary,
+        pageHeadings: [...widgets.slice(0, 6), ...pageVariables.slice(0, 3), ...services.slice(0, 3)].filter(
+          Boolean
+        )
+      };
+    }
+    recordChatTurn(role, content) {
+      if (!content) {
+        return;
+      }
+      this.chatHistory.push({
+        role,
+        content
+      });
+      if (this.chatHistory.length > this.maxChatHistory) {
+        this.chatHistory = this.chatHistory.slice(-this.maxChatHistory);
+      }
+    }
+    getChatHistoryMessages() {
+      return this.chatHistory.map((entry) => ({
+        role: entry.role,
+        content: entry.content
+      }));
+    }
+    async refreshSidebarContext() {
+      var _a;
+      const editorSnapshot = await this.getCurrentEditorSnapshot();
+      const pageContext = await this.pageContextManager.getCompletionContext(editorSnapshot);
+      (_a = this.sidebar) == null ? void 0 : _a.updateContextPanel(pageContext);
+      return pageContext;
+    }
+    async getCurrentEditorSnapshot() {
+      return new Promise((resolve) => {
+        const timeoutId = window.setTimeout(() => {
+          window.removeEventListener("message", handleResponse);
+          resolve({});
+        }, 1200);
+        const handleResponse = (event) => {
+          var _a, _b;
+          if (event.source !== window || ((_a = event.data) == null ? void 0 : _a.type) !== PAGE_MESSAGES.EDITOR_CONTENT_RESPONSE) {
+            return;
+          }
+          window.clearTimeout(timeoutId);
+          window.removeEventListener("message", handleResponse);
+          if ((_b = event.data) == null ? void 0 : _b.error) {
+            resolve({});
+            return;
+          }
+          resolve({
+            currentFileContent: event.data.content || "",
+            fileName: event.data.fileName || event.data.filename || "",
+            filePath: event.data.filePath || "",
+            language: event.data.language || ""
+          });
+        };
+        window.addEventListener("message", handleResponse);
+        window.postMessage({ type: PAGE_MESSAGES.EDITOR_CONTENT_REQUEST }, "*");
+      });
     }
     setupRuntimeMessageListener() {
       chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {

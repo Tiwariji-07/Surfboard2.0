@@ -1,4 +1,5 @@
 // import SearchPanel from './searchPanel.js';
+import { marked } from 'marked';
 import LogPanel from './logPanel.js';
 import SearchPanel from './searchPanel.js';
 
@@ -307,29 +308,96 @@ class WaveMakerCopilotSidebar {
         messageDiv.className = `chat-message ${type}`;
 
         if (type === 'assistant') {
-            // Convert markdown to HTML
-            messageDiv.innerHTML = this.processMarkdown(message);
+            messageDiv.innerHTML = this.renderAssistantMessage({ text: message, sources: [], followups: [] });
         } else {
             messageDiv.textContent = message;
         }
 
         this.chatContainer.appendChild(messageDiv);
         this.chatContainer.scrollTop = this.chatContainer.scrollHeight;
+        return messageDiv;
+    }
+
+    createStreamingAssistantMessage() {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = 'chat-message assistant streaming';
+        this.chatContainer.appendChild(messageDiv);
+        this.updateStreamingAssistantMessage(messageDiv, {
+            text: '',
+            sources: [],
+            followups: []
+        });
+        this.chatContainer.scrollTop = this.chatContainer.scrollHeight;
+        return messageDiv;
+    }
+
+    updateStreamingAssistantMessage(messageDiv, state) {
+        messageDiv.innerHTML = this.renderAssistantMessage(state);
+        this.chatContainer.scrollTop = this.chatContainer.scrollHeight;
+    }
+
+    finalizeStreamingAssistantMessage(messageDiv, state) {
+        messageDiv.classList.remove('streaming');
+        messageDiv.innerHTML = this.renderAssistantMessage(state);
+        this.chatContainer.scrollTop = this.chatContainer.scrollHeight;
+    }
+
+    renderAssistantMessage({ text = '', sources = [], followups = [] }) {
+        const messageBody = text?.trim()
+            ? this.processMarkdown(text)
+            : '<p><em>Thinking...</em></p>';
+        const sourceMarkup = sources.length
+            ? `
+                <div class="message-sources">
+                    ${sources
+                        .map((source) => `<span class="message-source-chip">${this.escapeHtml(source)}</span>`)
+                        .join('')}
+                </div>
+            `
+            : '';
+        const followupMarkup = followups.length
+            ? `
+                <div class="message-followups">
+                    <strong>Suggested follow-ups</strong>
+                    <ul>
+                        ${followups
+                            .map((question) => `<li>${this.escapeHtml(question)}</li>`)
+                            .join('')}
+                    </ul>
+                </div>
+            `
+            : '';
+
+        return `
+            <div class="assistant-message-body">${messageBody}</div>
+            ${sourceMarkup}
+            ${followupMarkup}
+        `;
     }
 
     processMarkdown(text) {
-        // Process code blocks
-        text = text.replace(/```(\w+)?\n([\s\S]+?)\n```/g, (match, lang, code) => {
-            const codeBlock = this.createCodeBlock(code.trim(), lang);
-            const tempContainer = document.createElement('div');
-            tempContainer.appendChild(codeBlock);
-            return tempContainer.innerHTML;
-        });
+        if (!text) {
+            return '';
+        }
 
-        // Process inline code
-        text = text.replace(/`([^`]+)`/g, '<code>$1</code>');
+        try {
+            return marked.parse(text, {
+                breaks: true,
+                gfm: true
+            });
+        } catch (error) {
+            console.warn('Failed to render markdown:', error);
+            return `<p>${this.escapeHtml(text)}</p>`;
+        }
+    }
 
-        return text;
+    escapeHtml(value) {
+        return String(value)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
     }
 
     createCodeBlock(code, language) {
@@ -456,12 +524,25 @@ class WaveMakerCopilotSidebar {
     formatContextDetails(context) {
         if (!context) return '<p>No context available</p>';
 
+        const widgets = context.symbols?.widgets?.slice(0, 6).join(', ') || 'N/A';
+        const variables = context.apiContext?.pageVariables?.slice(0, 6).join(', ') || 'N/A';
+        const services = context.apiContext?.services?.slice(0, 6).join(', ') || 'N/A';
+
         return `
             <div class="context-item">
-                <strong>Page:</strong> ${context.activePage?.name || 'N/A'}
+                <strong>Page:</strong> ${context.pageName || 'N/A'}
             </div>
             <div class="context-item">
-                <strong>Component:</strong> ${context.activeComponent?.type || 'N/A'}
+                <strong>File:</strong> ${context.activeFile || 'N/A'}
+            </div>
+            <div class="context-item">
+                <strong>Widgets:</strong> ${widgets}
+            </div>
+            <div class="context-item">
+                <strong>Page variables:</strong> ${variables}
+            </div>
+            <div class="context-item">
+                <strong>Services:</strong> ${services}
             </div>
             <div class="context-item">
                 <strong>Last Updated:</strong> ${new Date().toLocaleTimeString()}
