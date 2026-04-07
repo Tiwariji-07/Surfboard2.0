@@ -161,64 +161,222 @@
   };
   var wmParser_default = WMParser;
 
+  // src/js/constants/messages.js
+  var RUNTIME_MESSAGES = {
+    API_KEYS_UPDATED: "SURFBOARD_API_KEYS_UPDATED",
+    CONTENT_SCRIPT_READY: "SURFBOARD_CONTENT_SCRIPT_READY",
+    COPILOT_STATUS_CHANGED: "SURFBOARD_COPILOT_STATUS_CHANGED",
+    GET_AUTH_COOKIE: "SURFBOARD_GET_AUTH_COOKIE",
+    LITELLM_CHAT_COMPLETIONS: "SURFBOARD_LITELLM_CHAT_COMPLETIONS",
+    TOGGLE_COPILOT: "SURFBOARD_TOGGLE_COPILOT"
+  };
+  var PAGE_MESSAGES = {
+    EDITOR_CONTENT_REQUEST: "SURFBOARD_EDITOR_CONTENT_REQUEST",
+    EDITOR_CONTENT_RESPONSE: "SURFBOARD_EDITOR_CONTENT_RESPONSE",
+    INLINE_COMPLETIONS_REQUEST: "SURFBOARD_INLINE_COMPLETIONS_REQUEST",
+    INLINE_COMPLETIONS_RESPONSE: "SURFBOARD_INLINE_COMPLETIONS_RESPONSE",
+    MONACO_HELPER_READY: "SURFBOARD_MONACO_HELPER_READY",
+    NAVIGATE_TO_FILE: "SURFBOARD_NAVIGATE_TO_FILE"
+  };
+
+  // src/js/services/studioApiService.js
+  var StudioApiService = class {
+    constructor() {
+      this.authCookie = null;
+      this.initializationPromise = null;
+      this.projectBaseUrl = `${window.location.origin}/studio/services/projects`;
+      this.prefabsUrl = `${window.location.origin}/studio/services/prefabs`;
+    }
+    async initialize() {
+      if (this.authCookie) {
+        return;
+      }
+      if (!this.initializationPromise) {
+        this.initializationPromise = chrome.runtime.sendMessage({ type: RUNTIME_MESSAGES.GET_AUTH_COOKIE }).then((response) => {
+          if (!(response == null ? void 0 : response.cookie)) {
+            throw new Error("Authentication cookie not found");
+          }
+          this.authCookie = response.cookie;
+        }).finally(() => {
+          this.initializationPromise = null;
+        });
+      }
+      await this.initializationPromise;
+    }
+    async fetchJson(url) {
+      await this.initialize();
+      const response = await fetch(url, {
+        method: "GET",
+        credentials: "include",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+          Cookie: `auth_cookie=${this.authCookie}`
+        }
+      });
+      if (!response.ok) {
+        if (response.status === 401) {
+          this.authCookie = null;
+          await this.initialize();
+          return this.fetchJson(url);
+        }
+        throw new Error(`Studio API request failed: ${response.status} ${response.statusText}`);
+      }
+      return response.json();
+    }
+    async getProjectServices(projectId) {
+      return this.fetchJson(`${this.projectBaseUrl}/${projectId}/services`);
+    }
+    async getProjectVariables(projectId) {
+      return this.fetchJson(`${this.projectBaseUrl}/${projectId}/variables`);
+    }
+    async getProjectPages(projectId) {
+      return this.fetchJson(`${this.projectBaseUrl}/${projectId}/pages`);
+    }
+    async getProjectPrefabs(projectId) {
+      return this.fetchJson(`${this.prefabsUrl}?projectID=${encodeURIComponent(projectId)}`);
+    }
+    async getPageBundle(projectId, pageName) {
+      const response = await this.fetchJson(
+        `${this.projectBaseUrl}/${projectId}/pages/${encodeURIComponent(pageName)}/page.min.json`
+      );
+      return {
+        raw: response,
+        markup: this.decodeValue(response == null ? void 0 : response.markup),
+        script: this.decodeValue(response == null ? void 0 : response.script),
+        styles: this.decodeValue(response == null ? void 0 : response.styles),
+        variables: this.parseJsonValue(this.decodeValue(response == null ? void 0 : response.variables, "{}"), {})
+      };
+    }
+    decodeValue(value, fallback = "") {
+      if (typeof value !== "string") {
+        return fallback;
+      }
+      try {
+        return decodeURIComponent(value.replace(/\+/g, "%20"));
+      } catch (error) {
+        return value;
+      }
+    }
+    parseJsonValue(value, fallback) {
+      if (typeof value !== "string" || !value.trim()) {
+        return fallback;
+      }
+      try {
+        return JSON.parse(value);
+      } catch (error) {
+        return fallback;
+      }
+    }
+  };
+  var studioApiService_default = StudioApiService;
+
   // src/js/context/pageContext.js
   var PageContextManager = class {
     constructor() {
       this.parser = new wmParser_default();
-      this.cachedStudioContext = null;
-      this.cacheKey = null;
-      this.cacheTimestamp = 0;
-      this.cacheTtlMs = 2e3;
+      this.studioApiService = new studioApiService_default();
+      this.projectMetadataCache = /* @__PURE__ */ new Map();
+      this.projectMetadataRequests = /* @__PURE__ */ new Map();
+      this.pageBundleCache = /* @__PURE__ */ new Map();
+      this.pageBundleRequests = /* @__PURE__ */ new Map();
     }
-    getCompletionContext(editorSnapshot = {}) {
-      const studioContext = this.getStudioContext();
+    async getCompletionContext(editorSnapshot = {}) {
+      const studioContext = await this.getStudioContext();
       const activeFile = this.inferActiveFile(editorSnapshot, studioContext.pageName);
+      const activeFileType = this.normalizeFileType(editorSnapshot.language, activeFile);
+      const pageFiles = this.mergeEditorStateIntoPageFiles(
+        studioContext.pageFiles,
+        editorSnapshot,
+        activeFileType
+      );
+      const symbols = this.extractSymbolsFromApiBundle(pageFiles);
       return {
         projectId: studioContext.projectId,
         pageName: studioContext.pageName,
         activeFile,
-        activeFileType: this.normalizeFileType(editorSnapshot.language, activeFile),
+        activeFileType,
         language: editorSnapshot.language || "plaintext",
         cursor: editorSnapshot.position || null,
-        symbols: studioContext.symbols,
+        apiContext: studioContext.apiContext,
+        pageFiles,
+        symbols,
         source: studioContext.source
       };
     }
     toPromptPrefix(context) {
+      var _a, _b, _c, _d;
       const widgets = context.symbols.widgets.slice(0, 20).join(", ") || "none";
       const variables = context.symbols.variables.slice(0, 20).join(", ") || "none";
       const bindings = context.symbols.bindings.slice(0, 12).join(", ") || "none";
+      const pages = (((_a = context.apiContext) == null ? void 0 : _a.pages) || []).slice(0, 10).join(", ") || "none";
+      const services = (((_b = context.apiContext) == null ? void 0 : _b.services) || []).slice(0, 10).join(", ") || "none";
+      const prefabs = (((_c = context.apiContext) == null ? void 0 : _c.prefabs) || []).slice(0, 10).join(", ") || "none";
+      const pageVariables = (((_d = context.apiContext) == null ? void 0 : _d.pageVariables) || []).slice(0, 12).join(", ") || "none";
       return [
         "[WaveMaker Studio context]",
         `Project ID: ${context.projectId || "unknown"}`,
         `Page: ${context.pageName || "unknown"}`,
         `Active file: ${context.activeFile || "unknown"}`,
         `File type: ${context.activeFileType || context.language || "unknown"}`,
+        `Context source: ${context.source || "unknown"}`,
         `Widgets: ${widgets}`,
         `Variables: ${variables}`,
         `Bindings: ${bindings}`,
+        `Project pages: ${pages}`,
+        `Project services: ${services}`,
+        `Project prefabs: ${prefabs}`,
+        `Page variables: ${pageVariables}`,
         "[/WaveMaker Studio context]"
       ].join("\n");
     }
-    getStudioContext() {
-      const currentCacheKey = this.buildCacheKey();
-      const now = Date.now();
-      if (this.cachedStudioContext && currentCacheKey === this.cacheKey && now - this.cacheTimestamp < this.cacheTtlMs) {
-        return this.cachedStudioContext;
-      }
-      const studioContext = {
-        projectId: this.getProjectId(),
-        pageName: this.getPageName(),
-        symbols: this.extractSymbols(),
-        source: "dom"
-      };
-      this.cachedStudioContext = studioContext;
-      this.cacheKey = currentCacheKey;
-      this.cacheTimestamp = now;
-      return studioContext;
+    buildPromptArtifacts(context) {
+      var _a, _b, _c, _d;
+      return [
+        this.createArtifactSection("Page markup", (_a = context.pageFiles) == null ? void 0 : _a.markup, 1800, "markup"),
+        this.createArtifactSection("Page script", (_b = context.pageFiles) == null ? void 0 : _b.script, 2200, "script"),
+        this.createArtifactSection("Page styles", (_c = context.pageFiles) == null ? void 0 : _c.styles, 1200, "styles"),
+        this.createArtifactSection(
+          "Page variables definition",
+          this.stringifyVariables((_d = context.pageFiles) == null ? void 0 : _d.variables),
+          1800,
+          "variables"
+        )
+      ].filter(Boolean).join("\n");
     }
-    buildCacheKey() {
-      return `${window.location.href}:${document.title}`;
+    createArtifactSection(title, content, limit, artifactType = "text") {
+      if (!content || !content.trim()) {
+        return "";
+      }
+      const normalizedContent = this.normalizeArtifactContent(content, artifactType);
+      const limitedContent = normalizedContent.length > limit ? `${normalizedContent.slice(0, limit)}
+...truncated...` : normalizedContent;
+      return [`[${title}]`, limitedContent, `[/${title}]`].join("\n");
+    }
+    normalizeArtifactContent(content, artifactType) {
+      const normalizedText = String(content).replace(/\r\n/g, "\n").trim();
+      if (!normalizedText) {
+        return "";
+      }
+      if (artifactType === "variables") {
+        return normalizedText;
+      }
+      return normalizedText.replace(/\n{3,}/g, "\n\n").replace(/[ \t]+\n/g, "\n");
+    }
+    stringifyVariables(variables) {
+      if (!variables || typeof variables !== "object" || Object.keys(variables).length === 0) {
+        return "";
+      }
+      try {
+        return JSON.stringify(variables, null, 2);
+      } catch (error) {
+        return "";
+      }
+    }
+    async getStudioContext() {
+      const projectId = this.getProjectId();
+      const pageName = this.getPageName();
+      return this.loadApiBackedContext(projectId, pageName);
     }
     getProjectId() {
       const url = new URL(window.location.href);
@@ -226,6 +384,10 @@
     }
     getPageName() {
       var _a, _b, _c, _d, _e;
+      const pathMatch = window.location.pathname.match(/\/page\/([^/]+)/i);
+      if (pathMatch == null ? void 0 : pathMatch[1]) {
+        return decodeURIComponent(pathMatch[1]);
+      }
       const candidates = [
         (_a = document.querySelector("wm-page[name]")) == null ? void 0 : _a.getAttribute("name"),
         (_b = document.querySelector('[wm-type="page"][name]')) == null ? void 0 : _b.getAttribute("name"),
@@ -241,6 +403,231 @@
     }
     cleanDocumentTitle(title) {
       return (title || "").replace(/\s*-\s*WaveMaker.*$/i, "").replace(/\s*-\s*Studio.*$/i, "").trim();
+    }
+    async loadApiBackedContext(projectId, pageName) {
+      if (!projectId || !pageName) {
+        return {
+          projectId,
+          pageName,
+          apiContext: this.createEmptyApiContext(),
+          pageFiles: this.createEmptyPageFiles(),
+          symbols: this.extractSymbols(),
+          source: "dom"
+        };
+      }
+      try {
+        const [pageBundle, projectMetadata] = await Promise.all([
+          this.getCachedPageBundle(projectId, pageName),
+          this.getCachedProjectMetadata(projectId)
+        ]);
+        return {
+          projectId,
+          pageName,
+          apiContext: {
+            pages: projectMetadata.pages,
+            prefabs: projectMetadata.prefabs,
+            projectVariables: projectMetadata.projectVariables,
+            pageVariables: this.extractNamedEntries(pageBundle.variables),
+            services: projectMetadata.services
+          },
+          pageFiles: {
+            markup: pageBundle.markup,
+            script: pageBundle.script,
+            styles: pageBundle.styles,
+            variables: pageBundle.variables
+          },
+          symbols: this.extractSymbolsFromApiBundle(pageBundle),
+          source: "studio-api"
+        };
+      } catch (error) {
+        console.warn("Falling back to DOM-based page context:", error);
+        return {
+          projectId,
+          pageName,
+          apiContext: this.createEmptyApiContext(),
+          pageFiles: this.createEmptyPageFiles(),
+          symbols: this.extractSymbols(),
+          source: "dom-fallback"
+        };
+      }
+    }
+    async getCachedProjectMetadata(projectId) {
+      if (this.projectMetadataCache.has(projectId)) {
+        return this.projectMetadataCache.get(projectId);
+      }
+      if (!this.projectMetadataRequests.has(projectId)) {
+        this.projectMetadataRequests.set(
+          projectId,
+          Promise.all([
+            this.studioApiService.getProjectVariables(projectId),
+            this.studioApiService.getProjectPages(projectId),
+            this.studioApiService.getProjectServices(projectId),
+            this.studioApiService.getProjectPrefabs(projectId)
+          ]).then(([projectVariables, projectPages, projectServices, projectPrefabs]) => {
+            const metadata = {
+              pages: this.extractNamedEntries(projectPages),
+              prefabs: this.extractNamedEntries(projectPrefabs),
+              projectVariables: this.extractNamedEntries(projectVariables),
+              services: this.extractNamedEntries(projectServices)
+            };
+            this.projectMetadataCache.set(projectId, metadata);
+            return metadata;
+          }).finally(() => {
+            this.projectMetadataRequests.delete(projectId);
+          })
+        );
+      }
+      return this.projectMetadataRequests.get(projectId);
+    }
+    async getCachedPageBundle(projectId, pageName) {
+      const cacheKey = `${projectId}:${pageName}`;
+      if (this.pageBundleCache.has(cacheKey)) {
+        return this.pageBundleCache.get(cacheKey);
+      }
+      if (!this.pageBundleRequests.has(cacheKey)) {
+        this.pageBundleRequests.set(
+          cacheKey,
+          this.studioApiService.getPageBundle(projectId, pageName).then((pageBundle) => {
+            this.pageBundleCache.set(cacheKey, pageBundle);
+            return pageBundle;
+          }).finally(() => {
+            this.pageBundleRequests.delete(cacheKey);
+          })
+        );
+      }
+      return this.pageBundleRequests.get(cacheKey);
+    }
+    createEmptyApiContext() {
+      return {
+        pages: [],
+        prefabs: [],
+        projectVariables: [],
+        pageVariables: [],
+        services: []
+      };
+    }
+    createEmptyPageFiles() {
+      return {
+        markup: "",
+        script: "",
+        styles: "",
+        variables: {}
+      };
+    }
+    mergeEditorStateIntoPageFiles(pageFiles, editorSnapshot, activeFileType) {
+      const mergedPageFiles = {
+        markup: (pageFiles == null ? void 0 : pageFiles.markup) || "",
+        script: (pageFiles == null ? void 0 : pageFiles.script) || "",
+        styles: (pageFiles == null ? void 0 : pageFiles.styles) || "",
+        variables: (pageFiles == null ? void 0 : pageFiles.variables) || {}
+      };
+      if (editorSnapshot.currentFileContent) {
+        this.applyContentByFileType(mergedPageFiles, activeFileType, editorSnapshot.currentFileContent);
+      }
+      (editorSnapshot.relatedFiles || []).forEach((file) => {
+        if (!(file == null ? void 0 : file.content)) {
+          return;
+        }
+        const fileType = this.normalizeFileType(file.language, file.fileName || "");
+        this.applyContentByFileType(mergedPageFiles, fileType, file.content);
+      });
+      return mergedPageFiles;
+    }
+    applyContentByFileType(target, fileType, content) {
+      if (!content || !content.trim()) {
+        return;
+      }
+      if (fileType === "markup") {
+        target.markup = content;
+        return;
+      }
+      if (fileType === "style") {
+        target.styles = content;
+        return;
+      }
+      target.script = content;
+    }
+    extractSymbolsFromApiBundle(pageBundle) {
+      const markupSymbols = this.extractSymbolsFromMarkup(pageBundle.markup);
+      const scriptSymbols = this.extractSymbolsFromScript(pageBundle.script);
+      const pageVariableNames = this.extractNamedEntries(pageBundle.variables);
+      return {
+        widgets: [.../* @__PURE__ */ new Set([...markupSymbols.widgets, ...scriptSymbols.widgets])].sort(),
+        variables: [
+          .../* @__PURE__ */ new Set([
+            ...markupSymbols.variables,
+            ...scriptSymbols.variables,
+            ...pageVariableNames
+          ])
+        ].sort(),
+        bindings: [.../* @__PURE__ */ new Set([...markupSymbols.bindings, ...scriptSymbols.bindings])].sort()
+      };
+    }
+    extractSymbolsFromMarkup(markup) {
+      if (!markup) {
+        return this.createEmptySymbols();
+      }
+      try {
+        const parsedPage = this.parser.parseMarkup(markup);
+        return this.flattenParsedPage(parsedPage);
+      } catch (error) {
+        console.warn("Failed to parse page markup from Studio API:", error);
+        return this.extractSymbolsFromText(markup);
+      }
+    }
+    extractSymbolsFromScript(script) {
+      if (!script) {
+        return this.createEmptySymbols();
+      }
+      const widgetMatches = script.match(/Page\.Widgets\.([A-Za-z0-9_$]+)/g) || [];
+      const variableMatches = script.match(/Page\.Variables\.([A-Za-z0-9_$]+)/g) || [];
+      const handlerMatches = script.match(/Page\.([A-Za-z0-9_$]+)\s*=\s*function/g) || [];
+      return {
+        widgets: widgetMatches.map((value) => value.replace(/^Page\.Widgets\./, "")),
+        variables: variableMatches.map((value) => value.replace(/^Page\.Variables\./, "")),
+        bindings: handlerMatches.map((value) => value.replace(/^Page\./, "").replace(/\s*=\s*function$/, ""))
+      };
+    }
+    extractSymbolsFromText(content) {
+      const variableMatches = content.match(/Variables\.[A-Za-z0-9_$]+(?:\.dataSet)?/g) || [];
+      const widgetMatches = content.match(/Widgets\.[A-Za-z0-9_$]+/g) || [];
+      const bindingMatches = content.match(/bind:[^"'\s}]+/g) || [];
+      return {
+        widgets: [...new Set(widgetMatches.map((value) => value.replace(/^Widgets\./, "")))].sort(),
+        variables: [...new Set(variableMatches.map((value) => value.replace(/^Variables\./, "")))].sort(),
+        bindings: [...new Set(bindingMatches.map((value) => value.replace(/^bind:/, "")))].sort()
+      };
+    }
+    createEmptySymbols() {
+      return {
+        widgets: [],
+        variables: [],
+        bindings: []
+      };
+    }
+    extractNamedEntries(data) {
+      if (!data) {
+        return [];
+      }
+      if (Array.isArray(data)) {
+        return [
+          ...new Set(
+            data.map((entry) => {
+              if (typeof entry === "string") {
+                return entry;
+              }
+              if (!entry || typeof entry !== "object") {
+                return "";
+              }
+              return entry.name || entry.variableName || entry.serviceName || entry.prefabName || entry.pageName || entry.id || entry.label || "";
+            }).filter(Boolean)
+          )
+        ].sort();
+      }
+      if (typeof data === "object") {
+        return Object.keys(data).sort();
+      }
+      return [];
     }
     extractSymbols() {
       const pageElement = document.querySelector("wm-page");
@@ -358,24 +745,6 @@
     return normalizedBaseUrl;
   }
 
-  // src/js/constants/messages.js
-  var RUNTIME_MESSAGES = {
-    API_KEYS_UPDATED: "SURFBOARD_API_KEYS_UPDATED",
-    CONTENT_SCRIPT_READY: "SURFBOARD_CONTENT_SCRIPT_READY",
-    COPILOT_STATUS_CHANGED: "SURFBOARD_COPILOT_STATUS_CHANGED",
-    GET_AUTH_COOKIE: "SURFBOARD_GET_AUTH_COOKIE",
-    LITELLM_CHAT_COMPLETIONS: "SURFBOARD_LITELLM_CHAT_COMPLETIONS",
-    TOGGLE_COPILOT: "SURFBOARD_TOGGLE_COPILOT"
-  };
-  var PAGE_MESSAGES = {
-    EDITOR_CONTENT_REQUEST: "SURFBOARD_EDITOR_CONTENT_REQUEST",
-    EDITOR_CONTENT_RESPONSE: "SURFBOARD_EDITOR_CONTENT_RESPONSE",
-    INLINE_COMPLETIONS_REQUEST: "SURFBOARD_INLINE_COMPLETIONS_REQUEST",
-    INLINE_COMPLETIONS_RESPONSE: "SURFBOARD_INLINE_COMPLETIONS_RESPONSE",
-    MONACO_HELPER_READY: "SURFBOARD_MONACO_HELPER_READY",
-    NAVIGATE_TO_FILE: "SURFBOARD_NAVIGATE_TO_FILE"
-  };
-
   // src/js/services/aiService.js
   var AIService = class {
     constructor() {
@@ -412,13 +781,16 @@
         {
           role: "system",
           content: `You are a precise code completion model for ${language}. Follow these rules:
-1. Complete the code at the cursor position (\u25BC) naturally
-2. Focus on the local context and variable names
-3. Maintain consistent style with the surrounding code
-4. Only provide the completion text, no explanations
-5. Ensure syntactic correctness
-6. Use existing variables and functions when appropriate
-7. Preserve WaveMaker conventions such as Variables.*, Widgets.*, service variable names, and page-specific naming when present`
+1. Complete the code at the cursor position (\u25BC) naturally.
+2. Treat the immediate cursor context as the highest-priority signal.
+3. Use WaveMaker Studio context, page files, and variable definitions as supporting context.
+4. Reuse identifiers exactly as they appear in context. Do not invent widget names, variable names, service names, bindings, or event handlers.
+5. Preserve the coding style, naming, and API usage already present in the file.
+6. For WaveMaker page script, prefer Page.Widgets.*, Page.Variables.*, Page.Actions.*, and existing page handler names when those appear in context.
+7. If the surrounding code instead uses Widgets.*, Variables.*, App.*, or service aliases, preserve that existing convention rather than mixing styles.
+8. For markup, preserve existing widget names, bindings, and event handlers.
+9. For styles, preserve existing class names, selectors, and theme conventions.
+10. Ensure syntactic correctness and return only the completion text, with no explanation.`
         },
         {
           role: "user",
@@ -479,7 +851,9 @@ ${afterCursor}`
         ]) : await responsePromise;
         return responseData.choices;
       } catch (error) {
-        console.error("API request failed:", error);
+        if ((error == null ? void 0 : error.name) !== "AbortError") {
+          console.error("API request failed:", error);
+        }
         throw error;
       }
     }
@@ -587,7 +961,7 @@ ${afterCursor}`
         }
         const controller = new AbortController();
         this.pendingController = controller;
-        const requestContext = this.buildRequestContext(data);
+        const requestContext = await this.buildRequestContext(data);
         const completions = await aiService_default.getMultipleCompletions(
           requestContext.prompt,
           requestContext.language,
@@ -617,21 +991,25 @@ ${afterCursor}`
         this.sendInlineCompletionsResponse(requestId, modelId, []);
       }
     }
-    buildRequestContext(data) {
+    async buildRequestContext(data) {
       const prefix = data.contextText.slice(0, data.cursorOffset);
       const suffix = data.contextText.slice(data.cursorOffset);
-      const pageContext = this.pageContextManager.getCompletionContext({
+      const pageContext = await this.pageContextManager.getCompletionContext({
+        currentFileContent: data.currentFileContent,
         fileName: data.fileName,
         filePath: data.filePath,
         language: data.language,
-        position: data.position
+        position: data.position,
+        relatedFiles: data.relatedFiles || []
       });
       const promptPrefix = this.pageContextManager.toPromptPrefix(pageContext);
+      const promptArtifacts = this.pageContextManager.buildPromptArtifacts(pageContext);
       const relatedFilesContext = this.buildRelatedFilesContext(data.relatedFiles || []);
       return {
         language: data.language || "javascript",
         pageContext,
-        prompt: `${promptPrefix}${relatedFilesContext}
+        prompt: `${promptPrefix}
+${promptArtifacts}${relatedFilesContext}
 
 ${prefix}\u25BC${suffix}`
       };

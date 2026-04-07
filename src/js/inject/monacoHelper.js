@@ -60,6 +60,7 @@
                     {
                         type: PAGE_MESSAGES.INLINE_COMPLETIONS_REQUEST,
                         data: {
+                            currentFileContent: model.getValue(),
                             contextText: model.getValueInRange(contextRange),
                             cursorOffset,
                             fileName: getFileName(model),

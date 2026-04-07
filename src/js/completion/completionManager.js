@@ -112,7 +112,7 @@ class CompletionManager {
             const controller = new AbortController();
             this.pendingController = controller;
 
-            const requestContext = this.buildRequestContext(data);
+            const requestContext = await this.buildRequestContext(data);
             const completions = await aiService.getMultipleCompletions(
                 requestContext.prompt,
                 requestContext.language,
@@ -146,22 +146,25 @@ class CompletionManager {
         }
     }
 
-    buildRequestContext(data) {
+    async buildRequestContext(data) {
         const prefix = data.contextText.slice(0, data.cursorOffset);
         const suffix = data.contextText.slice(data.cursorOffset);
-        const pageContext = this.pageContextManager.getCompletionContext({
+        const pageContext = await this.pageContextManager.getCompletionContext({
+            currentFileContent: data.currentFileContent,
             fileName: data.fileName,
             filePath: data.filePath,
             language: data.language,
-            position: data.position
+            position: data.position,
+            relatedFiles: data.relatedFiles || []
         });
         const promptPrefix = this.pageContextManager.toPromptPrefix(pageContext);
+        const promptArtifacts = this.pageContextManager.buildPromptArtifacts(pageContext);
         const relatedFilesContext = this.buildRelatedFilesContext(data.relatedFiles || []);
 
         return {
             language: data.language || 'javascript',
             pageContext,
-            prompt: `${promptPrefix}${relatedFilesContext}\n\n${prefix}▼${suffix}`
+            prompt: `${promptPrefix}\n${promptArtifacts}${relatedFilesContext}\n\n${prefix}▼${suffix}`
         };
     }
 
