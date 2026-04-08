@@ -1,4 +1,5 @@
 import { RUNTIME_MESSAGES } from './constants/messages.js';
+import { validateEditAgentBaseUrlForRuntime } from './constants/editAgent.js';
 import {
     buildLiteLLMChatCompletionsUrl,
     validateLiteLLMBaseUrlForRuntime
@@ -11,7 +12,10 @@ const state = {
 };
 
 chrome.runtime.onConnect.addListener((port) => {
-    if (port.name !== RUNTIME_MESSAGES.ECOSYSTEM_AGENT_CHAT_STREAM) {
+    if (
+        port.name !== RUNTIME_MESSAGES.ECOSYSTEM_AGENT_CHAT_STREAM &&
+        port.name !== RUNTIME_MESSAGES.EDIT_AGENT_STREAM
+    ) {
         return;
     }
 
@@ -27,7 +31,14 @@ chrome.runtime.onConnect.addListener((port) => {
         }
 
         try {
-            await handleEcosystemAgentChatStream(port, message.data, controller.signal);
+            if (port.name === RUNTIME_MESSAGES.ECOSYSTEM_AGENT_CHAT_STREAM) {
+                await handleEcosystemAgentChatStream(port, message.data, controller.signal);
+                return;
+            }
+
+            if (port.name === RUNTIME_MESSAGES.EDIT_AGENT_STREAM) {
+                await handleEditAgentStream(port, message.data, controller.signal);
+            }
         } catch (error) {
             if (controller.signal.aborted) {
                 return;
@@ -125,6 +136,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                     .catch((error) => sendResponse({ success: false, error: error.message }));
                 return true;
 
+            case RUNTIME_MESSAGES.EDIT_AGENT_REQUEST:
+                handleEditAgentRequest(message.data)
+                    .then((result) => sendResponse({ success: true, data: result }))
+                    .catch((error) => sendResponse({ success: false, error: error.message }));
+                return true;
+
             default:
                 console.warn('Unknown message type:', message.type);
                 sendResponse({ error: 'Unknown message type' });
@@ -206,6 +223,54 @@ async function handleLiteLLMChatCompletions(request = {}) {
     return responseData;
 }
 
+async function handleEditAgentRequest(request = {}) {
+    const { baseUrl, path, method = 'GET', body } = request;
+
+    if (!path) {
+        throw new Error('Edit agent request path is required');
+    }
+
+    const requestBaseUrl = validateEditAgentBaseUrlForRuntime(baseUrl);
+    const normalizedPath = String(path).startsWith('/') ? path : `/${path}`;
+    const requestInit = {
+        method,
+        headers: {
+            Accept: 'application/json'
+        }
+    };
+
+    if (typeof body !== 'undefined') {
+        requestInit.headers['Content-Type'] = 'application/json';
+        requestInit.body = JSON.stringify(body);
+    }
+
+    const response = await fetch(`${requestBaseUrl}${normalizedPath}`, requestInit);
+    const responseText = await response.text().catch(() => '');
+    const responseData = parseJsonResponse(responseText);
+
+    if (!response.ok) {
+        throw new Error(
+            responseData?.error ||
+                responseText ||
+                `Edit agent API error: ${response.status} ${response.statusText}`
+        );
+    }
+
+    return responseData ?? { ok: true, raw: responseText };
+}
+
+function parseJsonResponse(responseText) {
+    if (!responseText) {
+        return null;
+    }
+
+    try {
+        return JSON.parse(responseText);
+    } catch (error) {
+        return null;
+    }
+}
+
 async function handleEcosystemAgentChatStream(port, request = {}, signal) {
     const { baseUrl, body } = request;
 
@@ -237,7 +302,41 @@ async function handleEcosystemAgentChatStream(port, request = {}, signal) {
         throw new Error('Ecosystem agent response body is not readable');
     }
 
-    const reader = response.body.getReader();
+    await relayJsonLineStream(response.body, port, 'ecosystem agent');
+}
+
+async function handleEditAgentStream(port, request = {}, signal) {
+    const { baseUrl, body } = request;
+
+    if (!body || typeof body !== 'object') {
+        throw new Error('Edit agent stream request body is required');
+    }
+
+    const requestBaseUrl = validateEditAgentBaseUrlForRuntime(baseUrl);
+    const response = await fetch(`${requestBaseUrl}/edit/stream`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            Accept: 'application/x-ndjson, application/json'
+        },
+        body: JSON.stringify(body),
+        signal
+    });
+
+    if (!response.ok) {
+        const responseText = await response.text().catch(() => '');
+        throw new Error(responseText || `Edit agent API error: ${response.status} ${response.statusText}`);
+    }
+
+    if (!response.body) {
+        throw new Error('Edit agent response body is not readable');
+    }
+
+    await relayJsonLineStream(response.body, port, 'edit agent');
+}
+
+async function relayJsonLineStream(streamBody, port, label) {
+    const reader = streamBody.getReader();
     const decoder = new TextDecoder();
     let buffer = '';
 
@@ -253,35 +352,28 @@ async function handleEcosystemAgentChatStream(port, request = {}, signal) {
         buffer = lines.pop() || '';
 
         for (const line of lines) {
-            const trimmedLine = line.trim();
-            if (!trimmedLine) {
-                continue;
-            }
-
-            try {
-                port.postMessage({
-                    type: 'event',
-                    event: JSON.parse(trimmedLine)
-                });
-            } catch (error) {
-                console.warn('Failed to parse ecosystem agent stream line:', trimmedLine, error);
-            }
+            postParsedStreamLine(port, line, label);
         }
     }
 
-    const trailingLine = buffer.trim();
-    if (trailingLine) {
-        try {
-            port.postMessage({
-                type: 'event',
-                event: JSON.parse(trailingLine)
-            });
-        } catch (error) {
-            console.warn('Failed to parse trailing ecosystem agent stream line:', trailingLine, error);
-        }
-    }
-
+    postParsedStreamLine(port, buffer, label);
     port.postMessage({ type: 'done' });
+}
+
+function postParsedStreamLine(port, line, label) {
+    const trimmedLine = String(line || '').trim();
+    if (!trimmedLine) {
+        return;
+    }
+
+    try {
+        port.postMessage({
+            type: 'event',
+            event: JSON.parse(trimmedLine)
+        });
+    } catch (error) {
+        console.warn(`Failed to parse ${label} stream line:`, trimmedLine, error);
+    }
 }
 
 // Handle extension icon click

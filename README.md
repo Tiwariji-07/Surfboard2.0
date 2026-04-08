@@ -2,7 +2,7 @@
 
 ![Surfboard.AI Logo](src/icons/sticker.png)
 
-A Chrome extension designed to enhance the WaveMaker low-code development experience with intelligent coding assistance and contextual suggestions.
+A monorepo for Surfboard, with the WaveMaker Chrome extension still kept at the repository root for compatibility and a new backend workspace for the edit agent.
 
 ## ✨ Features
 
@@ -82,7 +82,9 @@ npm run build:prod
 ## 🛠️ Technical Details
 
 ### Architecture
-- Chrome Extension Manifest V3
+- Root extension package for the current Chrome runtime and build
+- `apps/edit-agent` workspace for the future LangGraph-backed edit service
+- `packages/*` workspaces for shared contracts and prompts
 - Monaco Editor integration
 - LiteLLM-compatible chat completions endpoint
 - Event-driven messaging
@@ -106,6 +108,11 @@ npm run build:prod
 ### Project Structure
 ```
 wavemaker-copilot/
+├── apps/
+│   └── edit-agent/
+├── packages/
+│   ├── contracts/
+│   └── prompts/
 ├── manifest.json
 ├── src/
 │   ├── css/
@@ -129,13 +136,21 @@ wavemaker-copilot/
 └── package.json
 ```
 
+Compatibility note:
+
+- The extension still builds from the repository root with `npm run build`
+- The root `dist/` output and Chrome manifest paths are unchanged
+- The monorepo is introduced incrementally so the current extension workflow does not break
+
 ## 🔧 Development
 
 ### Available Scripts
 
 - `npm run build`: Build development version
+- `npm run build:extension`: Build the extension explicitly
 - `npm run build:prod`: Build production version
 - `npm run watch`: Watch for changes and rebuild
+- `npm run dev:edit-agent`: Start the edit-agent workspace bootstrap server
 - `npm run lint`: Run ESLint
 - `npm test`: Run tests
 

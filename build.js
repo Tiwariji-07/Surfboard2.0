@@ -56,6 +56,7 @@ function copyStaticAssets() {
 
     [
         'src/js/background.js',
+        'src/js/constants/editAgent.js',
         'src/js/constants/litellm.js',
         'src/js/constants/studio.js',
         'src/js/popup.js',
@@ -66,6 +67,7 @@ function copyStaticAssets() {
         'src/js/inject/networkMonitor.js',
         'src/js/parser/wmParser.js',
         'src/js/services/aiService.js',
+        'src/js/services/editAgentService.js',
         'src/js/services/errorMonitorService.js',
         'src/js/services/logService.js',
         'src/js/services/openaiService.js',

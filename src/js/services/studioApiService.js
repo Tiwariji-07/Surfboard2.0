@@ -1,4 +1,5 @@
 import { RUNTIME_MESSAGES } from '../constants/messages.js';
+import { normalizeExtensionContextError } from '../utils/extensionContext.js';
 
 class StudioApiService {
     constructor() {
@@ -22,6 +23,9 @@ class StudioApiService {
                     }
 
                     this.authCookie = response.cookie;
+                })
+                .catch((error) => {
+                    throw normalizeExtensionContextError(error);
                 })
                 .finally(() => {
                     this.initializationPromise = null;
@@ -116,8 +120,28 @@ class StudioApiService {
         return `${this.projectBaseUrl}/${encodeURIComponent(normalizedProjectId)}/${normalizedPath}`;
     }
 
+    buildProjectContentUrl(projectId, projectPath) {
+        const normalizedProjectId = String(projectId || '').trim();
+        const normalizedPath = String(projectPath || '')
+            .split('/')
+            .map((segment) => segment.trim())
+            .filter(Boolean)
+            .map((segment) => encodeURIComponent(segment))
+            .join('/');
+
+        if (!normalizedProjectId || !normalizedPath) {
+            throw new Error('Project ID and project path are required');
+        }
+
+        return `${this.projectBaseUrl}/${encodeURIComponent(normalizedProjectId)}/resources/content/project/${normalizedPath}`;
+    }
+
     async readProjectTextFile(projectId, resourcePath) {
         return this.fetchText(this.buildProjectResourceUrl(projectId, resourcePath));
+    }
+
+    async readProjectContentFile(projectId, projectPath) {
+        return this.fetchText(this.buildProjectContentUrl(projectId, projectPath));
     }
 
     async writeProjectTextFile(projectId, resourcePath, content) {
@@ -138,6 +162,10 @@ class StudioApiService {
 
     async getProjectServices(projectId) {
         return this.fetchJson(`${this.projectBaseUrl}/${projectId}/services`);
+    }
+
+    async getProjectTree(projectId) {
+        return this.fetchJson(`${this.projectBaseUrl}/${projectId}/resources/info/project`);
     }
 
     async getProjectVariables(projectId) {

@@ -1,8 +1,15 @@
-const manifest = chrome.runtime.getManifest();
+function getManifestSafe() {
+    try {
+        return chrome.runtime?.getManifest?.() || null;
+    } catch (error) {
+        return null;
+    }
+}
 
 function getConfiguredMatchPatterns() {
+    const manifest = getManifestSafe();
     const contentScriptMatches = manifest.content_scripts?.flatMap((entry) => entry.matches || []) || [];
-    return [...new Set(contentScriptMatches)];
+    return [...new Set(contentScriptMatches.length ? contentScriptMatches : ['https://platform.wavemaker.ai/*'])];
 }
 
 function escapeRegex(value) {

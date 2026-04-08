@@ -166,12 +166,15 @@
     API_KEYS_UPDATED: "SURFBOARD_API_KEYS_UPDATED",
     CONTENT_SCRIPT_READY: "SURFBOARD_CONTENT_SCRIPT_READY",
     COPILOT_STATUS_CHANGED: "SURFBOARD_COPILOT_STATUS_CHANGED",
+    EDIT_AGENT_REQUEST: "SURFBOARD_EDIT_AGENT_REQUEST",
+    EDIT_AGENT_STREAM: "SURFBOARD_EDIT_AGENT_STREAM",
     ECOSYSTEM_AGENT_CHAT_STREAM: "SURFBOARD_ECOSYSTEM_AGENT_CHAT_STREAM",
     GET_AUTH_COOKIE: "SURFBOARD_GET_AUTH_COOKIE",
     LITELLM_CHAT_COMPLETIONS: "SURFBOARD_LITELLM_CHAT_COMPLETIONS",
     TOGGLE_COPILOT: "SURFBOARD_TOGGLE_COPILOT"
   };
   var PAGE_MESSAGES = {
+    EDITOR_CONTENT_APPLY: "SURFBOARD_EDITOR_CONTENT_APPLY",
     EDITOR_CONTENT_REQUEST: "SURFBOARD_EDITOR_CONTENT_REQUEST",
     EDITOR_CONTENT_RESPONSE: "SURFBOARD_EDITOR_CONTENT_RESPONSE",
     INLINE_COMPLETIONS_REQUEST: "SURFBOARD_INLINE_COMPLETIONS_REQUEST",
@@ -179,6 +182,18 @@
     MONACO_HELPER_READY: "SURFBOARD_MONACO_HELPER_READY",
     NAVIGATE_TO_FILE: "SURFBOARD_NAVIGATE_TO_FILE"
   };
+
+  // src/js/utils/extensionContext.js
+  function isExtensionContextInvalidated(error) {
+    const message = String((error == null ? void 0 : error.message) || error || "");
+    return /extension context invalidated/i.test(message);
+  }
+  function normalizeExtensionContextError(error) {
+    if (isExtensionContextInvalidated(error)) {
+      return new Error("The extension was reloaded. Refresh this WaveMaker tab and try again.");
+    }
+    return error instanceof Error ? error : new Error(String(error));
+  }
 
   // src/js/services/studioApiService.js
   var StudioApiService = class {
@@ -198,6 +213,8 @@
             throw new Error("Authentication cookie not found");
           }
           this.authCookie = response.cookie;
+        }).catch((error) => {
+          throw normalizeExtensionContextError(error);
         }).finally(() => {
           this.initializationPromise = null;
         });
@@ -270,8 +287,19 @@
       }
       return `${this.projectBaseUrl}/${encodeURIComponent(normalizedProjectId)}/${normalizedPath}`;
     }
+    buildProjectContentUrl(projectId, projectPath) {
+      const normalizedProjectId = String(projectId || "").trim();
+      const normalizedPath = String(projectPath || "").split("/").map((segment) => segment.trim()).filter(Boolean).map((segment) => encodeURIComponent(segment)).join("/");
+      if (!normalizedProjectId || !normalizedPath) {
+        throw new Error("Project ID and project path are required");
+      }
+      return `${this.projectBaseUrl}/${encodeURIComponent(normalizedProjectId)}/resources/content/project/${normalizedPath}`;
+    }
     async readProjectTextFile(projectId, resourcePath) {
       return this.fetchText(this.buildProjectResourceUrl(projectId, resourcePath));
+    }
+    async readProjectContentFile(projectId, projectPath) {
+      return this.fetchText(this.buildProjectContentUrl(projectId, projectPath));
     }
     async writeProjectTextFile(projectId, resourcePath, content) {
       if (typeof content !== "string") {
@@ -287,6 +315,9 @@
     }
     async getProjectServices(projectId) {
       return this.fetchJson(`${this.projectBaseUrl}/${projectId}/services`);
+    }
+    async getProjectTree(projectId) {
+      return this.fetchJson(`${this.projectBaseUrl}/${projectId}/resources/info/project`);
     }
     async getProjectVariables(projectId) {
       return this.fetchJson(`${this.projectBaseUrl}/${projectId}/variables`);
@@ -339,6 +370,8 @@
       this.studioApiService = new studioApiService_default();
       this.projectMetadataCache = /* @__PURE__ */ new Map();
       this.projectMetadataRequests = /* @__PURE__ */ new Map();
+      this.projectTreeCache = /* @__PURE__ */ new Map();
+      this.projectTreeRequests = /* @__PURE__ */ new Map();
       this.pageBundleCache = /* @__PURE__ */ new Map();
       this.pageBundleRequests = /* @__PURE__ */ new Map();
     }
@@ -436,8 +469,22 @@
     }
     async getStudioContext() {
       const projectId = this.getProjectId();
-      const pageName = this.getPageName();
+      const studioSurface = this.getStudioSurface();
+      const pageName = studioSurface === "page-editor" ? this.getPageName() : "";
+      if (studioSurface === "files") {
+        return this.loadProjectTreeBackedContext(projectId);
+      }
       return this.loadApiBackedContext(projectId, pageName);
+    }
+    getStudioSurface() {
+      const pathname = window.location.pathname || "";
+      if (/\/s\/files(?:\/|$)/i.test(pathname)) {
+        return "files";
+      }
+      if (/\/page\/[^/]+/i.test(pathname)) {
+        return "page-editor";
+      }
+      return "unknown";
     }
     getProjectId() {
       const url = new URL(window.location.href);
@@ -512,6 +559,46 @@
         };
       }
     }
+    async loadProjectTreeBackedContext(projectId) {
+      if (!projectId) {
+        return {
+          projectId,
+          pageName: "",
+          apiContext: this.createEmptyApiContext(),
+          pageFiles: this.createEmptyPageFiles(),
+          symbols: this.extractSymbols(),
+          source: "dom"
+        };
+      }
+      try {
+        const projectTree = await this.getCachedProjectTree(projectId);
+        const treeMetadata = this.extractProjectMetadataFromTree(projectTree);
+        return {
+          projectId,
+          pageName: "",
+          apiContext: {
+            pages: treeMetadata.pages,
+            prefabs: treeMetadata.prefabs,
+            projectVariables: [],
+            pageVariables: [],
+            services: treeMetadata.services
+          },
+          pageFiles: this.createEmptyPageFiles(),
+          symbols: this.extractSymbols(),
+          source: "studio-project-tree"
+        };
+      } catch (error) {
+        console.warn("Falling back to DOM-based project context:", error);
+        return {
+          projectId,
+          pageName: "",
+          apiContext: this.createEmptyApiContext(),
+          pageFiles: this.createEmptyPageFiles(),
+          symbols: this.extractSymbols(),
+          source: "dom-fallback"
+        };
+      }
+    }
     async getCachedProjectMetadata(projectId) {
       if (this.projectMetadataCache.has(projectId)) {
         return this.projectMetadataCache.get(projectId);
@@ -539,6 +626,23 @@
         );
       }
       return this.projectMetadataRequests.get(projectId);
+    }
+    async getCachedProjectTree(projectId) {
+      if (this.projectTreeCache.has(projectId)) {
+        return this.projectTreeCache.get(projectId);
+      }
+      if (!this.projectTreeRequests.has(projectId)) {
+        this.projectTreeRequests.set(
+          projectId,
+          this.studioApiService.getProjectTree(projectId).then((projectTree) => {
+            this.projectTreeCache.set(projectId, projectTree);
+            return projectTree;
+          }).finally(() => {
+            this.projectTreeRequests.delete(projectId);
+          })
+        );
+      }
+      return this.projectTreeRequests.get(projectId);
     }
     async getCachedPageBundle(projectId, pageName) {
       const cacheKey = `${projectId}:${pageName}`;
@@ -689,6 +793,35 @@
         return Object.keys(data).sort();
       }
       return [];
+    }
+    extractProjectMetadataFromTree(projectTree) {
+      const pageNames = /* @__PURE__ */ new Set();
+      const prefabNames = /* @__PURE__ */ new Set();
+      const serviceNames = /* @__PURE__ */ new Set();
+      const visit = (node) => {
+        if (!node || typeof node !== "object") {
+          return;
+        }
+        const path = String(node.path || "");
+        const name = String(node.name || "");
+        const nodeType = String(node.type || "");
+        if (nodeType === "folder" && /\/src\/main\/webapp\/pages\/[^/]+$/i.test(path)) {
+          pageNames.add(name);
+        }
+        if (nodeType === "folder" && /\/src\/main\/webapp\/prefabs\/[^/]+$/i.test(path)) {
+          prefabNames.add(name);
+        }
+        if (nodeType === "file" && /\/services\/[^/]+\.[A-Za-z0-9]+$/i.test(path)) {
+          serviceNames.add(name.replace(/\.[^.]+$/, ""));
+        }
+        (Array.isArray(node.files) ? node.files : []).forEach(visit);
+      };
+      visit(projectTree);
+      return {
+        pages: [...pageNames].sort(),
+        prefabs: [...prefabNames].sort(),
+        services: [...serviceNames].sort()
+      };
     }
     extractSymbols() {
       const pageElement = document.querySelector("wm-page");
@@ -1105,12 +1238,109 @@ ${sections.join("\n")}` : "";
   };
   var completionManager_default = CompletionManager;
 
+  // src/js/constants/editAgent.js
+  var DEFAULT_EDIT_AGENT_BASE_URL = "http://127.0.0.1:8787";
+  function normalizeEditAgentBaseUrl(baseUrl = DEFAULT_EDIT_AGENT_BASE_URL) {
+    const normalizedValue = String(baseUrl || "").trim();
+    return normalizedValue.replace(/\/+$/, "") || DEFAULT_EDIT_AGENT_BASE_URL;
+  }
+
+  // src/js/services/editAgentService.js
+  var EditAgentService = class {
+    constructor() {
+      this.baseUrl = DEFAULT_EDIT_AGENT_BASE_URL;
+      this.initialized = false;
+      this.initializationPromise = null;
+    }
+    async initialize() {
+      if (this.initialized) {
+        return;
+      }
+      if (!this.initializationPromise) {
+        this.initializationPromise = new Promise((resolve) => {
+          chrome.storage.sync.get(["editAgentBaseUrl"], (result) => {
+            this.baseUrl = normalizeEditAgentBaseUrl(result.editAgentBaseUrl);
+            this.initialized = true;
+            resolve();
+          });
+        }).finally(() => {
+          this.initializationPromise = null;
+        });
+      }
+      await this.initializationPromise;
+    }
+    setBaseUrl(baseUrl) {
+      this.baseUrl = normalizeEditAgentBaseUrl(baseUrl);
+      this.initialized = true;
+    }
+    async sendRequest({ path, method = "GET", body } = {}) {
+      await this.initialize();
+      if (!path) {
+        throw new Error("Edit agent request path is required");
+      }
+      return new Promise((resolve, reject) => {
+        try {
+          chrome.runtime.sendMessage(
+            {
+              type: RUNTIME_MESSAGES.EDIT_AGENT_REQUEST,
+              data: {
+                baseUrl: this.baseUrl,
+                path,
+                method,
+                body
+              }
+            },
+            (response) => {
+              if (chrome.runtime.lastError) {
+                reject(normalizeExtensionContextError(chrome.runtime.lastError));
+                return;
+              }
+              if (!(response == null ? void 0 : response.success)) {
+                reject(new Error((response == null ? void 0 : response.error) || "Edit agent request failed"));
+                return;
+              }
+              resolve(response.data);
+            }
+          );
+        } catch (error) {
+          reject(normalizeExtensionContextError(error));
+        }
+      });
+    }
+    async getHealth() {
+      return this.sendRequest({
+        path: "/health"
+      });
+    }
+    async getCapabilities() {
+      return this.sendRequest({
+        path: "/capabilities"
+      });
+    }
+    async createEditRun(payload) {
+      return this.sendRequest({
+        path: "/edit",
+        method: "POST",
+        body: payload
+      });
+    }
+  };
+  var editAgentService_default = new EditAgentService();
+
   // src/js/constants/studio.js
-  var manifest = chrome.runtime.getManifest();
+  function getManifestSafe() {
+    var _a, _b;
+    try {
+      return ((_b = (_a = chrome.runtime) == null ? void 0 : _a.getManifest) == null ? void 0 : _b.call(_a)) || null;
+    } catch (error) {
+      return null;
+    }
+  }
   function getConfiguredMatchPatterns() {
     var _a;
+    const manifest = getManifestSafe();
     const contentScriptMatches = ((_a = manifest.content_scripts) == null ? void 0 : _a.flatMap((entry) => entry.matches || [])) || [];
-    return [...new Set(contentScriptMatches)];
+    return [...new Set(contentScriptMatches.length ? contentScriptMatches : ["https://platform.wavemaker.ai/*"])];
   }
   function escapeRegex(value) {
     return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -1126,7 +1356,7 @@ ${sections.join("\n")}` : "";
     return getConfiguredMatchPatterns().some((pattern) => convertMatchPatternToRegex(pattern).test(url));
   }
 
-  // node_modules/.pnpm/marked@12.0.2/node_modules/marked/lib/marked.esm.js
+  // node_modules/marked/lib/marked.esm.js
   function _getDefaults() {
     return {
       async: false,
@@ -4746,8 +4976,11 @@ ${logs}`
       this.isEnabled = true;
       this.isInitialized = false;
       this.model = DEFAULT_LITELLM_CHAT_MODEL;
+      this.editAgentBaseUrl = DEFAULT_EDIT_AGENT_BASE_URL;
       this.sidebar = null;
       this.completionManager = null;
+      this.editAgentService = editAgentService_default;
+      this.studioApiService = new studioApiService_default();
       this.pageContextManager = new pageContext_default();
       this.chatHistory = [];
       this.maxChatHistory = 6;
@@ -4762,6 +4995,8 @@ ${logs}`
         this.apiKey = settings.litellmApiKey || null;
         this.apiBaseUrl = normalizeLiteLLMBaseUrl(settings.litellmBaseUrl);
         this.model = settings.litellmChatModel || DEFAULT_LITELLM_CHAT_MODEL;
+        this.editAgentBaseUrl = normalizeEditAgentBaseUrl(settings.editAgentBaseUrl);
+        this.editAgentService.setBaseUrl(this.editAgentBaseUrl);
         this.isEnabled = settings.copilotEnabled !== false;
         this.sidebar = new sidebar_default();
         this.completionManager = new completionManager_default({ enabled: this.isEnabled });
@@ -4787,7 +5022,7 @@ ${logs}`
     async loadSettings() {
       return new Promise((resolve) => {
         chrome.storage.sync.get(
-          ["copilotEnabled", "litellmApiKey", "litellmBaseUrl", "litellmChatModel"],
+          ["copilotEnabled", "litellmApiKey", "litellmBaseUrl", "litellmChatModel", "editAgentBaseUrl"],
           (result) => resolve(result)
         );
       });
@@ -4806,14 +5041,21 @@ ${logs}`
         try {
           const pageContext = await this.refreshSidebarContext();
           const streamingMessage = this.sidebar.createStreamingAssistantMessage();
-          const reply = await this.fetchChatReplyStream(message, pageContext, streamingMessage);
+          const reply = this.isEditAgentCommand(message) ? await this.fetchEditAgentReply(message, pageContext, streamingMessage) : await this.fetchChatReplyStream(message, pageContext, streamingMessage);
           this.recordChatTurn("user", message);
           this.recordChatTurn("assistant", reply);
         } catch (error) {
-          console.error("Failed to process message:", error);
-          (_b = this.sidebar) == null ? void 0 : _b.showError(error.message || "Failed to process your message.");
+          const normalizedError = normalizeExtensionContextError(error);
+          console.error("Failed to process message:", normalizedError);
+          (_b = this.sidebar) == null ? void 0 : _b.showError(normalizedError.message || "Failed to process your message.");
         }
       });
+    }
+    isEditAgentCommand(message) {
+      return typeof message === "string" && message.trim().toLowerCase().startsWith("/edit");
+    }
+    extractEditIntent(message) {
+      return String(message || "").replace(/^\/edit\b/i, "").trim();
     }
     async fetchChatReplyStream(message, pageContext, streamingMessage) {
       const requestBody = this.buildChatStreamRequest(message, pageContext);
@@ -4887,6 +5129,92 @@ ${logs}`
         });
       });
     }
+    async fetchEditAgentReply(message, pageContext, streamingMessage) {
+      const intent = this.extractEditIntent(message);
+      if (!intent) {
+        streamingMessage.remove();
+        throw new Error("Use `/edit <what to change>` to start an edit-agent run.");
+      }
+      const requestBody = this.buildEditAgentRequest(intent, pageContext);
+      const streamState = {
+        text: "Preparing edit-agent request...",
+        sources: ["Local edit-agent"],
+        followups: []
+      };
+      this.sidebar.updateStreamingAssistantMessage(streamingMessage, streamState);
+      return new Promise((resolve, reject) => {
+        let settled = false;
+        let eventQueue = Promise.resolve();
+        const port = chrome.runtime.connect({
+          name: RUNTIME_MESSAGES.EDIT_AGENT_STREAM
+        });
+        const cleanup = () => {
+          port.onMessage.removeListener(handlePortMessage);
+          port.onDisconnect.removeListener(handleDisconnect);
+          try {
+            port.disconnect();
+          } catch (error) {
+          }
+        };
+        const finish = () => {
+          if (settled) {
+            return;
+          }
+          settled = true;
+          this.sidebar.finalizeStreamingAssistantMessage(streamingMessage, streamState);
+          cleanup();
+          resolve(streamState.text.trim() || "Edit agent run completed.");
+        };
+        const fail = (error) => {
+          if (settled) {
+            return;
+          }
+          settled = true;
+          if (!streamState.text.trim()) {
+            streamingMessage.remove();
+          } else {
+            this.sidebar.finalizeStreamingAssistantMessage(streamingMessage, streamState);
+          }
+          cleanup();
+          reject(error instanceof Error ? error : new Error(String(error)));
+        };
+        const handleDisconnect = () => {
+          if (!settled && chrome.runtime.lastError) {
+            fail(new Error(chrome.runtime.lastError.message));
+          }
+        };
+        const handlePortMessage = (payload) => {
+          if ((payload == null ? void 0 : payload.type) === "event") {
+            eventQueue = eventQueue.then(() => this.handleEditAgentStreamEvent(payload.event, streamState, streamingMessage, fail)).then((nextChunk) => {
+              if (!nextChunk) {
+                return;
+              }
+              streamState.text = streamState.text ? `${streamState.text}
+
+${nextChunk}` : nextChunk;
+              this.sidebar.updateStreamingAssistantMessage(streamingMessage, streamState);
+            }).catch(fail);
+            return;
+          }
+          if ((payload == null ? void 0 : payload.type) === "done") {
+            eventQueue.then(() => finish()).catch(fail);
+            return;
+          }
+          if ((payload == null ? void 0 : payload.type) === "error") {
+            fail(new Error(payload.error || "Edit agent stream failed"));
+          }
+        };
+        port.onMessage.addListener(handlePortMessage);
+        port.onDisconnect.addListener(handleDisconnect);
+        port.postMessage({
+          type: "start",
+          data: {
+            baseUrl: this.editAgentBaseUrl,
+            body: requestBody
+          }
+        });
+      });
+    }
     handleStreamEvent(event, streamState, streamingMessage, fail) {
       var _a;
       if (!(event == null ? void 0 : event.type)) {
@@ -4922,6 +5250,189 @@ ${logs}`
         context: this.buildEcosystemChatContext(pageContext),
         history: this.getChatHistoryMessages()
       };
+    }
+    buildEditAgentRequest(intent, pageContext) {
+      return {
+        intent,
+        projectId: pageContext.projectId || "",
+        pageName: pageContext.pageName || "",
+        activeFile: pageContext.activeFile || "",
+        activeFileType: pageContext.activeFileType || "",
+        source: pageContext.source || "",
+        context: {
+          apiContext: pageContext.apiContext || {},
+          cursor: pageContext.cursor || null,
+          language: pageContext.language || "",
+          pageFiles: pageContext.pageFiles || {},
+          symbols: pageContext.symbols || {}
+        },
+        modelConfig: {
+          apiKey: this.apiKey || "",
+          baseUrl: this.apiBaseUrl || "",
+          model: this.model || ""
+        }
+      };
+    }
+    async handleEditAgentStreamEvent(event, streamState, streamingMessage, fail) {
+      if (!(event == null ? void 0 : event.type)) {
+        return;
+      }
+      if (event.type === "error") {
+        fail(new Error(event.error || "Edit agent stream failed"));
+        return;
+      }
+      return this.formatEditAgentEvent(event);
+    }
+    async formatEditAgentEvent(event) {
+      if (event.type === "status") {
+        return `- ${event.phase || "status"}: ${event.message || "In progress"}`;
+      }
+      if (event.type === "message") {
+        return event.content || "";
+      }
+      if (event.type === "tool_request") {
+        return this.handleEditAgentToolRequest(event);
+      }
+      if (event.type === "patch_proposed") {
+        const files = Array.isArray(event.files) && event.files.length ? ` Files: ${event.files.join(", ")}.` : "";
+        return `- patch_proposed: ${event.summary || "Patch proposal received."}${files}`;
+      }
+      if (event.type === "apply_request") {
+        const result = await this.applyEditAgentChange(event);
+        return `- apply_result: ${result}`;
+      }
+      if (event.type === "validation_result") {
+        return `- validation: ${event.status || "unknown"}${event.message ? ` - ${event.message}` : ""}`;
+      }
+      if (event.type === "interrupt") {
+        return `- approval_required: ${event.message || "Awaiting approval."}`;
+      }
+      if (event.type === "apply_result") {
+        return `- apply_result: ${event.message || "Apply step completed."}`;
+      }
+      if (event.type === "done") {
+        const toolText = Array.isArray(event.requiredTools) && event.requiredTools.length ? ` Required tools: ${event.requiredTools.join(", ")}.` : "";
+        return `${event.message || "Edit agent run completed."}${event.nextPhase ? ` Next phase: \`${event.nextPhase}\`.` : ""}${toolText}`;
+      }
+      return "";
+    }
+    async handleEditAgentToolRequest(event) {
+      if (!event.runId || !event.toolCallId || !event.tool) {
+        throw new Error("Edit agent tool request is missing run metadata.");
+      }
+      const result = await this.executeEditAgentTool(event.tool, event.input || {});
+      await this.editAgentService.sendRequest({
+        path: `/runs/${encodeURIComponent(event.runId)}/tool-result`,
+        method: "POST",
+        body: {
+          toolCallId: event.toolCallId,
+          result
+        }
+      });
+      return `- tool_request: completed ${event.tool}`;
+    }
+    async executeEditAgentTool(tool, input) {
+      switch (tool) {
+        case "get_project_tree":
+          return this.handleGetProjectTreeTool(input);
+        case "read_project_file":
+          return this.handleReadProjectFileTool(input);
+        default:
+          throw new Error(`Unsupported edit agent tool: ${tool}`);
+      }
+    }
+    async handleGetProjectTreeTool(input) {
+      const projectId = String(input.projectId || this.pageContextManager.getProjectId() || "").trim();
+      if (!projectId) {
+        throw new Error("Project tree request is missing a project id.");
+      }
+      const projectTree = await this.studioApiService.getProjectTree(projectId);
+      const entries = this.flattenProjectTree(projectTree);
+      const matches = this.filterProjectTreeEntries(entries, input);
+      return {
+        projectId,
+        entries: matches,
+        matches,
+        counts: {
+          totalEntries: entries.length,
+          matchedEntries: matches.length
+        }
+      };
+    }
+    async handleReadProjectFileTool(input) {
+      const projectId = String(input.projectId || this.pageContextManager.getProjectId() || "").trim();
+      const projectPath = String(input.projectPath || "").trim();
+      if (!projectId || !projectPath) {
+        throw new Error("Project file read requires projectId and projectPath.");
+      }
+      return this.studioApiService.readProjectContentFile(projectId, projectPath);
+    }
+    flattenProjectTree(node, entries = []) {
+      if (!node || typeof node !== "object") {
+        return entries;
+      }
+      const path = String(node.path || "").trim();
+      const name = String(node.name || "").trim();
+      if (path || name) {
+        const normalizedPath = path || (name ? `/${name}` : "");
+        const extension = name.includes(".") ? name.split(".").pop().toLowerCase() : "";
+        entries.push({
+          name,
+          type: node.type || "",
+          path: normalizedPath,
+          extension,
+          parentPath: normalizedPath.includes("/") ? normalizedPath.slice(0, normalizedPath.lastIndexOf("/")) || "/" : "/",
+          modifiedDate: node.modifiedDate || null
+        });
+      }
+      const children = Array.isArray(node.files) ? node.files : [];
+      children.forEach((child) => this.flattenProjectTree(child, entries));
+      return entries;
+    }
+    filterProjectTreeEntries(entries, input = {}) {
+      const focusPathPrefixes = Array.isArray(input.focusPathPrefixes) ? input.focusPathPrefixes.map((prefix) => String(prefix || "").trim()).filter(Boolean) : [];
+      const requestedLimit = Number(input.limit);
+      const limit = Number.isFinite(requestedLimit) ? Math.max(1, requestedLimit) : 200;
+      const normalizedPrefixes = focusPathPrefixes.map(
+        (prefix) => prefix.startsWith("/") ? prefix : `/${prefix}`
+      );
+      const filteredEntries = normalizedPrefixes.length ? entries.filter(
+        (entry) => normalizedPrefixes.some((prefix) => String(entry.path || "").startsWith(prefix))
+      ) : entries;
+      return filteredEntries.slice(0, limit);
+    }
+    async applyEditAgentChange(event) {
+      const projectId = this.pageContextManager.getProjectId();
+      const resourcePath = String(event.resourcePath || "").trim();
+      const projectPath = String(event.projectPath || "").trim();
+      const fileName = String(event.fileName || "").trim();
+      const content = typeof event.content === "string" ? event.content : "";
+      if (!resourcePath) {
+        throw new Error("Edit agent did not provide a resource path to apply.");
+      }
+      if (!content) {
+        throw new Error("Edit agent did not provide updated file content.");
+      }
+      await this.studioApiService.writeProjectTextFile(projectId, resourcePath, content);
+      if (projectPath) {
+        const persistedContent = await this.studioApiService.readProjectContentFile(projectId, projectPath);
+        if (persistedContent !== content) {
+          throw new Error(`Studio save verification failed for ${projectPath}.`);
+        }
+      }
+      window.postMessage(
+        {
+          type: PAGE_MESSAGES.EDITOR_CONTENT_APPLY,
+          data: {
+            content,
+            fileName,
+            projectPath,
+            resourcePath
+          }
+        },
+        "*"
+      );
+      return `Applied ${fileName || resourcePath}${event.summary ? ` - ${event.summary}` : ""}`;
     }
     buildEcosystemChatContext(pageContext) {
       var _a, _b, _c;
@@ -5001,7 +5512,7 @@ ${logs}`
     }
     setupRuntimeMessageListener() {
       chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-        var _a, _b, _c, _d, _e;
+        var _a, _b, _c, _d, _e, _f;
         switch (message == null ? void 0 : message.type) {
           case RUNTIME_MESSAGES.TOGGLE_COPILOT:
             if (this.isEnabled) {
@@ -5017,6 +5528,10 @@ ${logs}`
             this.apiKey = ((_c = message.data) == null ? void 0 : _c.litellmApiKey) || null;
             this.apiBaseUrl = normalizeLiteLLMBaseUrl((_d = message.data) == null ? void 0 : _d.litellmBaseUrl);
             this.model = ((_e = message.data) == null ? void 0 : _e.litellmChatModel) || DEFAULT_LITELLM_CHAT_MODEL;
+            this.editAgentBaseUrl = normalizeEditAgentBaseUrl(
+              ((_f = message.data) == null ? void 0 : _f.editAgentBaseUrl) || this.editAgentBaseUrl
+            );
+            this.editAgentService.setBaseUrl(this.editAgentBaseUrl);
             sendResponse({ success: true });
             return true;
           default:
@@ -5037,6 +5552,12 @@ ${logs}`
         }
         if (changes.litellmChatModel) {
           this.model = changes.litellmChatModel.newValue || DEFAULT_LITELLM_CHAT_MODEL;
+        }
+        if (changes.editAgentBaseUrl) {
+          this.editAgentBaseUrl = normalizeEditAgentBaseUrl(
+            changes.editAgentBaseUrl.newValue || this.editAgentBaseUrl
+          );
+          this.editAgentService.setBaseUrl(this.editAgentBaseUrl);
         }
         if (changes.copilotEnabled) {
           this.setEnabled(Boolean(changes.copilotEnabled.newValue));

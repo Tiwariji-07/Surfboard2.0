@@ -18,7 +18,16 @@ The main architectural rule is:
 
 ## Current Project Shape
 
-This repo is currently a Manifest V3 Chrome extension.
+This repo is now being organized as a small monorepo.
+
+Current runtime reality:
+
+- the Chrome extension still lives at the repository root
+- the root build and `dist/` output remain the active extension packaging path
+- `apps/edit-agent` is the new backend workspace for the future edit agent
+- `packages/*` hold shared contracts and prompts
+
+This is intentionally incremental so existing extension behavior does not break during the split.
 
 Key runtime pieces:
 
@@ -29,6 +38,9 @@ Key runtime pieces:
 - `src/js/inject/monacoHelper.js`
 - `src/js/ui/sidebar.js`
 - `src/js/services/*`
+- `apps/edit-agent/*`
+- `packages/contracts/*`
+- `packages/prompts/*`
 
 The extension injects UI and logic into WaveMaker Studio pages and attempts to integrate with Monaco editors used inside Studio.
 

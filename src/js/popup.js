@@ -1,5 +1,9 @@
 import { RUNTIME_MESSAGES } from './constants/messages.js';
 import {
+    DEFAULT_EDIT_AGENT_BASE_URL,
+    normalizeEditAgentBaseUrl
+} from './constants/editAgent.js';
+import {
     DEFAULT_LITELLM_BASE_URL,
     DEFAULT_LITELLM_CHAT_MODEL,
     DEFAULT_LITELLM_COMPLETION_MODEL,
@@ -14,6 +18,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const litellmChatModelInput = document.getElementById('litellmChatModel');
     const litellmCompletionModelInput = document.getElementById('litellmCompletionModel');
     const litellmLogModelInput = document.getElementById('litellmLogModel');
+    const editAgentBaseUrlInput = document.getElementById('editAgentBaseUrl');
     const saveButton = document.getElementById('saveButton');
     const statusDiv = document.getElementById('status');
     const enableCopilotCheckbox = document.getElementById('enableCopilot');
@@ -26,6 +31,7 @@ document.addEventListener('DOMContentLoaded', () => {
             'litellmChatModel',
             'litellmCompletionModel',
             'litellmLogModel',
+            'editAgentBaseUrl',
             'copilotEnabled'
         ],
         (result) => {
@@ -35,6 +41,7 @@ document.addEventListener('DOMContentLoaded', () => {
             litellmCompletionModelInput.value =
                 result.litellmCompletionModel || DEFAULT_LITELLM_COMPLETION_MODEL;
             litellmLogModelInput.value = result.litellmLogModel || DEFAULT_LITELLM_LOG_MODEL;
+            editAgentBaseUrlInput.value = result.editAgentBaseUrl || DEFAULT_EDIT_AGENT_BASE_URL;
             if (typeof result.copilotEnabled !== 'undefined') {
                 enableCopilotCheckbox.checked = result.copilotEnabled;
             }
@@ -49,6 +56,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const litellmCompletionModel =
             litellmCompletionModelInput.value.trim() || DEFAULT_LITELLM_COMPLETION_MODEL;
         const litellmLogModel = litellmLogModelInput.value.trim() || DEFAULT_LITELLM_LOG_MODEL;
+        const editAgentBaseUrl = normalizeEditAgentBaseUrl(editAgentBaseUrlInput.value);
 
         if (!litellmApiKey) {
             showStatus('Please enter a LiteLLM API key', 'error');
@@ -67,13 +75,21 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
+        try {
+            new URL(editAgentBaseUrl);
+        } catch (error) {
+            showStatus('Edit Agent Base URL must be a valid URL', 'error');
+            return;
+        }
+
         // Save to chrome.storage
         chrome.storage.sync.set({ 
             litellmApiKey,
             litellmBaseUrl,
             litellmChatModel,
             litellmCompletionModel,
-            litellmLogModel
+            litellmLogModel,
+            editAgentBaseUrl
         }, () => {
             showStatus('LiteLLM settings saved successfully!', 'success');
             
@@ -88,7 +104,8 @@ document.addEventListener('DOMContentLoaded', () => {
                             litellmBaseUrl,
                             litellmChatModel,
                             litellmCompletionModel,
-                            litellmLogModel
+                            litellmLogModel,
+                            editAgentBaseUrl
                         }
                     }).catch(error => {
                         // console.log('Tab communication error:', error);

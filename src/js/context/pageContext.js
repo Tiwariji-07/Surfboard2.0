@@ -7,6 +7,8 @@ class PageContextManager {
         this.studioApiService = new StudioApiService();
         this.projectMetadataCache = new Map();
         this.projectMetadataRequests = new Map();
+        this.projectTreeCache = new Map();
+        this.projectTreeRequests = new Map();
         this.pageBundleCache = new Map();
         this.pageBundleRequests = new Map();
     }
@@ -123,8 +125,28 @@ class PageContextManager {
 
     async getStudioContext() {
         const projectId = this.getProjectId();
-        const pageName = this.getPageName();
+        const studioSurface = this.getStudioSurface();
+        const pageName = studioSurface === 'page-editor' ? this.getPageName() : '';
+
+        if (studioSurface === 'files') {
+            return this.loadProjectTreeBackedContext(projectId);
+        }
+
         return this.loadApiBackedContext(projectId, pageName);
+    }
+
+    getStudioSurface() {
+        const pathname = window.location.pathname || '';
+
+        if (/\/s\/files(?:\/|$)/i.test(pathname)) {
+            return 'files';
+        }
+
+        if (/\/page\/[^/]+/i.test(pathname)) {
+            return 'page-editor';
+        }
+
+        return 'unknown';
     }
 
     getProjectId() {
@@ -211,6 +233,49 @@ class PageContextManager {
         }
     }
 
+    async loadProjectTreeBackedContext(projectId) {
+        if (!projectId) {
+            return {
+                projectId,
+                pageName: '',
+                apiContext: this.createEmptyApiContext(),
+                pageFiles: this.createEmptyPageFiles(),
+                symbols: this.extractSymbols(),
+                source: 'dom'
+            };
+        }
+
+        try {
+            const projectTree = await this.getCachedProjectTree(projectId);
+            const treeMetadata = this.extractProjectMetadataFromTree(projectTree);
+
+            return {
+                projectId,
+                pageName: '',
+                apiContext: {
+                    pages: treeMetadata.pages,
+                    prefabs: treeMetadata.prefabs,
+                    projectVariables: [],
+                    pageVariables: [],
+                    services: treeMetadata.services
+                },
+                pageFiles: this.createEmptyPageFiles(),
+                symbols: this.extractSymbols(),
+                source: 'studio-project-tree'
+            };
+        } catch (error) {
+            console.warn('Falling back to DOM-based project context:', error);
+            return {
+                projectId,
+                pageName: '',
+                apiContext: this.createEmptyApiContext(),
+                pageFiles: this.createEmptyPageFiles(),
+                symbols: this.extractSymbols(),
+                source: 'dom-fallback'
+            };
+        }
+    }
+
     async getCachedProjectMetadata(projectId) {
         if (this.projectMetadataCache.has(projectId)) {
             return this.projectMetadataCache.get(projectId);
@@ -243,6 +308,28 @@ class PageContextManager {
         }
 
         return this.projectMetadataRequests.get(projectId);
+    }
+
+    async getCachedProjectTree(projectId) {
+        if (this.projectTreeCache.has(projectId)) {
+            return this.projectTreeCache.get(projectId);
+        }
+
+        if (!this.projectTreeRequests.has(projectId)) {
+            this.projectTreeRequests.set(
+                projectId,
+                this.studioApiService.getProjectTree(projectId)
+                    .then((projectTree) => {
+                        this.projectTreeCache.set(projectId, projectTree);
+                        return projectTree;
+                    })
+                    .finally(() => {
+                        this.projectTreeRequests.delete(projectId);
+                    })
+            );
+        }
+
+        return this.projectTreeRequests.get(projectId);
     }
 
     async getCachedPageBundle(projectId, pageName) {
@@ -436,6 +523,44 @@ class PageContextManager {
         }
 
         return [];
+    }
+
+    extractProjectMetadataFromTree(projectTree) {
+        const pageNames = new Set();
+        const prefabNames = new Set();
+        const serviceNames = new Set();
+
+        const visit = (node) => {
+            if (!node || typeof node !== 'object') {
+                return;
+            }
+
+            const path = String(node.path || '');
+            const name = String(node.name || '');
+            const nodeType = String(node.type || '');
+
+            if (nodeType === 'folder' && /\/src\/main\/webapp\/pages\/[^/]+$/i.test(path)) {
+                pageNames.add(name);
+            }
+
+            if (nodeType === 'folder' && /\/src\/main\/webapp\/prefabs\/[^/]+$/i.test(path)) {
+                prefabNames.add(name);
+            }
+
+            if (nodeType === 'file' && /\/services\/[^/]+\.[A-Za-z0-9]+$/i.test(path)) {
+                serviceNames.add(name.replace(/\.[^.]+$/, ''));
+            }
+
+            (Array.isArray(node.files) ? node.files : []).forEach(visit);
+        };
+
+        visit(projectTree);
+
+        return {
+            pages: [...pageNames].sort(),
+            prefabs: [...prefabNames].sort(),
+            services: [...serviceNames].sort()
+        };
     }
 
     extractSymbols() {

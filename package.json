@@ -1,16 +1,27 @@
 {
   "name": "surfboard-ai",
+  "private": true,
   "version": "2.0.0",
   "description": "AI-powered development assistant for WaveMaker",
   "main": "src/js/content.js",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "scripts": {
     "build": "node build.js",
+    "build:extension": "node build.js",
     "build:prod": "NODE_ENV=production node build.js",
     "watch": "node build.js --watch",
-    "dev": "npm run watch"
+    "watch:extension": "node build.js --watch",
+    "dev": "npm run watch",
+    "dev:edit-agent": "npm --workspace @surfboard/edit-agent run dev"
   },
   "dependencies": {
-    "marked": "^12.0.2"
+    "@langchain/core": "^1.1.39",
+    "@langchain/langgraph": "^1.2.7",
+    "marked": "^12.0.2",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "esbuild": "^0.19.11"

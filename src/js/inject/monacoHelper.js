@@ -5,6 +5,7 @@
     window.__surfboardMonacoHelperInitialized = true;
 
     const PAGE_MESSAGES = {
+        EDITOR_CONTENT_APPLY: 'SURFBOARD_EDITOR_CONTENT_APPLY',
         EDITOR_CONTENT_REQUEST: 'SURFBOARD_EDITOR_CONTENT_REQUEST',
         EDITOR_CONTENT_RESPONSE: 'SURFBOARD_EDITOR_CONTENT_RESPONSE',
         INLINE_COMPLETIONS_REQUEST: 'SURFBOARD_INLINE_COMPLETIONS_REQUEST',
@@ -240,6 +241,63 @@
         }
     }
 
+    function findModelForApply(target = {}) {
+        const models = monaco.editor.getModels();
+        const targetFileName = String(target.fileName || '').trim();
+        const targetResourcePath = String(target.resourcePath || '').trim();
+        const targetProjectPath = String(target.projectPath || '').trim();
+
+        if (!models.length) {
+            return null;
+        }
+
+        const activeModel = activeEditor?.getModel();
+        if (activeModel) {
+            const activePath = getFilePath(activeModel);
+            const activeFileName = getFileName(activeModel);
+            if (
+                (targetFileName && activeFileName === targetFileName) ||
+                (targetResourcePath && activePath.endsWith(targetResourcePath)) ||
+                (targetProjectPath && activePath.endsWith(targetProjectPath))
+            ) {
+                return activeModel;
+            }
+        }
+
+        return (
+            models.find((model) => {
+                const modelPath = getFilePath(model);
+                const modelFileName = getFileName(model);
+                return (
+                    (targetFileName && modelFileName === targetFileName) ||
+                    (targetResourcePath && modelPath.endsWith(targetResourcePath)) ||
+                    (targetProjectPath && modelPath.endsWith(targetProjectPath))
+                );
+            }) || activeModel || models[0]
+        );
+    }
+
+    function applyEditorContent(target) {
+        try {
+            if (!activeEditor) {
+                const editors = monaco.editor.getEditors();
+                if (editors.length > 0) {
+                    activeEditor = editors[0];
+                }
+            }
+
+            const content = typeof target === 'string' ? target : target?.content;
+            const model = findModelForApply(typeof target === 'string' ? { content } : target);
+            if (!model || typeof content !== 'string') {
+                return;
+            }
+
+            model.setValue(content);
+        } catch (error) {
+            console.error('Failed to apply editor content:', error);
+        }
+    }
+
     function setupWindowListeners() {
         window.addEventListener('message', (event) => {
             if (event.data?.type === PAGE_MESSAGES.EDITOR_CONTENT_REQUEST) {
@@ -254,6 +312,10 @@
 
             if (event.data?.type === PAGE_MESSAGES.NAVIGATE_TO_FILE) {
                 navigateToFile(event.data.data?.line, event.data.data?.column);
+            }
+
+            if (event.data?.type === PAGE_MESSAGES.EDITOR_CONTENT_APPLY) {
+                applyEditorContent(event.data.data);
             }
         });
     }
