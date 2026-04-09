@@ -7,6 +7,7 @@ import CompletionManager from './completion/completionManager.js';
 import PageContextManager from './context/pageContext.js';
 import StudioApiService from './services/studioApiService.js';
 import editAgentService from './services/editAgentService.js';
+import { knowledgeBaseService } from './services/knowledgeBaseService.js';
 import { DEFAULT_EDIT_AGENT_BASE_URL, normalizeEditAgentBaseUrl } from './constants/editAgent.js';
 import { DEFAULT_LITELLM_CHAT_MODEL, normalizeLiteLLMBaseUrl } from './constants/litellm.js';
 import { PAGE_MESSAGES, RUNTIME_MESSAGES } from './constants/messages.js';
@@ -28,11 +29,15 @@ class SurfboardAI {
         this.sidebar = null;
         this.completionManager = null;
         this.editAgentService = editAgentService;
+        this.knowledgeBaseService = knowledgeBaseService;
         this.studioApiService = new StudioApiService();
         this.pageContextManager = new PageContextManager();
         this.chatHistory = [];
-        this.maxChatHistory = 6;
+        this.maxChatHistory = 20;
         this.chatSessionId = crypto.randomUUID();
+        this.useKnowledgeBase = true; // Try KB first, fall back to ecosystem agent
+        this.kbBaseUrl = 'http://localhost:8788';
+        this._chatHistoryKey = null; // Set after context load
     }
 
     async initialize() {
@@ -47,11 +52,15 @@ class SurfboardAI {
             this.model = settings.litellmChatModel || DEFAULT_LITELLM_CHAT_MODEL;
             this.editAgentBaseUrl = normalizeEditAgentBaseUrl(settings.editAgentBaseUrl);
             this.editAgentService.setBaseUrl(this.editAgentBaseUrl);
+            this.kbBaseUrl = settings.knowledgeBaseUrl || this.kbBaseUrl;
+            this.knowledgeBaseService.setBaseUrl(this.kbBaseUrl);
+            this.useKnowledgeBase = settings.useKnowledgeBase !== false;
             this.isEnabled = settings.copilotEnabled !== false;
             this.sidebar = new WaveMakerCopilotSidebar();
             this.completionManager = new CompletionManager({ enabled: this.isEnabled });
 
             this.setupChatListener();
+            this.setupFeedbackListener();
             this.setupRuntimeMessageListener();
             this.setupStorageListener();
             this.notifyReady();
@@ -61,14 +70,18 @@ class SurfboardAI {
                 console.warn('Failed to initialize sidebar context:', error);
             });
 
-            this.sidebar.addMessage(
-                "Hello! I'm your Surfboard AI assistant.\n\n" +
-                    "- I can answer WaveMaker questions\n" +
-                    "- I can help with JS, HTML, and CSS\n" +
-                    "- I can suggest page-aware code changes\n\n" +
-                    'How can I help?',
-                'assistant'
-            );
+            // Restore previous chat history or show welcome message
+            await this._restoreChatHistory();
+            if (this.chatHistory.length === 0) {
+                this.sidebar.addMessage(
+                    "Hello! I'm your Surfboard AI assistant.\n\n" +
+                        "- I can answer WaveMaker questions\n" +
+                        "- I can help with JS, HTML, and CSS\n" +
+                        "- I can suggest page-aware code changes\n\n" +
+                        'How can I help?',
+                    'assistant'
+                );
+            }
         } catch (error) {
             console.error('Failed to initialize SurfboardAI:', error);
         }
@@ -81,7 +94,7 @@ class SurfboardAI {
     async loadSettings() {
         return new Promise((resolve) => {
             chrome.storage.sync.get(
-                ['copilotEnabled', 'litellmApiKey', 'litellmBaseUrl', 'litellmChatModel', 'editAgentBaseUrl'],
+                ['copilotEnabled', 'litellmApiKey', 'litellmBaseUrl', 'litellmChatModel', 'editAgentBaseUrl', 'knowledgeBaseUrl', 'useKnowledgeBase'],
                 (result) => resolve(result)
             );
         });
@@ -102,9 +115,12 @@ class SurfboardAI {
             try {
                 const pageContext = await this.refreshSidebarContext();
                 const streamingMessage = this.sidebar.createStreamingAssistantMessage();
-                const reply = this.isEditAgentCommand(message)
-                    ? await this.fetchEditAgentReply(message, pageContext, streamingMessage)
-                    : await this.fetchChatReplyStream(message, pageContext, streamingMessage);
+                let reply;
+                if (this.isEditAgentCommand(message)) {
+                    reply = await this.fetchEditAgentReply(message, pageContext, streamingMessage);
+                } else {
+                    reply = await this.fetchParallelChatReply(message, pageContext, streamingMessage);
+                }
 
                 this.recordChatTurn('user', message);
                 this.recordChatTurn('assistant', reply);
@@ -113,6 +129,27 @@ class SurfboardAI {
                 console.error('Failed to process message:', normalizedError);
                 this.sidebar?.showError(normalizedError.message || 'Failed to process your message.');
             }
+        });
+    }
+
+    setupFeedbackListener() {
+        document.addEventListener('surfboard-feedback', (event) => {
+            const { feedback, messagePreview, timestamp } = event.detail || {};
+            if (!feedback) return;
+            // Store feedback in chrome.storage.local for later analysis
+            chrome.storage.local.get(['surfboardFeedback'], (result) => {
+                const feedbackLog = result.surfboardFeedback || [];
+                feedbackLog.push({
+                    feedback,
+                    messagePreview,
+                    timestamp,
+                    pageName: this.pageContextManager.getPageName?.() || '',
+                    sessionId: this.chatSessionId
+                });
+                // Keep last 500 feedback entries
+                const trimmed = feedbackLog.slice(-500);
+                chrome.storage.local.set({ surfboardFeedback: trimmed });
+            });
         });
     }
 
@@ -126,15 +163,97 @@ class SurfboardAI {
             .trim();
     }
 
-    async fetchChatReplyStream(message, pageContext, streamingMessage) {
-        const requestBody = this.buildChatStreamRequest(message, pageContext);
-        const streamState = {
-            text: '',
-            sources: [],
-            followups: []
-        };
+    /**
+     * Fetch relevant knowledge chunks from local KB via semantic search.
+     * Fast, no LLM call — just ChromaDB vector search.
+     * Returns { text: string, sources: string[] } or null on failure.
+     */
+    async fetchKBContext(query) {
+        if (!this.useKnowledgeBase) return null;
 
+        try {
+            const result = await this.knowledgeBaseService.search({
+                query,
+                nResults: 6,
+            });
+
+            if (!result?.results?.length) return null;
+
+            const sources = result.results
+                .map((r) => r.metadata?.widget || r.metadata?.type || 'knowledge')
+                .filter((v, i, a) => a.indexOf(v) === i)
+                .slice(0, 5);
+
+            const text = result.results
+                .map((r) => {
+                    const label = r.metadata?.widget || r.metadata?.type || 'knowledge';
+                    return `--- [${label}] ---\n${r.text}`;
+                })
+                .join('\n\n');
+
+            return { text, sources };
+        } catch (error) {
+            console.warn('KB search failed (non-blocking):', error.message);
+            return null;
+        }
+    }
+
+    /**
+     * Chat flow: fires local KB search + ecosystem agent stream in parallel.
+     * Both sources contribute independently to the same streaming message.
+     * If either fails, the other still shows its results.
+     */
+    async fetchParallelChatReply(message, pageContext, streamingMessage) {
+        const streamState = { text: '', sources: [], followups: [] };
         this.sidebar.updateStreamingAssistantMessage(streamingMessage, streamState);
+
+        // Fire both in parallel — neither blocks the other
+        const kbPromise = this.fetchKBContext(message).catch((err) => {
+            console.warn('KB failed (non-blocking):', err.message);
+            return null;
+        });
+
+        const ecosystemPromise = this._streamEcosystemAgent(message, pageContext, streamState, streamingMessage)
+            .catch((err) => {
+                console.warn('Ecosystem agent failed:', err.message);
+                if (!streamState.sources.includes('Ecosystem Agent')) {
+                    streamState.sources.push('Ecosystem Agent (failed)');
+                }
+                this.sidebar.updateStreamingAssistantMessage(streamingMessage, streamState);
+            });
+
+        // KB resolves fast — prepend its results as soon as ready
+        const kbResult = await kbPromise;
+        if (kbResult) {
+            streamState.sources.push('Local Knowledge Base');
+            const kbSection = `**From Knowledge Base:**\n\n${kbResult.text}`;
+            // Prepend KB results before any ecosystem text already streamed in
+            if (streamState.text.trim()) {
+                streamState.text = `${kbSection}\n\n---\n\n**From WaveMaker Docs:**\n\n${streamState.text}`;
+            } else {
+                streamState.text = `${kbSection}\n\n---\n\n**From WaveMaker Docs:**\n\n`;
+            }
+            this.sidebar.updateStreamingAssistantMessage(streamingMessage, streamState);
+        }
+
+        // Wait for ecosystem stream to finish
+        await ecosystemPromise;
+
+        // If neither produced text, show a message
+        if (!streamState.text.trim() || streamState.text.trim() === '**From WaveMaker Docs:**') {
+            streamingMessage.remove();
+            throw new Error('Both knowledge sources failed to produce a response.');
+        }
+
+        this.sidebar.finalizeStreamingAssistantMessage(streamingMessage, streamState);
+        return streamState.text.trim();
+    }
+
+    /**
+     * Streams ecosystem agent response into streamState. Resolves when stream ends.
+     */
+    _streamEcosystemAgent(message, pageContext, streamState, streamingMessage) {
+        const requestBody = this.buildChatStreamRequest(message, pageContext);
 
         return new Promise((resolve, reject) => {
             let settled = false;
@@ -145,35 +264,19 @@ class SurfboardAI {
             const cleanup = () => {
                 port.onMessage.removeListener(handlePortMessage);
                 port.onDisconnect.removeListener(handleDisconnect);
-                try {
-                    port.disconnect();
-                } catch (error) {
-                    // Ignore disconnect races when the worker closes first.
-                }
+                try { port.disconnect(); } catch (e) { /* ignore */ }
             };
 
-            const finish = (result) => {
-                if (settled) {
-                    return;
-                }
-
+            const finish = () => {
+                if (settled) return;
                 settled = true;
-                this.sidebar.finalizeStreamingAssistantMessage(streamingMessage, streamState);
                 cleanup();
-                resolve(result);
+                resolve();
             };
 
             const fail = (error) => {
-                if (settled) {
-                    return;
-                }
-
+                if (settled) return;
                 settled = true;
-                if (!streamState.text.trim()) {
-                    streamingMessage.remove();
-                } else {
-                    this.sidebar.finalizeStreamingAssistantMessage(streamingMessage, streamState);
-                }
                 cleanup();
                 reject(error instanceof Error ? error : new Error(String(error)));
             };
@@ -189,12 +292,7 @@ class SurfboardAI {
                     this.handleStreamEvent(payload.event, streamState, streamingMessage, fail);
                     return;
                 }
-
-                if (payload?.type === 'done') {
-                    finish(streamState.text.trim() || 'No response received.');
-                    return;
-                }
-
+                if (payload?.type === 'done') { finish(); return; }
                 if (payload?.type === 'error') {
                     fail(new Error(payload.error || 'Chat request failed'));
                 }
@@ -204,10 +302,7 @@ class SurfboardAI {
             port.onDisconnect.addListener(handleDisconnect);
             port.postMessage({
                 type: 'start',
-                data: {
-                    baseUrl: ECOSYSTEM_AGENT_BASE_URL,
-                    body: requestBody
-                }
+                data: { baseUrl: ECOSYSTEM_AGENT_BASE_URL, body: requestBody }
             });
         });
     }
@@ -219,10 +314,15 @@ class SurfboardAI {
             throw new Error('Use `/edit <what to change>` to start an edit-agent run.');
         }
 
-        const requestBody = this.buildEditAgentRequest(intent, pageContext);
+        // Fire KB search in parallel with edit agent setup — don't block on it
+        const kbPromise = this.fetchKBContext(intent);
+        const kbResult = await kbPromise;
+        const kbContext = kbResult?.text || '';
+
+        const requestBody = this.buildEditAgentRequest(intent, pageContext, kbContext);
         const streamState = {
             text: 'Preparing edit-agent request...',
-            sources: ['Local edit-agent'],
+            sources: kbResult ? ['Local Knowledge Base', 'Local edit-agent'] : ['Local edit-agent'],
             followups: []
         };
 
@@ -359,20 +459,22 @@ class SurfboardAI {
         };
     }
 
-    buildEditAgentRequest(intent, pageContext) {
+    buildEditAgentRequest(intent, pageContext, kbContext = '') {
         return {
             intent,
             projectId: pageContext.projectId || '',
             pageName: pageContext.pageName || '',
             activeFile: pageContext.activeFile || '',
             activeFileType: pageContext.activeFileType || '',
+            platform: pageContext.platform || 'web',
             source: pageContext.source || '',
             context: {
                 apiContext: pageContext.apiContext || {},
                 cursor: pageContext.cursor || null,
                 language: pageContext.language || '',
                 pageFiles: pageContext.pageFiles || {},
-                symbols: pageContext.symbols || {}
+                symbols: pageContext.symbols || {},
+                knowledgeBase: kbContext || ''
             },
             modelConfig: {
                 apiKey: this.apiKey || '',
@@ -568,6 +670,9 @@ class SurfboardAI {
             throw new Error('Edit agent did not provide updated file content.');
         }
 
+        // Validate WaveMaker syntax patterns before applying
+        const warnings = this.validateWaveMakerSyntax(content, fileName);
+
         await this.studioApiService.writeProjectTextFile(projectId, resourcePath, content);
 
         if (projectPath) {
@@ -590,7 +695,36 @@ class SurfboardAI {
             '*'
         );
 
-        return `Applied ${fileName || resourcePath}${event.summary ? ` - ${event.summary}` : ''}`;
+        const warningText = warnings.length
+            ? `\n  Warnings: ${warnings.join('; ')}`
+            : '';
+        return `Applied ${fileName || resourcePath}${event.summary ? ` - ${event.summary}` : ''}${warningText}`;
+    }
+
+    validateWaveMakerSyntax(content, fileName) {
+        const warnings = [];
+        if (!content || !fileName) return warnings;
+
+        const isScript = /\.js$/i.test(fileName);
+        if (!isScript) return warnings;
+
+        // Check for incorrect event handler patterns
+        if (/Page\.Widgets\.\w+\.on[A-Z]\w*\s*=/.test(content)) {
+            warnings.push('Possible incorrect event syntax: use Page.widgetNameEvent instead of Page.Widgets.widget.onEvent');
+        }
+        if (/Page\.Variables\.\w+\.on[A-Z]\w*\s*=/.test(content)) {
+            warnings.push('Possible incorrect event syntax: use Page.varNameonEvent instead of Page.Variables.var.onEvent');
+        }
+        // Check for "this" keyword usage
+        if (/\bthis\.\w+/.test(content) && /Page\.|Partial\./.test(content)) {
+            warnings.push('"this" keyword detected — WaveMaker uses Page/Partial/App objects directly');
+        }
+        // Check for invoke with callback inside options
+        if (/\.invoke\s*\(\s*\{[^}]*(?:successCallback|onSuccess)\s*:/.test(content)) {
+            warnings.push('invoke() callbacks should be separate arguments, not inside the options object');
+        }
+
+        return warnings;
     }
 
     buildEcosystemChatContext(pageContext) {
@@ -626,19 +760,53 @@ class SurfboardAI {
 
         this.chatHistory.push({
             role,
-            content
+            content,
+            timestamp: Date.now()
         });
 
         if (this.chatHistory.length > this.maxChatHistory) {
             this.chatHistory = this.chatHistory.slice(-this.maxChatHistory);
         }
+
+        this._persistChatHistory();
     }
 
     getChatHistoryMessages() {
-        return this.chatHistory.map((entry) => ({
+        // Only send last 6 turns to LLM for context window management
+        return this.chatHistory.slice(-6).map((entry) => ({
             role: entry.role,
             content: entry.content
         }));
+    }
+
+    _getChatHistoryKey() {
+        const pageName = this.pageContextManager?.getPageName?.() || 'default';
+        const projectId = this.pageContextManager?.getProjectId?.() || 'unknown';
+        return `chatHistory_${projectId}_${pageName}`;
+    }
+
+    _persistChatHistory() {
+        const key = this._getChatHistoryKey();
+        if (!key) return;
+        chrome.storage.local.set({ [key]: this.chatHistory.slice(-this.maxChatHistory) });
+    }
+
+    async _restoreChatHistory() {
+        const key = this._getChatHistoryKey();
+        if (!key) return;
+        return new Promise((resolve) => {
+            chrome.storage.local.get([key], (result) => {
+                const stored = result[key];
+                if (Array.isArray(stored) && stored.length > 0) {
+                    this.chatHistory = stored;
+                    // Replay messages into sidebar
+                    stored.forEach((entry) => {
+                        this.sidebar?.addMessage(entry.content, entry.role);
+                    });
+                }
+                resolve();
+            });
+        });
     }
 
     async refreshSidebarContext() {
@@ -736,6 +904,15 @@ class SurfboardAI {
                     changes.editAgentBaseUrl.newValue || this.editAgentBaseUrl
                 );
                 this.editAgentService.setBaseUrl(this.editAgentBaseUrl);
+            }
+
+            if (changes.knowledgeBaseUrl) {
+                this.kbBaseUrl = changes.knowledgeBaseUrl.newValue || 'http://localhost:8788';
+                this.knowledgeBaseService.setBaseUrl(this.kbBaseUrl);
+            }
+
+            if (changes.useKnowledgeBase) {
+                this.useKnowledgeBase = changes.useKnowledgeBase.newValue !== false;
             }
 
             if (changes.copilotEnabled) {

@@ -1,0 +1,8 @@
+[project]
+name = "surfboard-knowledge-base"
+version = "0.1.0"
+description = "ChromaDB-backed RAG service for WaveMaker knowledge"
+requires-python = ">=3.10"
+
+[tool.ruff]
+line-length = 100

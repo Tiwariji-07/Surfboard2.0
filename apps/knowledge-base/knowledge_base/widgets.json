@@ -1,0 +1,623 @@
+[
+    {
+        "widget": "wmButton",
+        "properties": [
+            {
+                "name": "caption",
+                "type": "string",
+                "description": "The caption is the text that the end user sees on the button.",
+                "syntax": "<Scope>.Widgets.<widgetName>.caption"
+            },
+            {
+                "name": "disabled",
+                "type": "boolean",
+                "description": "If true, the widget becomes display-only and user input will not be accepted.",
+                "syntax": "<Scope>.Widgets.<widgetName>.disabled"
+            },
+            {
+                "name": "show",
+                "type": "boolean",
+                "description": "Determines the visibility of the button.",
+                "syntax": "<Scope>.Widgets.<widgetName>.show"
+            }
+        ]
+    },
+    {
+        "widget": "wmAnchor",
+        "properties": [
+            {
+                "name": "caption",
+                "type": "string",
+                "description": "Specifies the label of the anchor.",
+                "syntax": "<Scope>.Widgets.<widgetName>.caption"
+            },
+            {
+                "name": "hyperlink",
+                "type": "string",
+                "description": "Sets the web URL to redirect to when the anchor is clicked.",
+                "syntax": "<Scope>.Widgets.<widgetName>.hyperlink"
+            },
+            {
+                "name": "show",
+                "type": "boolean",
+                "description": "Determines whether the anchor widget is visible on the web page.",
+                "syntax": "<Scope>.Widgets.<widgetName>.show"
+            },
+            {
+                "name": "target",
+                "type": "string",
+                "description": "Sets the behavior of the anchor link when clicked.",
+                "allowedValues": [
+                    "_blank",
+                    "_self",
+                    "_parent",
+                    "_top"
+                ],
+                "syntax": "<Scope>.Widgets.<widgetName>.target"
+            }
+        ]
+    },
+    {
+        "widget": "wmDesigndialog",
+        "methods": [
+            {
+                "name": "close",
+                "description": "Closes the dialog.",
+                "returns": "void",
+                "syntax": "<Scope>.Widgets.<widgetName>.close()"
+            },
+            {
+                "name": "open",
+                "description": "Opens the dialog.",
+                "returns": "void",
+                "syntax": "<Scope>.Widgets.<widgetName>.open()"
+            }
+        ]
+    },
+    {
+        "widget": "wmLabel",
+        "properties": [
+            {
+                "name": "caption",
+                "type": "string",
+                "description": "Specifies the label of the Label widget.",
+                "syntax": "<Scope>.Widgets.<widgetName>.caption"
+            },
+            {
+                "name": "show",
+                "type": "boolean",
+                "description": "Controls the visibility of the label widget on the web page.",
+                "syntax": "<Scope>.Widgets.<widgetName>.show"
+            }
+        ]
+    },
+    {
+        "widget": "wmList",
+        "methods": [
+            {
+                "name": "clear",
+                "description": "Removes all the list items from the list widget.",
+                "parameters": [],
+                "returns": "void",
+                "syntax": "<Scope>.Widgets.<widgetName>.clear()"
+            },
+            {
+                "name": "deselectItem",
+                "description": "Deselects a list item in the list widget.",
+                "parameters": [
+                    {
+                        "name": "index",
+                        "type": "number | Object",
+                        "optional": false,
+                        "description": "Can be an Index (integer) or Model (Object)."
+                    }
+                ],
+                "returns": "void",
+                "syntax": "<Scope>.Widgets.<widgetName>.deselectItem(index)"
+            },
+            {
+                "name": "getWidgets",
+                "description": "Returns the widget at a particular index in the list.",
+                "parameters": [
+                    {
+                        "name": "widgetName",
+                        "type": "number",
+                        "optional": false,
+                        "description": "Name of the widget."
+                    },
+                    {
+                        "name": "index",
+                        "type": "number",
+                        "optional": false,
+                        "description": "The index of the item in the List."
+                    }
+                ],
+                "returns": "void",
+                "syntax": "<Scope>.Widgets.<widgetName>.getWidgets(widgetName, index)"
+            }
+        ],
+        "properties": [
+            {
+                "name": "selecteditem",
+                "type": "object",
+                "description": "Data object of the selected row in the list",
+                "syntax": "<Scope>.Widgets.<widgetName>.selecteditem"
+            },
+            {
+                "name": "selectedItemWidgets",
+                "type": "object",
+                "description": "Object of widgets from the selected row of list.",
+                "syntax": "<Scope>.Widgets.<widgetName>.selectedItemWidgets"
+            },
+            {
+                "name": "dataNavigator",
+                "type": "boolean",
+                "description": "Enables pagination for the list widget.",
+                "syntax": "<Scope>.Widgets.<widgetName>.dataNavigator"
+            },
+            {
+                "name": "dataset",
+                "type": "Array<any>",
+                "description": "Collection of items to be displayed in the list.",
+                "syntax": "<Scope>.Widgets.<widgetName>.dataset"
+            },
+            {
+                "name": "navigation",
+                "type": "boolean",
+                "description": "Controls navigation through list items.",
+                "syntax": "<Scope>.Widgets.<widgetName>.navigation"
+            },
+            {
+                "name": "pagesize",
+                "type": "number",
+                "description": "Defines the number of items displayed per page.",
+                "syntax": "<Scope>.Widgets.<widgetName>.pagesize"
+            },
+            {
+                "name": "show",
+                "type": "boolean",
+                "description": "Determines the visibility of the list widget.",
+                "syntax": "<Scope>.Widgets.<widgetName>.show"
+            }
+        ]
+    },
+    {
+        "widget": "wmChart",
+        "properties": [
+            {
+                "name": "title",
+                "type": "string",
+                "description": "The caption is the text that the end user sees on the chart.",
+                "syntax": "<Scope>.Widgets.<widgetName>.title"
+            },
+            {
+                "name": "disabled",
+                "type": "boolean",
+                "description": "If true, the widget becomes display-only and user input will not be accepted.",
+                "syntax": "<Scope>.Widgets.<widgetName>.disabled"
+            },
+            {
+                "name": "type",
+                "type": "string",
+                "description": "The type of the chart.",
+                "syntax": "<Scope>.Widgets.<widgetName>.type"
+            },
+            {
+                "name": "show",
+                "type": "boolean",
+                "description": "Determines the visibility of the chart.",
+                "syntax": "<Scope>.Widgets.<widgetName>.show"
+            },
+            {
+                "name": "showlabels",
+                "type": "boolean",
+                "description": "Determines the visibility of the chart labels.",
+                "syntax": "<Scope>.Widgets.<widgetName>.showlabels"
+            },
+            {
+                "name": "showlegend",
+                "type": "boolean",
+                "description": "Determines the visibility of the chart lengend.",
+                "syntax": "<Scope>.Widgets.<widgetName>.showlegend"
+            }
+        ]
+    },
+    {
+        "widget": "wmIcon",
+        "properties": [
+            {
+                "name": "caption",
+                "type": "string",
+                "description": "Specifies the label of the icon.",
+                "syntax": "<Scope>.Widgets.<widgetName>.caption"
+            },
+            {
+                "name": "iconclass",
+                "type": "string",
+                "description": "CSS class of the icon.",
+                "syntax": "<Scope>.Widgets.<widgetName>.iconclass"
+            },
+            {
+                "name": "iconposition",
+                "type": "string",
+                "description": "Position of the icon in the widget.",
+                "syntax": "<Scope>.Widgets.<widgetName>.iconposition"
+            },
+            {
+                "name": "iconurl",
+                "type": "string",
+                "description": "URL of the icon image.",
+                "syntax": "<Scope>.Widgets.<widgetName>.iconurl"
+            },
+            {
+                "name": "iconwidth",
+                "type": "string",
+                "description": "Width of the icon.",
+                "syntax": "<Scope>.Widgets.<widgetName>.iconwidth"
+            },
+            {
+                "name": "show",
+                "type": "boolean",
+                "description": "Determines the visibility of the icon widget.",
+                "syntax": "<Scope>.Widgets.<widgetName>.show"
+            }
+        ]
+    },
+    {
+        "widget": "wmPicture",
+        "properties": [
+            {
+                "name": "picturesource",
+                "type": "any",
+                "description": "Specifies the source for the picture.",
+                "syntax": "<Scope>.Widgets.<widgetName>.picturesource"
+            },
+            {
+                "name": "show",
+                "type": "boolean",
+                "description": "Determines the visibility of the picture widget.",
+                "syntax": "<Scope>.Widgets.<widgetName>.show"
+            }
+        ]
+    },
+    {
+        "widget": "wmTable",
+        "methods": [
+            {
+                "name": "refreshData",
+                "description": "This method is used to refresh the data in data table",
+                "syntax": "<Scope>.Widgets.<widgetName>.refreshData()"
+            }
+        ],
+        "properties": [
+            {
+                "name": "title",
+                "type": "string",
+                "description": "Specifies the title of the table widget.",
+                "syntax": "<Scope>.Widgets.<widgetName>.title"
+            },
+            {
+                "name": "show",
+                "type": "boolean",
+                "description": "Determines the visibility of the table widget.",
+                "syntax": "<Scope>.Widgets.<widgetName>.show"
+            },
+            {
+                "name": "selecteditem",
+                "type": "object",
+                "description": "Selected item data object",
+                "syntax": "<Scope>.Widgets.<widgetName>.selecteditem"
+            }
+        ]
+    },
+    {
+        "widget": "wmVideo",
+        "properties": [
+            {
+                "name": "mp4sourcepath",
+                "type": "any",
+                "description": "The property allows to set the file path of the video/mp4 for the video widget.",
+                "syntax": "<Scope>.Widgets.<widgetName>.mp4sourcepath"
+            },
+            {
+                "name": "show",
+                "type": "boolean",
+                "description": "Determines the visibility of the picture widget.",
+                "syntax": "<Scope>.Widgets.<widgetName>.show"
+            }
+        ]
+    },
+    {
+        "widget": "wmTabs",
+        "properties": [
+            {
+                "name": "show",
+                "type": "boolean",
+                "description": "Controls the visibility of the tabs widget.",
+                "syntax": "<Scope>.Widgets.<widgetName>.show"
+            }
+        ],
+        "methods": [
+            {
+                "name": "prev",
+                "description": "To navigate to the previous Tab pane",
+                "syntax": "<Scope>.Widgets.<widgetName>.prev()"
+            },
+            {
+                "name": "next",
+                "description": "To navigate to the next Tab Pane",
+                "syntax": "<Scope>.Widgets.<widgetName>.next()"
+            },
+            {
+                "name": "goToTab",
+                "description": "To navigate to a specific Tab Pane",
+                "syntax": "<Scope>.Widgets.<widgetName>.goToTab(<tabIndex>)"
+            },
+            {
+                "name": "getActiveTabIndex",
+                "description": "Get active tab index",
+                "syntax": "<Scope>.Widgets.<widgetName>.getActiveTabIndex()"
+            },
+            {
+                "name": "removePane",
+                "description": "Removes the tab pane from tabs",
+                "syntax": "<Scope>.Widgets.<widgetName>.removePane(<tabPaneName>)"
+            }
+        ]
+    },
+    {
+        "widget": "wmTabPane",
+        "properties": [
+            {
+                "name": "show",
+                "type": "boolean",
+                "description": "Controls the visibility of the tabpane widget.",
+                "syntax": "<Scope>.Widgets.<widgetName>.show"
+            },
+            {
+                "name": "isSelect",
+                "type": "boolean",
+                "description": "true if tab is selected",
+                "syntax": "<Scope>.Widgets.<widgetName>.isSelect"
+            },
+            {
+                "name": "title",
+                "type": "string",
+                "description": "title of the tab pane widget",
+                "syntax": "<Scope>.Widgets.<widgetName>.title"
+            }
+        ],
+        "methods": [
+            {
+                "name": "select",
+                "description": "To select the Tab pane",
+                "syntax": "<Scope>.Widgets.<widgetName>.select()"
+            },
+            {
+                "name": "deselect",
+                "description": "To deselect the Tab Pane",
+                "syntax": "<Scope>.Widgets.<widgetName>.deselect()"
+            },
+            {
+                "name": "remove",
+                "description": "Removes the tab pane from tabs",
+                "syntax": "<Scope>.Widgets.<widgetName>.remove()"
+            }
+        ]
+    },
+    {
+        "widget": "wmWizard",
+        "properties": [
+            {
+                "name": "show",
+                "type": "boolean",
+                "description": "Controls the visibility of the wizard widget.",
+                "syntax": "<Scope>.Widgets.<widgetName>.show"
+            },
+            {
+                "name": "cancelable",
+                "type": "boolean",
+                "description": "Is cancelable",
+                "syntax": "<Scope>.Widgets.<widgetName>.cancelable"
+            },
+            {
+                "name": "enableNext",
+                "type": "boolean",
+                "description": "Enable next property",
+                "syntax": "<Scope>.Widgets.<widgetName>.enableNext"
+            }
+        ],
+        "methods": [
+            {
+                "name": "cancel",
+                "description": "To cancel the wizard flow",
+                "syntax": "<Scope>.Widgets.<widgetName>.cancel()"
+            },
+            {
+                "name": "done",
+                "description": "To complete and done the wizard flow",
+                "syntax": "<Scope>.Widgets.<widgetName>.done()"
+            },
+            {
+                "name": "next",
+                "description": "To navigate to next wizard step",
+                "syntax": "<Scope>.Widgets.<widgetName>.next()"
+            },
+            {
+                "name": "prev",
+                "description": "To navigate to previous wizard step",
+                "syntax": "<Scope>.Widgets.<widgetName>.prev()"
+            },
+            {
+                "name": "skip",
+                "description": "To skip the current step of wizard",
+                "syntax": "<Scope>.Widgets.<widgetName>.skip()"
+            }
+        ]
+    },
+    {
+        "widget": "wmWizardstep",
+        "properties": [
+            {
+                "name": "show",
+                "type": "boolean",
+                "description": "Controls the visibility of the wizard step widget.",
+                "syntax": "<Scope>.Widgets.<widgetName>.show"
+            },
+            {
+                "name": "enableSkip",
+                "type": "boolean",
+                "description": "Enable skip property",
+                "syntax": "<Scope>.Widgets.<widgetName>.enableSkip"
+            },
+            {
+                "name": "title",
+                "type": "string",
+                "description": "Title of the wizard step widget",
+                "syntax": "<Scope>.Widgets.<widgetName>.title"
+            }
+        ]
+    },
+    {
+        "widget": "wmAccordion",
+        "properties": [
+            {
+                "name": "show",
+                "type": "boolean",
+                "description": "Controls the visibility of the Accordion widget",
+                "syntax": "<Scope>.Widgets.<widgetName>.show"
+            }
+        ],
+        "methods": [
+            {
+                "name": "removePane",
+                "description": "To remove pane from the accordion",
+                "syntax": "<Scope>.Widgets.<widgetName>.removePane()"
+            },
+            {
+                "name": "expandPane",
+                "description": "To expand pane by index of the accordion",
+                "syntax": "<Scope>.Widgets.<widgetName>.expandPane(index)"
+            },
+            {
+                "name": "addPane",
+                "description": "To add pane to the accordion",
+                "syntax": "<Scope>.Widgets.<widgetName>.addPane(pane)"
+            }
+        ]
+    },
+    {
+        "widget": "wmAccordionpane",
+        "properties": [
+            {
+                "name": "show",
+                "type": "boolean",
+                "description": "Controls the visibility of the Accordion pane widget",
+                "syntax": "<Scope>.Widgets.<widgetName>.show"
+            },
+            {
+                "name": "content",
+                "type": "string",
+                "description": "To display a partial in the page, add to accordion pane content here",
+                "syntax": "<Scope>.Widgets.<widgetName>.content"
+            },
+            {
+                "name": "title",
+                "type": "string",
+                "description": "Title of the Accordion pane widget",
+                "syntax": "<Scope>.Widgets.<widgetName>.title"
+            }
+        ],
+        "methods": [
+            {
+                "name": "expand",
+                "description": "To expand the accordion pane",
+                "syntax": "<Scope>.Widgets.<widgetName>.expand()"
+            },
+            {
+                "name": "collapse",
+                "description": "To collapse the accordion pane",
+                "syntax": "<Scope>.Widgets.<widgetName>.collapse()"
+            },
+            {
+                "name": "toggle",
+                "description": "To toggle collapse or expand the accordion pane",
+                "syntax": "<Scope>.Widgets.<widgetName>.toggle()"
+            },
+            {
+                "name": "remove",
+                "description": "To remove the accordion pane",
+                "syntax": "<Scope>.Widgets.<widgetName>.remove()"
+            }
+        ]
+    },
+    {
+        "widget": "wmBreadcrumb",
+        "properties": [
+            {
+                "name": "dataset",
+                "type": "Array",
+                "description": "Steps displayed in the breadcrumb widget.",
+                "syntax": "<Scope>.Widgets.<widgetName>.dataset"
+            },
+            {
+                "name": "show",
+                "type": "boolean",
+                "description": "Controls the visibility of the breadcrumb widget.",
+                "syntax": "<Scope>.Widgets.<widgetName>.show"
+            }
+        ]
+    },
+    {
+        "widget": "wmPopover",
+        "properties": [
+            {
+                "name": "content",
+                "type": "any",
+                "description": "Content to be displayed in popover.",
+                "syntax": "<Scope>.Widgets.<widgetName>.content"
+            },
+            {
+                "name": "show",
+                "type": "boolean",
+                "description": "Controls the visibility of the popover widget.",
+                "syntax": "<Scope>.Widgets.<widgetName>.show"
+            }
+        ],
+        "methods": [
+            {
+                "name": "open",
+                "description": "Opens popover.",
+                "syntax": "<Scope>.Widgets.<widgetName>.open()"
+            },
+            {
+                "name": "close",
+                "description": "Closes popover.",
+                "syntax": "<Scope>.Widgets.<widgetName>.close()"
+            }
+        ]
+    },
+    {
+        "widget": "wmMenu",
+        "properties": [
+            {
+                "name": "dataset",
+                "type": "Array",
+                "description": "Steps displayed in the menu widget.",
+                "syntax": "<Scope>.Widgets.<widgetName>.dataset"
+            },
+            {
+                "name": "datavalue",
+                "type": "string",
+                "description": "Selected value from menu widget.",
+                "syntax": "<Scope>.Widgets.<widgetName>.datavalue"
+            },
+            {
+                "name": "show",
+                "type": "boolean",
+                "description": "Controls the visibility of the menu widget.",
+                "syntax": "<Scope>.Widgets.<widgetName>.show"
+            }
+        ]
+    }
+]

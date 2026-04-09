@@ -3,7 +3,7 @@ import * as z from 'zod';
 
 import { STREAM_EVENT_TYPES } from '../../../../packages/contracts/src/index.js';
 import { EDIT_AGENT_SYSTEM_PROMPT } from '../../../../packages/prompts/src/index.js';
-import { callLiteLLMJson, extractJsonObject } from '../lib/litellm.js';
+import { callLiteLLMJson, extractJsonObject, stripTrailingCommas } from '../lib/litellm.js';
 
 const EditState = new StateSchema({
     intent: z.string(),
@@ -451,7 +451,8 @@ export function createEditWorkflow({ requestTool }) {
         });
 
         const payload = extractJsonObject(responseText);
-        const updatedContent = typeof payload.updated_content === 'string' ? payload.updated_content : '';
+        const rawContent = typeof payload.updated_content === 'string' ? payload.updated_content : '';
+        const updatedContent = state.targetFileType === 'variables' ? stripTrailingCommas(rawContent) : rawContent;
         const summary = typeof payload.summary === 'string' ? payload.summary : 'Generated file update';
 
         emit(config, {

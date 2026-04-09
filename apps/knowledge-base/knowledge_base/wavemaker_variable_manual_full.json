@@ -1,0 +1,201 @@
+[
+  {
+    "title": "Set Input and Invoke Variable",
+    "synonyms": ["set variable input", "invoke variable with input"],
+    "tags": ["variable", "invoke", "input"],
+    "syntax": "[Scope].Variables.[variableName].setInput({ key: value });\n[Scope].Variables.[variableName].invoke();",
+    "code": "Page.Variables.getDepartmentDetails.setInput({ id: empId });\nPage.Variables.getDepartmentDetails.invoke();",
+    "explanation": "Sets input parameters using `setInput()` and invokes the variable to fetch data or perform an operation."
+  },
+  {
+    "title": "Invoke Variable with Callbacks",
+    "synonyms": [
+      "invoke variable with success",
+      "invoke variable with error handling",
+      "call variable with inline callback",
+      "temporary success handler"
+    ],
+    "tags": [
+      "variable",
+      "invoke",
+      "callback",
+      "success",
+      "error",
+      "inline callback",
+      "method chaining"
+    ],
+    "syntax": "[Scope].Variables.[VariableName].invoke({ inputFields }, successCallback, errorCallback);",
+    "code": "App.Variables.wsGetCoreProjects.invoke({\n  inputFields: {\n    platformType: widget.item.platformType.toUpperCase() === 'MOBILE' ? 'NATIVE_MOBILE' : widget.item.platformType.toUpperCase(),\n    projectType: 'APPLICATION'\n  }\n}, function(data) {\n  enableCustomization(data);\n}, function(error) {\n  console.log(\"Error:\", error);\n});",
+    "explanation": "This invokes the variable and provides **inline success and error callbacks** specific to this call. These callbacks are executed **only for this invocation.** ⚠️ **Note:** This does NOT register a permanent handler like `onSuccess`. Instead, it handles success/error for this single `.invoke()` operation."
+  },
+  {
+    "title": "Dynamic Variable Invocation with Data",
+    "synonyms": ["invoke variable dynamically", "pass data to variable"],
+    "tags": ["variable", "invoke", "callback"],
+    "syntax": "var sv = [Scope].Variables.[variableName];\nsv.invoke({ inputFields }, successCallback, errorCallback);",
+    "code": "var sv = Page.Variables.[variable_name];\nsv.invoke({\n  inputFields: {\n    fname: \"Steve\",\n    lname: \"Rogers\"\n  }\n}, function(data) {\n  console.log(\"success\", data);\n}, function(error) {\n  console.log(\"error\", error);\n});",
+    "explanation": "Demonstrates assigning a variable reference to a local variable and invoking it with input fields and callbacks."
+  },
+  {
+    "title": "Get Data from a Variable",
+    "synonyms": ["read variable data", "get variable response"],
+    "tags": ["variable", "getData"],
+    "syntax": "var result = [Scope].Variables.[variableName].getData();",
+    "code": "var result = Page.Variables.[variable_name].getData();\nconsole.log(\"result:\", result);",
+    "explanation": "Retrieves the data stored in a variable after it has been invoked. Useful for accessing the result later in logic."
+  },
+  {
+    "title": "Clear Data from a Variable",
+    "synonyms": ["reset variable", "clear variable result"],
+    "tags": ["variable", "clearData"],
+    "syntax": "var result = [Scope].Variables.[variableName].clearData();",
+    "code": "var result = Page.Variables.[variable_name].clearData();\nconsole.log(\"result:\", result);",
+    "explanation": "Clears the existing data from the variable. Useful when you want to reset the variable before a new invocation."
+  },
+  {
+    "title": "Set Input Fields Individually Before Invocation",
+    "synonyms": ["set variable input one by one", "assign variable input"],
+    "tags": ["variable", "setInput", "invoke"],
+    "syntax": "var sv = [Scope].Variables.[variableName];\nsv.setInput('key', value);\nsv.invoke();",
+    "code": "var sv = Page.Variables.[variable_name];\nsv.setInput(\"fname\", \"Peter\");\nsv.setInput(\"lname\", \"Parker\");\nsv.invoke();",
+    "explanation": "Shows how to set input fields one at a time using `setInput(key, value)` before invoking the variable."
+  },
+  {
+    "title": "Set Input Using Object Before Invocation",
+    "synonyms": ["batch set variable input", "set multiple inputs"],
+    "tags": ["variable", "setInput", "invoke"],
+    "syntax": "var sv = [Scope].Variables.[variableName];\nsv.setInput({ key1: value1, key2: value2 });\nsv.invoke();",
+    "code": "var sv = Page.Variables.[variable_name];\nsv.setInput({\n  fname: \"Peter\",\n  lname: \"Parker\"\n});\nsv.invoke();",
+    "explanation": "Demonstrates setting multiple input fields at once by passing an object to `setInput`, then invoking the variable."
+  },
+
+  {
+    "title": "Handle Variable Success Event",
+    "synonyms": [
+      "on success of variable",
+      "variable success handler",
+      "variable success event",
+      "register variable success event"
+    ],
+    "tags": [
+      "variable",
+      "event",
+      "success",
+      "permanent event handler",
+      "event registration"
+    ],
+    "syntax": "[Scope].[VariableName]onSuccess = function(variable, data) { ... };",
+    "code": "Page.wsGetCoreProjectsonSuccess = function(variable, data) {\n  console.log(\"Success handler triggered:\", data);\n  // Add your logic here\n};",
+    "explanation": "Registers a **permanent event handler** for the variable's success event. This handler is executed automatically every time the variable completes successfully. ⚠️ **Note:** This is NOT the same as passing a success callback in the `.invoke()` method—it is a **persistent handler**, attached once and remains active for the variable's lifecycle."
+  },
+  {
+    "title": "Modify Dataset Before UI Binding",
+    "synonyms": ["before dataset ready", "transform data before bind"],
+    "tags": ["variable", "dataset", "transform"],
+    "syntax": "[Scope].[variableName]onBeforeDatasetReady = function (variable, data) { ... return data; };",
+    "code": "Page.dbGetEmployeeonBeforeDatasetReady = function (variable, data) {\n  data.forEach((item) => {\n    item.studioProjectUrl = App.getStudioPath(item);\n  });\n  return data;\n};",
+    "explanation": "Runs before dataset is bound to the UI. Modifies each record by adding a computed URL using an App function."
+  },
+  {
+    "title": "Process Result from Variable",
+    "synonyms": ["on result of variable", "handle variable result"],
+    "tags": ["variable", "event", "result"],
+    "syntax": "[Scope].[variableName]onResult = function (variable, data) { ... };",
+    "code": "Page.dbGetEmployeeonResult = function (variable, data) {\n  console.log(\"onResult triggered:\", data);\n  Page.Variables.filteredData.dataSet = data.filter(app => app.isActive);\n};",
+    "explanation": "Runs regardless of success/failure. Filters only active entries and saves them to another variable."
+  },
+  {
+    "title": "Handle Error in Variable",
+    "synonyms": ["variable error event", "on variable failure"],
+    "tags": ["variable", "event", "error"],
+    "syntax": "[Scope].[variableName]onError = function (variable, data) { ... };",
+    "code": "Page.jsCreateEmployeeonError = function (variable, data) {\n  console.error(\"onError triggered:\", data);\n  Page.Variables.hasError.dataSet = true;\n};",
+    "explanation": "Logs the error and flags 'hasError' variable to true on failure of 'jsCreateEmployee'."
+  },
+  {
+    "title": "Before Variable Update Hook",
+    "synonyms": ["before update variable", "add metadata before update"],
+    "tags": ["variable", "update", "before"],
+    "syntax": "[Scope].[variableName]onBeforeUpdate = function (variable, inputData) { ... };",
+    "code": "Page.mdToggleDataonBeforeUpdate = function (variable, inputData) {\n  inputData.lastModified = moment().format();\n  inputData.updatedBy = App.Variables.currentUser.dataSet.username;\n};",
+    "explanation": "Adds 'lastModified' and 'updatedBy' metadata before update call executes."
+  },
+  {
+    "title": "Validate Input Before Variable Update",
+    "synonyms": [
+      "check if variable can update",
+      "prevent update if input missing"
+    ],
+    "tags": ["variable", "update", "validation"],
+    "syntax": "[Scope].[variableName]onCanUpdate = function (variable, inputData) { return true|false; };",
+    "code": "Page.jvInvokeServiceonCanUpdate = function (variable, inputData) {\n  if (!inputData || !inputData.appName) {\n    console.warn(\"Update blocked: Missing appName\");\n    return false;\n  }\n  return true;\n};",
+    "explanation": "Prevents update call when 'appName' is missing in input. Logs a warning and returns false."
+  },
+  {
+    "title": "Navigate to Page Without Parameters",
+    "synonyms": ["navigate to page", "page redirection"],
+    "tags": ["navigation", "page", "redirect"],
+    "syntax": "[Scope].Actions.goToPage_<PageName>.invoke();",
+    "code": "Page.Actions.goToPage_TestPage.invoke();",
+    "explanation": "Triggers navigation to 'TestPage' without passing any parameters."
+  },
+  {
+    "title": "Navigate to Page with Parameters",
+    "synonyms": ["page navigation with data", "go to page and pass values"],
+    "tags": ["navigation", "parameters", "route"],
+    "syntax": "[Scope].Actions.goToPage_<PageName>.invoke({ data: { key1: value1, key2: value2 } });",
+    "code": "Page.Actions.goToPage_EmployeeDetailsPage.invoke({ data: { 'paramDept': '1', 'paramEmpdId': '2' } });",
+    "explanation": "Navigates to 'EmployeeDetailsPage' and passes values 'paramDept=1' and 'paramEmpId=2' as route parameters."
+  },
+  {
+    "title": "Set Data and Navigate to Page",
+    "synonyms": [
+      "set page data and navigate",
+      "parameterized navigation with setData"
+    ],
+    "tags": ["navigation", "parameters", "setData"],
+    "syntax": "[Scope].Actions.goToPage_<PageName>.nv.setData({ key: value }); nv.invoke();",
+    "code": "var nv = Partial.Actions.goToPage_TestPage;\nnv.setData({ 'param1': 'param value', 'param2': 'param value 2' });\nnv.invoke();",
+    "explanation": "Uses `setData` to pass values before invoking navigation to 'TestPage'."
+  },
+  {
+    "title": "Trigger Basic Notification",
+    "synonyms": ["invoke notification", "show default alert"],
+    "tags": ["notification", "alert", "default", "Actions"],
+    "syntax": "[Scope].Actions.<NotificationActionName>.invoke();",
+    "code": "Page.Actions.notificationAction1.invoke();",
+    "explanation": "Triggers the default notification action named 'notificationAction1'."
+  },
+  {
+    "title": "Toast Notification with Message and Style",
+    "synonyms": ["custom toast", "notification with position and class"],
+    "tags": ["notification", "toast", "custom", "Actions with message"],
+    "syntax": "[Scope].Actions.<NotificationActionName>.invoke({ message: 'text', position: 'bottom right', class: 'info' });",
+    "code": "Partial.Actions.notificationAction1.invoke({ message: 'My custom message', position: 'bottom right', class: 'info' });",
+    "explanation": "Displays a custom toast notification at bottom-right with the info styling."
+  },
+  {
+    "title": "Notification with Data Payload",
+    "synonyms": ["pass data in notification", "invoke notification with data"],
+    "tags": ["notification", "data", "event", "Actions with data"],
+    "syntax": "[Scope].Actions.<NotificationActionName>.invoke({ data: { key: value } });",
+    "code": "Page.Actions.notificationAction1.invoke({ data: { mode: 'edit' } });",
+    "explanation": "Triggers a notification and sends data object `{mode: 'edit'}` which can be accessed in event handlers."
+  },
+  {
+    "title": "Handle Notification OK Event",
+    "synonyms": ["notification event handler", "notification onOk"],
+    "tags": ["notification", "event", "callback"],
+    "syntax": "[Scope].<NotificationActionName>onOk = function(variable, data) { /* handle */ };",
+    "code": "Page.notificationAction1onOk = function(variable, data) {\n  console.log('data:', data);\n};",
+    "explanation": "Handles the `onOk` event for the notification and logs the data received from the notification trigger."
+  },
+  {
+    "title": "Define Custom Page Method",
+    "synonyms": ["custom function", "define method on page"],
+    "tags": ["method", "function", "custom logic"],
+    "syntax": "[Scope].<methodName> = function(parameters) { /* custom logic */ };",
+    "code": "Page.validateAndSubmit = function() {\n  if (!Page.Widgets.input1.datavalue || !Page.Widgets.input2.datavalue) {\n    App.Actions.toastError.invoke({\n      message: \"Please fill all required fields\",\n      class: \"error\",\n      position: \"top right\"\n    });\n    return;\n  }\n  Page.Variables.createUserVariable.setInput({\n    name: Page.Widgets.input1.datavalue,\n    email: Page.Widgets.input2.datavalue\n  });\n  Page.Variables.createUserVariable.invoke();\n};",
+    "explanation": "Creates a page method that validates two inputs. If missing, it shows an error toast. Otherwise, it sets input and calls a variable."
+  }
+]

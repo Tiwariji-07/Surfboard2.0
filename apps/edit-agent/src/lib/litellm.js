@@ -1,3 +1,5 @@
+import { ChatOpenAI } from '@langchain/openai';
+
 export async function callLiteLLMJson({
     apiKey,
     baseUrl,
@@ -18,35 +20,35 @@ export async function callLiteLLMJson({
         throw new Error('LiteLLM model is required for edit runs');
     }
 
-    const response = await fetch(`${String(baseUrl).replace(/\/+$/, '')}/chat/completions`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${apiKey}`
+    const llm = new ChatOpenAI({
+        openAIApiKey: apiKey,
+        configuration: {
+            baseURL: String(baseUrl).replace(/\/+$/, '')
         },
-        body: JSON.stringify({
-            model,
-            messages,
-            temperature,
-            max_tokens: maxTokens
-        })
+        modelName: model,
+        temperature,
+        maxTokens
+    }).bind({
+        response_format: { type: 'json_object' }
     });
 
-    const payload = await response.json().catch(() => null);
-    if (!response.ok) {
-        throw new Error(
-            payload?.error?.message ||
-                payload?.error ||
-                `LiteLLM API error: ${response.status} ${response.statusText}`
-        );
-    }
+    const langchainMessages = messages.map((msg) => ({
+        role: msg.role,
+        content: msg.content
+    }));
 
-    const content = payload?.choices?.[0]?.message?.content;
+    const response = await llm.invoke(langchainMessages);
+    const content = response.content;
+
     if (!content || typeof content !== 'string') {
-        throw new Error('LiteLLM returned an empty completion');
+        throw new Error('LLM returned an empty completion');
     }
 
     return content;
+}
+
+export function stripTrailingCommas(text) {
+    return String(text || '').replace(/,\s*([\]}])/g, '$1');
 }
 
 export function extractJsonObject(text) {

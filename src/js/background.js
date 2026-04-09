@@ -5,6 +5,7 @@ import {
     validateLiteLLMBaseUrlForRuntime
 } from './constants/litellm.js';
 import { getStudioOrigin, isConfiguredStudioUrl } from './constants/studio.js';
+import { validateKnowledgeBaseUrlForRuntime } from './constants/knowledgeBase.js';
 
 const state = {
     activeTabId: null,
@@ -14,7 +15,8 @@ const state = {
 chrome.runtime.onConnect.addListener((port) => {
     if (
         port.name !== RUNTIME_MESSAGES.ECOSYSTEM_AGENT_CHAT_STREAM &&
-        port.name !== RUNTIME_MESSAGES.EDIT_AGENT_STREAM
+        port.name !== RUNTIME_MESSAGES.EDIT_AGENT_STREAM &&
+        port.name !== RUNTIME_MESSAGES.KNOWLEDGE_BASE_STREAM
     ) {
         return;
     }
@@ -38,6 +40,11 @@ chrome.runtime.onConnect.addListener((port) => {
 
             if (port.name === RUNTIME_MESSAGES.EDIT_AGENT_STREAM) {
                 await handleEditAgentStream(port, message.data, controller.signal);
+                return;
+            }
+
+            if (port.name === RUNTIME_MESSAGES.KNOWLEDGE_BASE_STREAM) {
+                await handleKnowledgeBaseStream(port, message.data, controller.signal);
             }
         } catch (error) {
             if (controller.signal.aborted) {
@@ -138,6 +145,18 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
             case RUNTIME_MESSAGES.EDIT_AGENT_REQUEST:
                 handleEditAgentRequest(message.data)
+                    .then((result) => sendResponse({ success: true, data: result }))
+                    .catch((error) => sendResponse({ success: false, error: error.message }));
+                return true;
+
+            case RUNTIME_MESSAGES.KNOWLEDGE_BASE_QUERY:
+                handleKnowledgeBaseQuery(message.data)
+                    .then((result) => sendResponse({ success: true, data: result }))
+                    .catch((error) => sendResponse({ success: false, error: error.message }));
+                return true;
+
+            case RUNTIME_MESSAGES.KNOWLEDGE_BASE_SEARCH:
+                handleKnowledgeBaseSearch(message.data)
                     .then((result) => sendResponse({ success: true, data: result }))
                     .catch((error) => sendResponse({ success: false, error: error.message }));
                 return true;
@@ -269,6 +288,105 @@ function parseJsonResponse(responseText) {
     } catch (error) {
         return null;
     }
+}
+
+// --- Knowledge Base handlers ---
+
+async function handleKnowledgeBaseQuery(request = {}) {
+    const { baseUrl, body } = request;
+    const kbUrl = validateKnowledgeBaseUrlForRuntime(baseUrl);
+
+    const response = await fetch(`${kbUrl}/query`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+    });
+
+    const data = await response.json().catch(() => null);
+    if (!response.ok) {
+        throw new Error(data?.detail || `Knowledge base error: ${response.status}`);
+    }
+    return data;
+}
+
+async function handleKnowledgeBaseSearch(request = {}) {
+    const { baseUrl, body } = request;
+    const kbUrl = validateKnowledgeBaseUrlForRuntime(baseUrl);
+
+    const response = await fetch(`${kbUrl}/search`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+    });
+
+    const data = await response.json().catch(() => null);
+    if (!response.ok) {
+        throw new Error(data?.detail || `Knowledge base search error: ${response.status}`);
+    }
+    return data;
+}
+
+async function handleKnowledgeBaseStream(port, request = {}, signal) {
+    const { baseUrl, body } = request;
+    const kbUrl = validateKnowledgeBaseUrlForRuntime(baseUrl);
+
+    const response = await fetch(`${kbUrl}/query/stream`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+        signal
+    });
+
+    if (!response.ok) {
+        const text = await response.text().catch(() => '');
+        throw new Error(text || `Knowledge base stream error: ${response.status}`);
+    }
+
+    if (!response.body) {
+        throw new Error('Knowledge base response body is not readable');
+    }
+
+    await relaySSEStream(response.body, port, 'knowledge base');
+}
+
+/**
+ * Relay an SSE stream (data: {...}\n\n format) to a port.
+ * Different from relayJsonLineStream which handles newline-delimited JSON.
+ */
+async function relaySSEStream(streamBody, port, label) {
+    const reader = streamBody.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const events = buffer.split('\n\n');
+        buffer = events.pop() || '';
+
+        for (const event of events) {
+            const line = event.trim();
+            if (!line.startsWith('data: ')) continue;
+            const dataStr = line.slice(6);
+            try {
+                port.postMessage({ type: 'event', event: JSON.parse(dataStr) });
+            } catch (err) {
+                console.warn(`Failed to parse ${label} SSE event:`, dataStr, err);
+            }
+        }
+    }
+
+    // Process remaining buffer
+    if (buffer.trim().startsWith('data: ')) {
+        const dataStr = buffer.trim().slice(6);
+        try {
+            port.postMessage({ type: 'event', event: JSON.parse(dataStr) });
+        } catch { /* ignore */ }
+    }
+
+    port.postMessage({ type: 'done' });
 }
 
 async function handleEcosystemAgentChatStream(port, request = {}, signal) {

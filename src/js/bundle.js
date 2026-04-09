@@ -170,6 +170,9 @@
     EDIT_AGENT_STREAM: "SURFBOARD_EDIT_AGENT_STREAM",
     ECOSYSTEM_AGENT_CHAT_STREAM: "SURFBOARD_ECOSYSTEM_AGENT_CHAT_STREAM",
     GET_AUTH_COOKIE: "SURFBOARD_GET_AUTH_COOKIE",
+    KNOWLEDGE_BASE_QUERY: "SURFBOARD_KNOWLEDGE_BASE_QUERY",
+    KNOWLEDGE_BASE_SEARCH: "SURFBOARD_KNOWLEDGE_BASE_SEARCH",
+    KNOWLEDGE_BASE_STREAM: "SURFBOARD_KNOWLEDGE_BASE_STREAM",
     LITELLM_CHAT_COMPLETIONS: "SURFBOARD_LITELLM_CHAT_COMPLETIONS",
     TOGGLE_COPILOT: "SURFBOARD_TOGGLE_COPILOT"
   };
@@ -385,6 +388,7 @@
         activeFileType
       );
       const symbols = this.extractSymbolsFromApiBundle(pageFiles);
+      const platform = this.detectPlatform(pageFiles, studioContext);
       return {
         projectId: studioContext.projectId,
         pageName: studioContext.pageName,
@@ -395,8 +399,20 @@
         apiContext: studioContext.apiContext,
         pageFiles,
         symbols,
+        platform,
         source: studioContext.source
       };
+    }
+    detectPlatform(pageFiles, studioContext) {
+      const markup = (pageFiles == null ? void 0 : pageFiles.markup) || "";
+      const script = (pageFiles == null ? void 0 : pageFiles.script) || "";
+      if (/wm-mobile|wm-app-mobile/i.test(markup) || /require\s*\(\s*['"](?:react-native|expo)/i.test(script)) {
+        return "mobile";
+      }
+      if (/wm-prefab|<wm-prefab/i.test(markup) || /Prefab\./i.test(script)) {
+        return "prefab";
+      }
+      return "web";
     }
     toPromptPrefix(context) {
       var _a, _b, _c, _d;
@@ -407,16 +423,23 @@
       const services = (((_b = context.apiContext) == null ? void 0 : _b.services) || []).slice(0, 10).join(", ") || "none";
       const prefabs = (((_c = context.apiContext) == null ? void 0 : _c.prefabs) || []).slice(0, 10).join(", ") || "none";
       const pageVariables = (((_d = context.apiContext) == null ? void 0 : _d.pageVariables) || []).slice(0, 12).join(", ") || "none";
+      const platform = context.platform || "web";
+      const widgetTypes = context.symbols.widgetTypes || {};
+      const typeSummary = Object.entries(widgetTypes).slice(0, 15).map(([name, type]) => `${name}:${type}`).join(", ") || "none";
+      const eventBindings = (context.symbols.eventBindings || []).slice(0, 10).map((eb) => `${eb.widget}.${eb.event}->${eb.handler}`).join(", ") || "none";
       return [
         "[WaveMaker Studio context]",
         `Project ID: ${context.projectId || "unknown"}`,
         `Page: ${context.pageName || "unknown"}`,
+        `Platform: ${platform}`,
         `Active file: ${context.activeFile || "unknown"}`,
         `File type: ${context.activeFileType || context.language || "unknown"}`,
         `Context source: ${context.source || "unknown"}`,
         `Widgets: ${widgets}`,
+        `Widget types: ${typeSummary}`,
         `Variables: ${variables}`,
         `Bindings: ${bindings}`,
+        `Event bindings: ${eventBindings}`,
         `Project pages: ${pages}`,
         `Project services: ${services}`,
         `Project prefabs: ${prefabs}`,
@@ -718,6 +741,7 @@
       const pageVariableNames = this.extractNamedEntries(pageBundle.variables);
       return {
         widgets: [.../* @__PURE__ */ new Set([...markupSymbols.widgets, ...scriptSymbols.widgets])].sort(),
+        widgetTypes: markupSymbols.widgetTypes || {},
         variables: [
           .../* @__PURE__ */ new Set([
             ...markupSymbols.variables,
@@ -725,7 +749,8 @@
             ...pageVariableNames
           ])
         ].sort(),
-        bindings: [.../* @__PURE__ */ new Set([...markupSymbols.bindings, ...scriptSymbols.bindings])].sort()
+        bindings: [.../* @__PURE__ */ new Set([...markupSymbols.bindings, ...scriptSymbols.bindings])].sort(),
+        eventBindings: markupSymbols.eventBindings || []
       };
     }
     extractSymbolsFromMarkup(markup) {
@@ -749,8 +774,10 @@
       const handlerMatches = script.match(/Page\.([A-Za-z0-9_$]+)\s*=\s*function/g) || [];
       return {
         widgets: widgetMatches.map((value) => value.replace(/^Page\.Widgets\./, "")),
+        widgetTypes: {},
         variables: variableMatches.map((value) => value.replace(/^Page\.Variables\./, "")),
-        bindings: handlerMatches.map((value) => value.replace(/^Page\./, "").replace(/\s*=\s*function$/, ""))
+        bindings: handlerMatches.map((value) => value.replace(/^Page\./, "").replace(/\s*=\s*function$/, "")),
+        eventBindings: []
       };
     }
     extractSymbolsFromText(content) {
@@ -759,15 +786,19 @@
       const bindingMatches = content.match(/bind:[^"'\s}]+/g) || [];
       return {
         widgets: [...new Set(widgetMatches.map((value) => value.replace(/^Widgets\./, "")))].sort(),
+        widgetTypes: {},
         variables: [...new Set(variableMatches.map((value) => value.replace(/^Variables\./, "")))].sort(),
-        bindings: [...new Set(bindingMatches.map((value) => value.replace(/^bind:/, "")))].sort()
+        bindings: [...new Set(bindingMatches.map((value) => value.replace(/^bind:/, "")))].sort(),
+        eventBindings: []
       };
     }
     createEmptySymbols() {
       return {
         widgets: [],
+        widgetTypes: {},
         variables: [],
-        bindings: []
+        bindings: [],
+        eventBindings: []
       };
     }
     extractNamedEntries(data) {
@@ -833,8 +864,10 @@
     }
     flattenParsedPage(parsedNode) {
       const widgets = /* @__PURE__ */ new Set();
+      const widgetTypes = /* @__PURE__ */ new Map();
       const variables = /* @__PURE__ */ new Set();
       const bindings = /* @__PURE__ */ new Set();
+      const eventBindings = [];
       const visit = (node) => {
         var _a, _b, _c, _d;
         if (!node) {
@@ -842,6 +875,9 @@
         }
         if (node.name) {
           widgets.add(node.name);
+          if (node.type) {
+            widgetTypes.set(node.name, node.type);
+          }
         }
         (((_a = node.bindings) == null ? void 0 : _a.variables) || []).forEach((value) => variables.add(value));
         (((_b = node.bindings) == null ? void 0 : _b.widgets) || []).forEach((value) => widgets.add(value));
@@ -849,6 +885,11 @@
         (((_d = node.relationships) == null ? void 0 : _d.eventHandlers) || []).forEach((eventHandler) => {
           if (eventHandler.handler) {
             bindings.add(eventHandler.handler);
+            eventBindings.push({
+              widget: node.name || "",
+              event: eventHandler.event || "",
+              handler: eventHandler.handler
+            });
           }
         });
         (node.children || []).forEach(visit);
@@ -856,8 +897,10 @@
       visit(parsedNode);
       return {
         widgets: [...widgets].sort(),
+        widgetTypes: Object.fromEntries(widgetTypes),
         variables: [...variables].sort(),
-        bindings: [...bindings].sort()
+        bindings: [...bindings].sort(),
+        eventBindings
       };
     }
     extractSymbolsFromDocument() {
@@ -866,6 +909,7 @@
       const variableMatches = html2.match(/Variables\.[A-Za-z0-9_$]+(?:\.dataSet)?/g) || [];
       const widgetMatches = html2.match(/Widgets\.[A-Za-z0-9_$]+/g) || [];
       const bindingMatches = html2.match(/bind:[^"'\s}]+/g) || [];
+      const widgetTypes = {};
       const namedElements = [
         ...document.querySelectorAll("[name]"),
         ...document.querySelectorAll("[widget-id]")
@@ -874,12 +918,15 @@
         const name = element.getAttribute("name") || element.getAttribute("widget-id");
         if (name) {
           widgetMatches.push(name);
+          widgetTypes[name] = element.tagName.toLowerCase();
         }
       });
       return {
         widgets: [...new Set(widgetMatches)].sort(),
+        widgetTypes,
         variables: [...new Set(variableMatches)].sort(),
-        bindings: [...new Set(bindingMatches.map((value) => value.replace(/^bind:/, "")))].sort()
+        bindings: [...new Set(bindingMatches.map((value) => value.replace(/^bind:/, "")))].sort(),
+        eventBindings: []
       };
     }
     inferActiveFile(editorSnapshot, pageName) {
@@ -939,6 +986,88 @@
     return normalizedBaseUrl;
   }
 
+  // src/js/constants/wavemakerRules.js
+  var WM_SYNTAX_RULES = `## WaveMaker Syntax Rules (CRITICAL \u2014 follow exactly)
+
+### Scope & Object Model
+- Page scope: \`Page.Widgets.X\`, \`Page.Variables.X\`, \`Page.Actions.X\`
+- Partial scope: \`Partial.Widgets.X\`, \`Partial.Variables.X\`
+- App scope: \`App.Variables.X\`, \`App.Actions.X\`
+- Prefab scope: \`Prefab.Widgets.X\`, \`Prefab.Variables.X\`
+- NEVER use \`this\` keyword \u2014 always use Page/Partial/App/Prefab objects directly.
+- Auto-detect canvas from context (Page vs Partial vs Prefab) and apply the correct prefix.
+
+### Widget Properties (dot notation)
+- Get/set properties via dot notation: \`Page.Widgets.button1.disabled = true;\`
+- Use the full path including \`.Widgets.\`: \`Page.Widgets.myLabel.caption = "Hello";\`
+- Partial widget from Page: \`Page.Widgets.containerName.Widgets.partialWidget.show = false;\`
+- For native DOM operations use \`.nativeElement\` property.
+
+### Variable Operations
+- Invoke: \`Page.Variables.varName.invoke(options, successCallback, errorCallback)\`
+  - Callbacks are SEPARATE positional arguments, NEVER keys inside the options object.
+  - CORRECT: \`Page.Variables.myVar.invoke({inputFields: {id: 1}}, function(data){}, function(err){});\`
+  - WRONG:  \`Page.Variables.myVar.invoke({inputFields: {id: 1}, successCallback: fn});\`
+- Set input: \`Page.Variables.varName.setInput("fieldName", value)\`
+- Data access: \`Page.Variables.varName.dataSet\`
+- LiveVariable CRUD: \`.listRecords()\`, \`.createRecord()\`, \`.updateRecord()\`, \`.deleteRecord()\`
+
+### Event Handlers
+- Event handlers attach the event name directly to the widget/variable name on the scope object:
+  \`Page.button1Click = function($event, widget) { };\`
+  \`Page.myVaronSuccess = function(variable, data) { };\`
+- INCORRECT: \`Page.Widgets.button1.onClick = ...\`  (NEVER do this)
+- INCORRECT: \`Page.Variables.myVar.onSuccess = ...\` (NEVER do this)
+- Cannot write partial-hosted widget event handlers in page script \u2014 must be in the partial script.
+
+### Page/Partial Methods
+- \`Page.myMethod = function(param1, param2) { };\`
+- Initialization: \`Page.onReady = function() { };\`
+
+### Form & Validation
+- Use \`setValidators()\` or \`setAsyncValidators()\` for form validations.
+- Body parameter nesting: if a variable has a "body" parameter, use \`body.fieldName\` (e.g. \`body.name\`, \`body.category.id\`).
+
+### Available Libraries
+- Lodash (\`_\`) and Moment.js (\`moment\`) are globally available.
+- No other libraries unless the user adds them via build preferences.
+
+### Mobile / Prefab Projects
+- For prefabs and mobile projects, React Native + Expo 52 libraries are available.
+- Import with \`require()\`, e.g. \`const { Camera } = require('expo-camera');\`
+- Plugins must be added at Settings > Build Preferences > Plugins.
+`;
+  var WM_COMPLETION_RULES = `You are a precise code completion model for WaveMaker Studio.
+
+${WM_SYNTAX_RULES}
+
+### Completion-Specific Rules
+1. Complete the code at the cursor position (\u25BC) naturally.
+2. Treat the immediate cursor context as the highest-priority signal.
+3. Use the WaveMaker Studio context, page files, and variable definitions as supporting context.
+4. Reuse identifiers EXACTLY as they appear in context \u2014 do not invent names.
+5. Preserve the coding style, naming, and API usage already present in the file.
+6. If the surrounding code uses Widgets.*, Variables.*, App.*, preserve that convention.
+7. For markup, preserve existing widget names, bindings, and event handlers.
+8. For styles, preserve existing class names, selectors, and theme conventions.
+9. Ensure syntactic correctness and return ONLY the completion text, with no explanation.
+10. NEVER hallucinate widget names, variable names, service names, or method names.
+`;
+  var WM_CHAT_RULES = `You are Surfboard AI, a WaveMaker Studio coding assistant.
+
+${WM_SYNTAX_RULES}
+
+### Response Rules
+- Generate fresh, working code for each query \u2014 never reuse code from history.
+- Use exact widget/variable names from the page context.
+- ONLY use properties/methods/events from the knowledge base \u2014 do NOT hallucinate APIs.
+- If the knowledge doesn't cover something, say so rather than guessing.
+- Include both explanation and working code in markdown code blocks.
+- Also mention event binding to widget/variable if not already bound.
+- Do not provide JSDoc comments or excessive comments \u2014 only meaningful ones.
+- CRITICAL: Never speak about RAG, retrieval, or knowledge base internals.
+`;
+
   // src/js/services/aiService.js
   var AIService = class {
     constructor() {
@@ -974,17 +1103,7 @@
       return [
         {
           role: "system",
-          content: `You are a precise code completion model for ${language}. Follow these rules:
-1. Complete the code at the cursor position (\u25BC) naturally.
-2. Treat the immediate cursor context as the highest-priority signal.
-3. Use WaveMaker Studio context, page files, and variable definitions as supporting context.
-4. Reuse identifiers exactly as they appear in context. Do not invent widget names, variable names, service names, bindings, or event handlers.
-5. Preserve the coding style, naming, and API usage already present in the file.
-6. For WaveMaker page script, prefer Page.Widgets.*, Page.Variables.*, Page.Actions.*, and existing page handler names when those appear in context.
-7. If the surrounding code instead uses Widgets.*, Variables.*, App.*, or service aliases, preserve that existing convention rather than mixing styles.
-8. For markup, preserve existing widget names, bindings, and event handlers.
-9. For styles, preserve existing class names, selectors, and theme conventions.
-10. Ensure syntactic correctness and return only the completion text, with no explanation.`
+          content: WM_COMPLETION_RULES
         },
         {
           role: "user",
@@ -1069,6 +1188,7 @@ ${afterCursor}`
     constructor({ enabled = true } = {}) {
       this.enabled = enabled;
       this.helperInjected = false;
+      this.helperReady = false;
       this.inlineConfig = {
         debounceTime: 400,
         minRequestInterval: 700
@@ -1079,6 +1199,16 @@ ${afterCursor}`
       this.injectMonacoHelper();
       this.setupAPIKey();
       this.setupMessageListener();
+      this.setupHelperReadyListener();
+    }
+    setupHelperReadyListener() {
+      window.addEventListener("message", (event) => {
+        var _a;
+        if (event.source === window && ((_a = event.data) == null ? void 0 : _a.type) === PAGE_MESSAGES.MONACO_HELPER_READY) {
+          this.helperReady = true;
+          this.pageContextManager.pageBundleCache.clear();
+        }
+      });
     }
     setEnabled(enabled) {
       this.enabled = enabled;
@@ -1139,7 +1269,7 @@ ${afterCursor}`
     async handleCompletionRequest(data) {
       const requestId = data == null ? void 0 : data.requestId;
       const modelId = data == null ? void 0 : data.modelId;
-      if (!requestId || !modelId || !this.enabled) {
+      if (!requestId || !modelId || !this.enabled || !this.helperReady) {
         this.sendInlineCompletionsResponse(requestId, modelId, []);
         return;
       }
@@ -1327,6 +1457,112 @@ ${sections.join("\n")}` : "";
   };
   var editAgentService_default = new EditAgentService();
 
+  // src/js/services/knowledgeBaseService.js
+  var DEFAULT_KB_BASE_URL = "http://localhost:8788";
+  var KnowledgeBaseService = class {
+    constructor() {
+      this._baseUrl = DEFAULT_KB_BASE_URL;
+    }
+    setBaseUrl(url) {
+      this._baseUrl = url || DEFAULT_KB_BASE_URL;
+    }
+    /**
+     * Full RAG query (non-streaming). Returns { answer, intent, sources, retrieved_count }.
+     */
+    async query({ query, pageContext, chatHistory, litellmBaseUrl, litellmApiKey, intentModel, copilotModel }) {
+      const response = await chrome.runtime.sendMessage({
+        type: RUNTIME_MESSAGES.KNOWLEDGE_BASE_QUERY,
+        data: {
+          baseUrl: this._baseUrl,
+          body: {
+            query,
+            page_context: pageContext || null,
+            chat_history: chatHistory || null,
+            litellm_base_url: litellmBaseUrl,
+            litellm_api_key: litellmApiKey,
+            intent_model: intentModel,
+            copilot_model: copilotModel
+          }
+        }
+      });
+      if (!(response == null ? void 0 : response.success)) {
+        throw new Error((response == null ? void 0 : response.error) || "Knowledge base query failed");
+      }
+      return response.data;
+    }
+    /**
+     * Direct semantic search (no LLM). Returns { results, count }.
+     */
+    async search({ query, nResults = 5, filterType = null }) {
+      const response = await chrome.runtime.sendMessage({
+        type: RUNTIME_MESSAGES.KNOWLEDGE_BASE_SEARCH,
+        data: {
+          baseUrl: this._baseUrl,
+          body: {
+            query,
+            n_results: nResults,
+            filter_type: filterType
+          }
+        }
+      });
+      if (!(response == null ? void 0 : response.success)) {
+        throw new Error((response == null ? void 0 : response.error) || "Knowledge base search failed");
+      }
+      return response.data;
+    }
+    /**
+     * Streaming RAG query. Calls onMetadata, onText, onDone, onError callbacks.
+     */
+    streamQuery({ query, pageContext, chatHistory, litellmBaseUrl, litellmApiKey, intentModel, copilotModel }, callbacks = {}) {
+      const { onMetadata, onText, onDone, onError } = callbacks;
+      const port = chrome.runtime.connect({ name: RUNTIME_MESSAGES.KNOWLEDGE_BASE_STREAM });
+      port.onMessage.addListener((msg) => {
+        if (msg.type === "event") {
+          const event = msg.event;
+          if (event.type === "metadata" && onMetadata) {
+            onMetadata(event);
+          } else if (event.type === "text" && onText) {
+            onText(event.content);
+          } else if (event.type === "done" && onDone) {
+            onDone();
+          } else if (event.type === "error" && onError) {
+            onError(new Error(event.error));
+          }
+        } else if (msg.type === "done") {
+          if (onDone)
+            onDone();
+          port.disconnect();
+        } else if (msg.type === "error") {
+          if (onError)
+            onError(new Error(msg.error));
+          port.disconnect();
+        }
+      });
+      port.onDisconnect.addListener(() => {
+        if (chrome.runtime.lastError && onError) {
+          onError(new Error(chrome.runtime.lastError.message));
+        }
+      });
+      port.postMessage({
+        type: "start",
+        data: {
+          baseUrl: this._baseUrl,
+          body: {
+            query,
+            page_context: pageContext || null,
+            chat_history: chatHistory || null,
+            litellm_base_url: litellmBaseUrl,
+            litellm_api_key: litellmApiKey,
+            intent_model: intentModel,
+            copilot_model: copilotModel
+          }
+        }
+      });
+      return () => port.disconnect();
+    }
+  };
+  var knowledgeBaseService = new KnowledgeBaseService();
+
   // src/js/constants/studio.js
   function getManifestSafe() {
     var _a, _b;
@@ -1356,7 +1592,7 @@ ${sections.join("\n")}` : "";
     return getConfiguredMatchPatterns().some((pattern) => convertMatchPatternToRegex(pattern).test(url));
   }
 
-  // node_modules/marked/lib/marked.esm.js
+  // node_modules/.pnpm/marked@12.0.2/node_modules/marked/lib/marked.esm.js
   function _getDefaults() {
     return {
       async: false,
@@ -4540,19 +4776,98 @@ ${logs}`
       this.observers = [];
       this.initialize();
       this.setupToastObserver();
+      this.configureMarked();
+    }
+    configureMarked() {
+      const self = this;
+      const renderer = new marked.Renderer();
+      renderer.code = function(code, language) {
+        let codeText = code;
+        let lang = language;
+        if (typeof code === "object" && code !== null) {
+          codeText = code.text || "";
+          lang = code.lang || "";
+        }
+        lang = (lang || "").trim();
+        const langLabel = self.escapeHtml(lang || "text");
+        let highlighted = self.escapeHtml(codeText);
+        if (typeof window !== "undefined" && window.Prism && lang) {
+          const grammar = Prism.languages[lang];
+          if (grammar && typeof grammar === "object") {
+            try {
+              highlighted = Prism.highlight(codeText, grammar, lang);
+            } catch (_e) {
+            }
+          }
+        }
+        const id = "cb-" + Math.random().toString(36).slice(2, 9);
+        return `<div class="code-block" data-code-id="${id}">
+                <div class="code-block-header">
+                    <span class="language-label">${langLabel}</span>
+                    <button class="copy-button" type="button" data-copy-target="${id}">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                        </svg>
+                        <span>Copy</span>
+                    </button>
+                </div>
+                <div class="code-content"><pre><code class="language-${langLabel}">${highlighted}</code></pre></div>
+            </div>`;
+      };
+      renderer.table = function(header, body) {
+        if (typeof header === "object" && header !== null) {
+          const token = header;
+          let headerHtml = "<tr>";
+          if (token.header) {
+            token.header.forEach((cell) => {
+              const align = cell.align ? ` style="text-align:${cell.align}"` : "";
+              const cellText = cell.tokens ? marked.parser([{ type: "paragraph", tokens: cell.tokens }]) : cell.text || "";
+              headerHtml += `<th${align}>${cellText}</th>`;
+            });
+          }
+          headerHtml += "</tr>";
+          let bodyHtml = "";
+          if (token.rows) {
+            token.rows.forEach((row) => {
+              bodyHtml += "<tr>";
+              row.forEach((cell) => {
+                const align = cell.align ? ` style="text-align:${cell.align}"` : "";
+                const cellText = cell.tokens ? marked.parser([{ type: "paragraph", tokens: cell.tokens }]) : cell.text || "";
+                bodyHtml += `<td${align}>${cellText}</td>`;
+              });
+              bodyHtml += "</tr>";
+            });
+          }
+          return `<div class="table-wrapper"><table><thead>${headerHtml}</thead><tbody>${bodyHtml}</tbody></table></div>`;
+        }
+        return `<div class="table-wrapper"><table><thead>${header}</thead><tbody>${body}</tbody></table></div>`;
+      };
+      marked.setOptions({
+        renderer,
+        breaks: true,
+        gfm: true
+      });
     }
     initialize() {
       this.sidebarElement = document.createElement("div");
       this.sidebarElement.className = "wm-copilot-sidebar";
       this.sidebarElement.innerHTML = `
+            <div class="sidebar-resize-handle"></div>
             <div class="sidebar-header">
-                <h2><img src="https://wm-ps-igniters.s3.amazonaws.com/surfboard-2.0/surfboard-logo.png" alt="Send" style="width:30px;" /> Surfboard AI</h2>
-                <div class="tab-buttons">              
+                <div class="sidebar-title">
+                    <img src="https://wm-ps-igniters.s3.amazonaws.com/surfboard-2.0/surfboard-logo.png" alt="Surfboard" class="sidebar-logo" />
+                    <h2>Surfboard AI</h2>
+                </div>
+                <div class="tab-buttons">
                     <button class="tab-button" data-tab="logs" style="display: none;">Logs</button>
                     <button class="tab-button active" data-tab="chat" style="display: none;">Chat</button>
-                    <!-- <button class="tab-button" data-tab="search">Search</button> -->
                 </div>
-                <button class="minimize-button">X</button>
+                <button class="minimize-button" aria-label="Close sidebar">
+                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+                        <path d="M1 1l12 12M13 1L1 13"/>
+                    </svg>
+                </button>
             </div>
             <div class="sidebar-content">
                 <div class="chat-container active"></div>
@@ -4561,8 +4876,8 @@ ${logs}`
                 <div class="context-panel"></div>
             </div>
             <div class="input-container">
-                <textarea placeholder="Ask me anything..." rows="1"></textarea>
-                <button class="send-button">
+                <textarea placeholder="Ask anything about your WaveMaker page..." rows="1"></textarea>
+                <button class="send-button" aria-label="Send message">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/>
                     </svg>
@@ -4572,6 +4887,80 @@ ${logs}`
       this.chatContainer = this.sidebarElement.querySelector(".chat-container");
       document.body.appendChild(this.sidebarElement);
       this.setupEventListeners();
+      this.setupResizeHandle();
+      this.sidebarElement.addEventListener("click", (e) => {
+        const copyBtn = e.target.closest(".copy-button[data-copy-target]");
+        if (!copyBtn)
+          return;
+        e.preventDefault();
+        e.stopPropagation();
+        const codeBlock = copyBtn.closest(".code-block");
+        const codeEl = codeBlock == null ? void 0 : codeBlock.querySelector("code");
+        if (!codeEl)
+          return;
+        const span = copyBtn.querySelector("span");
+        navigator.clipboard.writeText(codeEl.textContent).then(() => {
+          copyBtn.classList.add("copied");
+          if (span)
+            span.textContent = "Copied!";
+        }).catch(() => {
+          copyBtn.classList.add("error");
+          if (span)
+            span.textContent = "Error";
+        });
+        setTimeout(() => {
+          copyBtn.classList.remove("copied", "error");
+          if (span)
+            span.textContent = "Copy";
+        }, 2e3);
+      });
+      this.sidebarElement.addEventListener("click", (e) => {
+        var _a, _b;
+        const feedbackBtn = e.target.closest(".feedback-btn[data-feedback]");
+        if (!feedbackBtn)
+          return;
+        e.preventDefault();
+        e.stopPropagation();
+        const feedback = feedbackBtn.getAttribute("data-feedback");
+        const container = feedbackBtn.closest(".message-feedback");
+        if (!container)
+          return;
+        const isActive = feedbackBtn.classList.contains("active");
+        container.querySelectorAll(".feedback-btn").forEach((btn) => btn.classList.remove("active"));
+        if (!isActive) {
+          feedbackBtn.classList.add("active");
+        }
+        const messageDiv = feedbackBtn.closest(".chat-message");
+        const messageText = ((_b = (_a = messageDiv == null ? void 0 : messageDiv.querySelector(".assistant-message-body")) == null ? void 0 : _a.textContent) == null ? void 0 : _b.slice(0, 200)) || "";
+        document.dispatchEvent(new CustomEvent("surfboard-feedback", {
+          detail: {
+            feedback: isActive ? null : feedback,
+            messagePreview: messageText,
+            timestamp: Date.now()
+          }
+        }));
+      });
+      this.sidebarElement.addEventListener("click", (e) => {
+        const followupBtn = e.target.closest(".followup-chip");
+        if (!followupBtn)
+          return;
+        const question = followupBtn.getAttribute("data-question");
+        if (!question)
+          return;
+        const textarea = this.sidebarElement.querySelector("textarea");
+        if (textarea) {
+          textarea.value = question;
+          textarea.focus();
+          textarea.dispatchEvent(new Event("input", { bubbles: true }));
+        }
+        this.addMessage(question, "user");
+        textarea.value = "";
+        textarea.style.height = "auto";
+        const event = new CustomEvent("surfboard-message", {
+          detail: { message: question, type: "user" }
+        });
+        document.dispatchEvent(event);
+      });
       this.createToggleButton();
     }
     async initializePanels() {
@@ -4590,11 +4979,7 @@ ${logs}`
       const toggleButton = document.createElement("button");
       toggleButton.className = "sidebar-toggle";
       toggleButton.innerHTML = `
-            <!-- <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-            </svg> -->
-            <img src="https://wm-ps-igniters.s3.amazonaws.com/surfboard-2.0/surfboard-logo.png" alt="Send" class="send-icon" />
-
+            <img src="https://wm-ps-igniters.s3.amazonaws.com/surfboard-2.0/surfboard-logo.png" alt="Surfboard AI" class="send-icon" />
         `;
       document.body.appendChild(toggleButton);
       toggleButton.addEventListener("click", () => {
@@ -4646,7 +5031,7 @@ ${logs}`
             container.classList.add("active");
           }
           if (tabName === "chat") {
-            inputContainer.style.display = "block";
+            inputContainer.style.display = "";
           } else {
             inputContainer.style.display = "none";
           }
@@ -4661,6 +5046,31 @@ ${logs}`
         }
       });
     }
+    setupResizeHandle() {
+      const handle = this.sidebarElement.querySelector(".sidebar-resize-handle");
+      if (!handle)
+        return;
+      let startX = 0;
+      let startWidth = 0;
+      const onMouseMove = (e) => {
+        const delta = startX - e.clientX;
+        const newWidth = Math.min(Math.max(startWidth + delta, 320), window.innerWidth * 0.8);
+        this.sidebarElement.style.width = newWidth + "px";
+      };
+      const onMouseUp = () => {
+        this.sidebarElement.classList.remove("resizing");
+        document.removeEventListener("mousemove", onMouseMove);
+        document.removeEventListener("mouseup", onMouseUp);
+      };
+      handle.addEventListener("mousedown", (e) => {
+        e.preventDefault();
+        startX = e.clientX;
+        startWidth = this.sidebarElement.offsetWidth;
+        this.sidebarElement.classList.add("resizing");
+        document.addEventListener("mousemove", onMouseMove);
+        document.addEventListener("mouseup", onMouseUp);
+      });
+    }
     setupToastObserver() {
       const createObserver = (target) => {
         const observer = new MutationObserver((mutations) => {
@@ -4672,7 +5082,6 @@ ${logs}`
                   if (((_a = node.classList) == null ? void 0 : _a.contains("toast")) && ((_b = node.classList) == null ? void 0 : _b.contains("toast-error"))) {
                     const messageElement = node.querySelector(".toast-message");
                     if (messageElement && !messageElement.ariaLabel) {
-                      console.log("Error toast detected, opening sidebar and switching to logs");
                       this.openWithLogs("application");
                     }
                   } else if (((_c = node.classList) == null ? void 0 : _c.contains("ngx-toastr")) && ((_d = node.classList) == null ? void 0 : _d.contains("toast-error"))) {
@@ -4725,41 +5134,14 @@ ${logs}`
         }
       }
     }
-    /*setupSearchPanel() {
-            // Initialize search panel first
-            const searchContainer = this.sidebarElement.querySelector('.search-container');
-            this.searchPanel = new SearchPanel();
-            this.searchPanel.initialize(); // Initialize before accessing container
-            searchContainer.appendChild(this.searchPanel.container);
-    
-            // Handle tab switching
-            const tabButtons = this.sidebarElement.querySelectorAll('.tab-button');
-            tabButtons.forEach(button => {
-                button.addEventListener('click', () => {
-                    // Update active tab button
-                    tabButtons.forEach(btn => btn.classList.remove('active'));
-                    button.classList.add('active');
-    
-                    // Show/hide containers
-                    const tabName = button.dataset.tab;
-                    const chatContainer = this.sidebarElement.querySelector('.chat-container');
-                    const searchContainer = this.sidebarElement.querySelector('.search-container');
-    
-                    if (tabName === 'chat') {
-                        chatContainer.classList.add('active');
-                        searchContainer.classList.remove('active');
-                    } else {
-                        chatContainer.classList.remove('active');
-                        searchContainer.classList.add('active');
-                    }
-                });
-            });
-        }*/
     toggleSidebar() {
       this.isOpen = !this.isOpen;
       this.sidebarElement.classList.toggle("open");
       const minimizeButton = this.sidebarElement.querySelector(".minimize-button");
-      minimizeButton.textContent = this.isOpen ? "X" : "+";
+      const toggleButton = document.querySelector(".sidebar-toggle");
+      if (toggleButton) {
+        toggleButton.classList.toggle("active", this.isOpen);
+      }
     }
     addMessage(message, type) {
       const messageDiv = document.createElement("div");
@@ -4767,10 +5149,18 @@ ${logs}`
       if (type === "assistant") {
         messageDiv.innerHTML = this.renderAssistantMessage({ text: message, sources: [], followups: [] });
       } else {
-        messageDiv.textContent = message;
+        messageDiv.innerHTML = `
+                <div class="message-avatar user-avatar">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 12c2.7 0 5-2.3 5-5s-2.3-5-5-5-5 2.3-5 5 2.3 5 5 5zm0 2c-3.3 0-10 1.7-10 5v2h20v-2c0-3.3-6.7-5-10-5z"/></svg>
+                </div>
+                <div class="message-body">
+                    <span class="message-role">You</span>
+                    <div class="message-text">${this.escapeHtml(message)}</div>
+                </div>
+            `;
       }
       this.chatContainer.appendChild(messageDiv);
-      this.chatContainer.scrollTop = this.chatContainer.scrollHeight;
+      this.scrollToBottom();
       return messageDiv;
     }
     createStreamingAssistantMessage() {
@@ -4782,37 +5172,59 @@ ${logs}`
         sources: [],
         followups: []
       });
-      this.chatContainer.scrollTop = this.chatContainer.scrollHeight;
+      this.scrollToBottom();
       return messageDiv;
     }
     updateStreamingAssistantMessage(messageDiv, state) {
       messageDiv.innerHTML = this.renderAssistantMessage(state);
-      this.chatContainer.scrollTop = this.chatContainer.scrollHeight;
+      this.scrollToBottom();
     }
     finalizeStreamingAssistantMessage(messageDiv, state) {
       messageDiv.classList.remove("streaming");
       messageDiv.innerHTML = this.renderAssistantMessage(state);
-      this.chatContainer.scrollTop = this.chatContainer.scrollHeight;
+      this.scrollToBottom();
+    }
+    scrollToBottom() {
+      requestAnimationFrame(() => {
+        this.chatContainer.scrollTop = this.chatContainer.scrollHeight;
+      });
     }
     renderAssistantMessage({ text = "", sources = [], followups = [] }) {
-      const messageBody = (text == null ? void 0 : text.trim()) ? this.processMarkdown(text) : "<p><em>Thinking...</em></p>";
-      const sourceMarkup = sources.length ? `
-                <div class="message-sources">
+      const messageBody = (text == null ? void 0 : text.trim()) ? this.processMarkdown(text) : `<div class="thinking-indicator"><span></span><span></span><span></span></div>`;
+      const sourceMarkup = sources.length ? `<div class="message-sources">
                     ${sources.map((source) => `<span class="message-source-chip">${this.escapeHtml(source)}</span>`).join("")}
-                </div>
-            ` : "";
-      const followupMarkup = followups.length ? `
-                <div class="message-followups">
-                    <strong>Suggested follow-ups</strong>
-                    <ul>
-                        ${followups.map((question) => `<li>${this.escapeHtml(question)}</li>`).join("")}
-                    </ul>
-                </div>
-            ` : "";
+               </div>` : "";
+      const followupMarkup = followups.length ? `<div class="message-followups">
+                    <span class="followups-label">Suggested follow-ups</span>
+                    <div class="followup-chips">
+                        ${followups.map((question) => `<button class="followup-chip" data-question="${this.escapeHtml(question)}">${this.escapeHtml(question)}</button>`).join("")}
+                    </div>
+               </div>` : "";
+      const feedbackMarkup = (text == null ? void 0 : text.trim()) ? `<div class="message-feedback">
+                    <button class="feedback-btn" data-feedback="positive" title="Helpful">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3H14z"/>
+                            <path d="M7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/>
+                        </svg>
+                    </button>
+                    <button class="feedback-btn" data-feedback="negative" title="Not helpful">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3H10z"/>
+                            <path d="M17 2h3a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-3"/>
+                        </svg>
+                    </button>
+               </div>` : "";
       return `
-            <div class="assistant-message-body">${messageBody}</div>
-            ${sourceMarkup}
-            ${followupMarkup}
+            <div class="message-avatar assistant-avatar">
+                <img src="https://wm-ps-igniters.s3.amazonaws.com/surfboard-2.0/surfboard-logo.png" alt="AI" />
+            </div>
+            <div class="message-body">
+                <span class="message-role">Surfboard AI</span>
+                <div class="assistant-message-body">${messageBody}</div>
+                ${sourceMarkup}
+                ${feedbackMarkup}
+                ${followupMarkup}
+            </div>
         `;
     }
     processMarkdown(text) {
@@ -4850,12 +5262,6 @@ ${logs}`
             </svg>
             <span>Copy</span>
         `;
-      copyButton.onclick = function(e) {
-        handleCopy(e);
-      };
-      copyButton.addEventListener("click", function(e) {
-        handleCopy(e);
-      });
       const handleCopy = async (e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -4874,6 +5280,7 @@ ${logs}`
           span.textContent = "Copy";
         }, 2e3);
       };
+      copyButton.addEventListener("click", handleCopy);
       header.appendChild(languageLabel);
       header.appendChild(copyButton);
       codeBlock.appendChild(header);
@@ -4882,12 +5289,13 @@ ${logs}`
       const preElement = document.createElement("pre");
       const codeElement = document.createElement("code");
       codeElement.className = `language-${language || "text"}`;
-      if (window.Prism) {
-        codeElement.innerHTML = Prism.highlight(
-          code,
-          Prism.languages[language] || Prism.languages.text,
-          language || "text"
-        );
+      const grammar = window.Prism && language && Prism.languages[language];
+      if (grammar && typeof grammar === "object") {
+        try {
+          codeElement.innerHTML = Prism.highlight(code, grammar, language);
+        } catch (_e) {
+          codeElement.textContent = code;
+        }
       } else {
         codeElement.textContent = code;
       }
@@ -4898,12 +5306,20 @@ ${logs}`
     }
     showError(message) {
       const errorDiv = document.createElement("div");
-      errorDiv.className = "error-message";
-      errorDiv.textContent = message;
-      this.sidebarElement.appendChild(errorDiv);
+      errorDiv.className = "chat-message error-bubble";
+      errorDiv.innerHTML = `
+            <div class="error-icon-wrap">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                    <circle cx="12" cy="12" r="10"/><path d="M12 8v4m0 4h.01"/>
+                </svg>
+            </div>
+            <div class="error-text">${this.escapeHtml(message)}</div>
+        `;
+      this.chatContainer.appendChild(errorDiv);
+      this.scrollToBottom();
       setTimeout(() => {
         errorDiv.remove();
-      }, 5e3);
+      }, 8e3);
     }
     updateContextPanel(context) {
       const panel = this.sidebarElement.querySelector(".context-panel");
@@ -4980,11 +5396,15 @@ ${logs}`
       this.sidebar = null;
       this.completionManager = null;
       this.editAgentService = editAgentService_default;
+      this.knowledgeBaseService = knowledgeBaseService;
       this.studioApiService = new studioApiService_default();
       this.pageContextManager = new pageContext_default();
       this.chatHistory = [];
-      this.maxChatHistory = 6;
+      this.maxChatHistory = 20;
       this.chatSessionId = crypto.randomUUID();
+      this.useKnowledgeBase = true;
+      this.kbBaseUrl = "http://localhost:8788";
+      this._chatHistoryKey = null;
     }
     async initialize() {
       if (!this.isWaveMakerStudioPage()) {
@@ -4997,10 +5417,14 @@ ${logs}`
         this.model = settings.litellmChatModel || DEFAULT_LITELLM_CHAT_MODEL;
         this.editAgentBaseUrl = normalizeEditAgentBaseUrl(settings.editAgentBaseUrl);
         this.editAgentService.setBaseUrl(this.editAgentBaseUrl);
+        this.kbBaseUrl = settings.knowledgeBaseUrl || this.kbBaseUrl;
+        this.knowledgeBaseService.setBaseUrl(this.kbBaseUrl);
+        this.useKnowledgeBase = settings.useKnowledgeBase !== false;
         this.isEnabled = settings.copilotEnabled !== false;
         this.sidebar = new sidebar_default();
         this.completionManager = new completionManager_default({ enabled: this.isEnabled });
         this.setupChatListener();
+        this.setupFeedbackListener();
         this.setupRuntimeMessageListener();
         this.setupStorageListener();
         this.notifyReady();
@@ -5008,10 +5432,13 @@ ${logs}`
         this.refreshSidebarContext().catch((error) => {
           console.warn("Failed to initialize sidebar context:", error);
         });
-        this.sidebar.addMessage(
-          "Hello! I'm your Surfboard AI assistant.\n\n- I can answer WaveMaker questions\n- I can help with JS, HTML, and CSS\n- I can suggest page-aware code changes\n\nHow can I help?",
-          "assistant"
-        );
+        await this._restoreChatHistory();
+        if (this.chatHistory.length === 0) {
+          this.sidebar.addMessage(
+            "Hello! I'm your Surfboard AI assistant.\n\n- I can answer WaveMaker questions\n- I can help with JS, HTML, and CSS\n- I can suggest page-aware code changes\n\nHow can I help?",
+            "assistant"
+          );
+        }
       } catch (error) {
         console.error("Failed to initialize SurfboardAI:", error);
       }
@@ -5022,7 +5449,7 @@ ${logs}`
     async loadSettings() {
       return new Promise((resolve) => {
         chrome.storage.sync.get(
-          ["copilotEnabled", "litellmApiKey", "litellmBaseUrl", "litellmChatModel", "editAgentBaseUrl"],
+          ["copilotEnabled", "litellmApiKey", "litellmBaseUrl", "litellmChatModel", "editAgentBaseUrl", "knowledgeBaseUrl", "useKnowledgeBase"],
           (result) => resolve(result)
         );
       });
@@ -5041,7 +5468,12 @@ ${logs}`
         try {
           const pageContext = await this.refreshSidebarContext();
           const streamingMessage = this.sidebar.createStreamingAssistantMessage();
-          const reply = this.isEditAgentCommand(message) ? await this.fetchEditAgentReply(message, pageContext, streamingMessage) : await this.fetchChatReplyStream(message, pageContext, streamingMessage);
+          let reply;
+          if (this.isEditAgentCommand(message)) {
+            reply = await this.fetchEditAgentReply(message, pageContext, streamingMessage);
+          } else {
+            reply = await this.fetchParallelChatReply(message, pageContext, streamingMessage);
+          }
           this.recordChatTurn("user", message);
           this.recordChatTurn("assistant", reply);
         } catch (error) {
@@ -5051,20 +5483,121 @@ ${logs}`
         }
       });
     }
+    setupFeedbackListener() {
+      document.addEventListener("surfboard-feedback", (event) => {
+        const { feedback, messagePreview, timestamp } = event.detail || {};
+        if (!feedback)
+          return;
+        chrome.storage.local.get(["surfboardFeedback"], (result) => {
+          var _a, _b;
+          const feedbackLog = result.surfboardFeedback || [];
+          feedbackLog.push({
+            feedback,
+            messagePreview,
+            timestamp,
+            pageName: ((_b = (_a = this.pageContextManager).getPageName) == null ? void 0 : _b.call(_a)) || "",
+            sessionId: this.chatSessionId
+          });
+          const trimmed = feedbackLog.slice(-500);
+          chrome.storage.local.set({ surfboardFeedback: trimmed });
+        });
+      });
+    }
     isEditAgentCommand(message) {
       return typeof message === "string" && message.trim().toLowerCase().startsWith("/edit");
     }
     extractEditIntent(message) {
       return String(message || "").replace(/^\/edit\b/i, "").trim();
     }
-    async fetchChatReplyStream(message, pageContext, streamingMessage) {
-      const requestBody = this.buildChatStreamRequest(message, pageContext);
-      const streamState = {
-        text: "",
-        sources: [],
-        followups: []
-      };
+    /**
+     * Fetch relevant knowledge chunks from local KB via semantic search.
+     * Fast, no LLM call — just ChromaDB vector search.
+     * Returns { text: string, sources: string[] } or null on failure.
+     */
+    async fetchKBContext(query) {
+      var _a;
+      if (!this.useKnowledgeBase)
+        return null;
+      try {
+        const result = await this.knowledgeBaseService.search({
+          query,
+          nResults: 6
+        });
+        if (!((_a = result == null ? void 0 : result.results) == null ? void 0 : _a.length))
+          return null;
+        const sources = result.results.map((r) => {
+          var _a2, _b;
+          return ((_a2 = r.metadata) == null ? void 0 : _a2.widget) || ((_b = r.metadata) == null ? void 0 : _b.type) || "knowledge";
+        }).filter((v, i, a) => a.indexOf(v) === i).slice(0, 5);
+        const text = result.results.map((r) => {
+          var _a2, _b;
+          const label = ((_a2 = r.metadata) == null ? void 0 : _a2.widget) || ((_b = r.metadata) == null ? void 0 : _b.type) || "knowledge";
+          return `--- [${label}] ---
+${r.text}`;
+        }).join("\n\n");
+        return { text, sources };
+      } catch (error) {
+        console.warn("KB search failed (non-blocking):", error.message);
+        return null;
+      }
+    }
+    /**
+     * Chat flow: fires local KB search + ecosystem agent stream in parallel.
+     * Both sources contribute independently to the same streaming message.
+     * If either fails, the other still shows its results.
+     */
+    async fetchParallelChatReply(message, pageContext, streamingMessage) {
+      const streamState = { text: "", sources: [], followups: [] };
       this.sidebar.updateStreamingAssistantMessage(streamingMessage, streamState);
+      const kbPromise = this.fetchKBContext(message).catch((err) => {
+        console.warn("KB failed (non-blocking):", err.message);
+        return null;
+      });
+      const ecosystemPromise = this._streamEcosystemAgent(message, pageContext, streamState, streamingMessage).catch((err) => {
+        console.warn("Ecosystem agent failed:", err.message);
+        if (!streamState.sources.includes("Ecosystem Agent")) {
+          streamState.sources.push("Ecosystem Agent (failed)");
+        }
+        this.sidebar.updateStreamingAssistantMessage(streamingMessage, streamState);
+      });
+      const kbResult = await kbPromise;
+      if (kbResult) {
+        streamState.sources.push("Local Knowledge Base");
+        const kbSection = `**From Knowledge Base:**
+
+${kbResult.text}`;
+        if (streamState.text.trim()) {
+          streamState.text = `${kbSection}
+
+---
+
+**From WaveMaker Docs:**
+
+${streamState.text}`;
+        } else {
+          streamState.text = `${kbSection}
+
+---
+
+**From WaveMaker Docs:**
+
+`;
+        }
+        this.sidebar.updateStreamingAssistantMessage(streamingMessage, streamState);
+      }
+      await ecosystemPromise;
+      if (!streamState.text.trim() || streamState.text.trim() === "**From WaveMaker Docs:**") {
+        streamingMessage.remove();
+        throw new Error("Both knowledge sources failed to produce a response.");
+      }
+      this.sidebar.finalizeStreamingAssistantMessage(streamingMessage, streamState);
+      return streamState.text.trim();
+    }
+    /**
+     * Streams ecosystem agent response into streamState. Resolves when stream ends.
+     */
+    _streamEcosystemAgent(message, pageContext, streamState, streamingMessage) {
+      const requestBody = this.buildChatStreamRequest(message, pageContext);
       return new Promise((resolve, reject) => {
         let settled = false;
         const port = chrome.runtime.connect({
@@ -5075,28 +5608,20 @@ ${logs}`
           port.onDisconnect.removeListener(handleDisconnect);
           try {
             port.disconnect();
-          } catch (error) {
+          } catch (e) {
           }
         };
-        const finish = (result) => {
-          if (settled) {
+        const finish = () => {
+          if (settled)
             return;
-          }
           settled = true;
-          this.sidebar.finalizeStreamingAssistantMessage(streamingMessage, streamState);
           cleanup();
-          resolve(result);
+          resolve();
         };
         const fail = (error) => {
-          if (settled) {
+          if (settled)
             return;
-          }
           settled = true;
-          if (!streamState.text.trim()) {
-            streamingMessage.remove();
-          } else {
-            this.sidebar.finalizeStreamingAssistantMessage(streamingMessage, streamState);
-          }
           cleanup();
           reject(error instanceof Error ? error : new Error(String(error)));
         };
@@ -5111,7 +5636,7 @@ ${logs}`
             return;
           }
           if ((payload == null ? void 0 : payload.type) === "done") {
-            finish(streamState.text.trim() || "No response received.");
+            finish();
             return;
           }
           if ((payload == null ? void 0 : payload.type) === "error") {
@@ -5122,10 +5647,7 @@ ${logs}`
         port.onDisconnect.addListener(handleDisconnect);
         port.postMessage({
           type: "start",
-          data: {
-            baseUrl: ECOSYSTEM_AGENT_BASE_URL,
-            body: requestBody
-          }
+          data: { baseUrl: ECOSYSTEM_AGENT_BASE_URL, body: requestBody }
         });
       });
     }
@@ -5135,10 +5657,13 @@ ${logs}`
         streamingMessage.remove();
         throw new Error("Use `/edit <what to change>` to start an edit-agent run.");
       }
-      const requestBody = this.buildEditAgentRequest(intent, pageContext);
+      const kbPromise = this.fetchKBContext(intent);
+      const kbResult = await kbPromise;
+      const kbContext = (kbResult == null ? void 0 : kbResult.text) || "";
+      const requestBody = this.buildEditAgentRequest(intent, pageContext, kbContext);
       const streamState = {
         text: "Preparing edit-agent request...",
-        sources: ["Local edit-agent"],
+        sources: kbResult ? ["Local Knowledge Base", "Local edit-agent"] : ["Local edit-agent"],
         followups: []
       };
       this.sidebar.updateStreamingAssistantMessage(streamingMessage, streamState);
@@ -5251,20 +5776,22 @@ ${nextChunk}` : nextChunk;
         history: this.getChatHistoryMessages()
       };
     }
-    buildEditAgentRequest(intent, pageContext) {
+    buildEditAgentRequest(intent, pageContext, kbContext = "") {
       return {
         intent,
         projectId: pageContext.projectId || "",
         pageName: pageContext.pageName || "",
         activeFile: pageContext.activeFile || "",
         activeFileType: pageContext.activeFileType || "",
+        platform: pageContext.platform || "web",
         source: pageContext.source || "",
         context: {
           apiContext: pageContext.apiContext || {},
           cursor: pageContext.cursor || null,
           language: pageContext.language || "",
           pageFiles: pageContext.pageFiles || {},
-          symbols: pageContext.symbols || {}
+          symbols: pageContext.symbols || {},
+          knowledgeBase: kbContext || ""
         },
         modelConfig: {
           apiKey: this.apiKey || "",
@@ -5413,6 +5940,7 @@ ${nextChunk}` : nextChunk;
       if (!content) {
         throw new Error("Edit agent did not provide updated file content.");
       }
+      const warnings = this.validateWaveMakerSyntax(content, fileName);
       await this.studioApiService.writeProjectTextFile(projectId, resourcePath, content);
       if (projectPath) {
         const persistedContent = await this.studioApiService.readProjectContentFile(projectId, projectPath);
@@ -5432,7 +5960,30 @@ ${nextChunk}` : nextChunk;
         },
         "*"
       );
-      return `Applied ${fileName || resourcePath}${event.summary ? ` - ${event.summary}` : ""}`;
+      const warningText = warnings.length ? `
+  Warnings: ${warnings.join("; ")}` : "";
+      return `Applied ${fileName || resourcePath}${event.summary ? ` - ${event.summary}` : ""}${warningText}`;
+    }
+    validateWaveMakerSyntax(content, fileName) {
+      const warnings = [];
+      if (!content || !fileName)
+        return warnings;
+      const isScript = /\.js$/i.test(fileName);
+      if (!isScript)
+        return warnings;
+      if (/Page\.Widgets\.\w+\.on[A-Z]\w*\s*=/.test(content)) {
+        warnings.push("Possible incorrect event syntax: use Page.widgetNameEvent instead of Page.Widgets.widget.onEvent");
+      }
+      if (/Page\.Variables\.\w+\.on[A-Z]\w*\s*=/.test(content)) {
+        warnings.push("Possible incorrect event syntax: use Page.varNameonEvent instead of Page.Variables.var.onEvent");
+      }
+      if (/\bthis\.\w+/.test(content) && /Page\.|Partial\./.test(content)) {
+        warnings.push('"this" keyword detected \u2014 WaveMaker uses Page/Partial/App objects directly');
+      }
+      if (/\.invoke\s*\(\s*\{[^}]*(?:successCallback|onSuccess)\s*:/.test(content)) {
+        warnings.push("invoke() callbacks should be separate arguments, not inside the options object");
+      }
+      return warnings;
     }
     buildEcosystemChatContext(pageContext) {
       var _a, _b, _c;
@@ -5463,17 +6014,49 @@ ${nextChunk}` : nextChunk;
       }
       this.chatHistory.push({
         role,
-        content
+        content,
+        timestamp: Date.now()
       });
       if (this.chatHistory.length > this.maxChatHistory) {
         this.chatHistory = this.chatHistory.slice(-this.maxChatHistory);
       }
+      this._persistChatHistory();
     }
     getChatHistoryMessages() {
-      return this.chatHistory.map((entry) => ({
+      return this.chatHistory.slice(-6).map((entry) => ({
         role: entry.role,
         content: entry.content
       }));
+    }
+    _getChatHistoryKey() {
+      var _a, _b, _c, _d;
+      const pageName = ((_b = (_a = this.pageContextManager) == null ? void 0 : _a.getPageName) == null ? void 0 : _b.call(_a)) || "default";
+      const projectId = ((_d = (_c = this.pageContextManager) == null ? void 0 : _c.getProjectId) == null ? void 0 : _d.call(_c)) || "unknown";
+      return `chatHistory_${projectId}_${pageName}`;
+    }
+    _persistChatHistory() {
+      const key = this._getChatHistoryKey();
+      if (!key)
+        return;
+      chrome.storage.local.set({ [key]: this.chatHistory.slice(-this.maxChatHistory) });
+    }
+    async _restoreChatHistory() {
+      const key = this._getChatHistoryKey();
+      if (!key)
+        return;
+      return new Promise((resolve) => {
+        chrome.storage.local.get([key], (result) => {
+          const stored = result[key];
+          if (Array.isArray(stored) && stored.length > 0) {
+            this.chatHistory = stored;
+            stored.forEach((entry) => {
+              var _a;
+              (_a = this.sidebar) == null ? void 0 : _a.addMessage(entry.content, entry.role);
+            });
+          }
+          resolve();
+        });
+      });
     }
     async refreshSidebarContext() {
       var _a;
@@ -5558,6 +6141,13 @@ ${nextChunk}` : nextChunk;
             changes.editAgentBaseUrl.newValue || this.editAgentBaseUrl
           );
           this.editAgentService.setBaseUrl(this.editAgentBaseUrl);
+        }
+        if (changes.knowledgeBaseUrl) {
+          this.kbBaseUrl = changes.knowledgeBaseUrl.newValue || "http://localhost:8788";
+          this.knowledgeBaseService.setBaseUrl(this.kbBaseUrl);
+        }
+        if (changes.useKnowledgeBase) {
+          this.useKnowledgeBase = changes.useKnowledgeBase.newValue !== false;
         }
         if (changes.copilotEnabled) {
           this.setEnabled(Boolean(changes.copilotEnabled.newValue));

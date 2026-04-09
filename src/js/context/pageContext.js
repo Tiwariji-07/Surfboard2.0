@@ -23,6 +23,7 @@ class PageContextManager {
             activeFileType
         );
         const symbols = this.extractSymbolsFromApiBundle(pageFiles);
+        const platform = this.detectPlatform(pageFiles, studioContext);
 
         return {
             projectId: studioContext.projectId,
@@ -34,8 +35,23 @@ class PageContextManager {
             apiContext: studioContext.apiContext,
             pageFiles,
             symbols,
+            platform,
             source: studioContext.source
         };
+    }
+
+    detectPlatform(pageFiles, studioContext) {
+        const markup = pageFiles?.markup || '';
+        const script = pageFiles?.script || '';
+        // Mobile projects use wm-mobile-* tags or require() for RN libs
+        if (/wm-mobile|wm-app-mobile/i.test(markup) || /require\s*\(\s*['"](?:react-native|expo)/i.test(script)) {
+            return 'mobile';
+        }
+        // Prefab detection
+        if (/wm-prefab|<wm-prefab/i.test(markup) || /Prefab\./i.test(script)) {
+            return 'prefab';
+        }
+        return 'web';
     }
 
     toPromptPrefix(context) {
@@ -46,17 +62,34 @@ class PageContextManager {
         const services = (context.apiContext?.services || []).slice(0, 10).join(', ') || 'none';
         const prefabs = (context.apiContext?.prefabs || []).slice(0, 10).join(', ') || 'none';
         const pageVariables = (context.apiContext?.pageVariables || []).slice(0, 12).join(', ') || 'none';
+        const platform = context.platform || 'web';
+
+        // Build widget type summary (e.g. "button1:wm-button, form1:wm-form")
+        const widgetTypes = context.symbols.widgetTypes || {};
+        const typeSummary = Object.entries(widgetTypes)
+            .slice(0, 15)
+            .map(([name, type]) => `${name}:${type}`)
+            .join(', ') || 'none';
+
+        // Build event binding summary
+        const eventBindings = (context.symbols.eventBindings || [])
+            .slice(0, 10)
+            .map(eb => `${eb.widget}.${eb.event}->${eb.handler}`)
+            .join(', ') || 'none';
 
         return [
             '[WaveMaker Studio context]',
             `Project ID: ${context.projectId || 'unknown'}`,
             `Page: ${context.pageName || 'unknown'}`,
+            `Platform: ${platform}`,
             `Active file: ${context.activeFile || 'unknown'}`,
             `File type: ${context.activeFileType || context.language || 'unknown'}`,
             `Context source: ${context.source || 'unknown'}`,
             `Widgets: ${widgets}`,
+            `Widget types: ${typeSummary}`,
             `Variables: ${variables}`,
             `Bindings: ${bindings}`,
+            `Event bindings: ${eventBindings}`,
             `Project pages: ${pages}`,
             `Project services: ${services}`,
             `Project prefabs: ${prefabs}`,
@@ -423,6 +456,7 @@ class PageContextManager {
 
         return {
             widgets: [...new Set([...markupSymbols.widgets, ...scriptSymbols.widgets])].sort(),
+            widgetTypes: markupSymbols.widgetTypes || {},
             variables: [
                 ...new Set([
                     ...markupSymbols.variables,
@@ -430,7 +464,8 @@ class PageContextManager {
                     ...pageVariableNames
                 ])
             ].sort(),
-            bindings: [...new Set([...markupSymbols.bindings, ...scriptSymbols.bindings])].sort()
+            bindings: [...new Set([...markupSymbols.bindings, ...scriptSymbols.bindings])].sort(),
+            eventBindings: markupSymbols.eventBindings || []
         };
     }
 
@@ -459,8 +494,10 @@ class PageContextManager {
 
         return {
             widgets: widgetMatches.map((value) => value.replace(/^Page\.Widgets\./, '')),
+            widgetTypes: {},
             variables: variableMatches.map((value) => value.replace(/^Page\.Variables\./, '')),
-            bindings: handlerMatches.map((value) => value.replace(/^Page\./, '').replace(/\s*=\s*function$/, ''))
+            bindings: handlerMatches.map((value) => value.replace(/^Page\./, '').replace(/\s*=\s*function$/, '')),
+            eventBindings: []
         };
     }
 
@@ -471,16 +508,20 @@ class PageContextManager {
 
         return {
             widgets: [...new Set(widgetMatches.map((value) => value.replace(/^Widgets\./, '')))].sort(),
+            widgetTypes: {},
             variables: [...new Set(variableMatches.map((value) => value.replace(/^Variables\./, '')))].sort(),
-            bindings: [...new Set(bindingMatches.map((value) => value.replace(/^bind:/, '')))].sort()
+            bindings: [...new Set(bindingMatches.map((value) => value.replace(/^bind:/, '')))].sort(),
+            eventBindings: []
         };
     }
 
     createEmptySymbols() {
         return {
             widgets: [],
+            widgetTypes: {},
             variables: [],
-            bindings: []
+            bindings: [],
+            eventBindings: []
         };
     }
 
@@ -575,8 +616,10 @@ class PageContextManager {
 
     flattenParsedPage(parsedNode) {
         const widgets = new Set();
+        const widgetTypes = new Map(); // name -> type (e.g. "button1" -> "wm-button")
         const variables = new Set();
         const bindings = new Set();
+        const eventBindings = []; // {widget, event, handler}
 
         const visit = (node) => {
             if (!node) {
@@ -585,6 +628,9 @@ class PageContextManager {
 
             if (node.name) {
                 widgets.add(node.name);
+                if (node.type) {
+                    widgetTypes.set(node.name, node.type);
+                }
             }
 
             (node.bindings?.variables || []).forEach((value) => variables.add(value));
@@ -593,6 +639,11 @@ class PageContextManager {
             (node.relationships?.eventHandlers || []).forEach((eventHandler) => {
                 if (eventHandler.handler) {
                     bindings.add(eventHandler.handler);
+                    eventBindings.push({
+                        widget: node.name || '',
+                        event: eventHandler.event || '',
+                        handler: eventHandler.handler
+                    });
                 }
             });
 
@@ -603,8 +654,10 @@ class PageContextManager {
 
         return {
             widgets: [...widgets].sort(),
+            widgetTypes: Object.fromEntries(widgetTypes),
             variables: [...variables].sort(),
-            bindings: [...bindings].sort()
+            bindings: [...bindings].sort(),
+            eventBindings
         };
     }
 
@@ -613,6 +666,7 @@ class PageContextManager {
         const variableMatches = html.match(/Variables\.[A-Za-z0-9_$]+(?:\.dataSet)?/g) || [];
         const widgetMatches = html.match(/Widgets\.[A-Za-z0-9_$]+/g) || [];
         const bindingMatches = html.match(/bind:[^"'\s}]+/g) || [];
+        const widgetTypes = {};
 
         const namedElements = [
             ...document.querySelectorAll('[name]'),
@@ -623,13 +677,16 @@ class PageContextManager {
             const name = element.getAttribute('name') || element.getAttribute('widget-id');
             if (name) {
                 widgetMatches.push(name);
+                widgetTypes[name] = element.tagName.toLowerCase();
             }
         });
 
         return {
             widgets: [...new Set(widgetMatches)].sort(),
+            widgetTypes,
             variables: [...new Set(variableMatches)].sort(),
-            bindings: [...new Set(bindingMatches.map((value) => value.replace(/^bind:/, '')))].sort()
+            bindings: [...new Set(bindingMatches.map((value) => value.replace(/^bind:/, '')))].sort(),
+            eventBindings: []
         };
     }
 

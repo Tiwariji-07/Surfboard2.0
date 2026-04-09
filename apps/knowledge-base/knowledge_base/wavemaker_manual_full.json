@@ -1,0 +1,367 @@
+[
+  {
+    "title": "Set Required Validator on Form Field",
+    "synonyms": [
+      "make form field required",
+      "add required validation to form field"
+    ],
+    "tags": ["form", "validation", "required"],
+    "syntax": "Page.Widgets.[formWidgetName].formfields.[fieldWidgetName].setValidators([...])",
+    "code": "var VALIDATOR = App.getDependency('CONSTANTS').VALIDATOR;\n Page.onReady = function() {\n  Page.Widgets.departmentForm.formfields.departmentName.setValidators([{ type: VALIDATOR.REQUIRED, validator: true, errorMessage: 'This field cannot be empty.' }]);\n};",
+    "explanation": "Sets a required validator on the 'departmentName' field of the 'departmentForm' when the page is ready."
+  },
+  {
+    "title": "Set Required Validator on Table Column",
+    "synonyms": [
+      "add required validation to table column",
+      "make table column mandatory"
+    ],
+    "tags": ["table", "validation", "required"],
+    "syntax": "Page.Widgets.[tableWidgetName].columns.[columnName].setValidators([...])",
+    "code": "var VALIDATOR = App.getDependency('CONSTANTS').VALIDATOR;\n Page.Widgets.environmentsTable.columns.isActive.setValidators([{ type: VALIDATOR.REQUIRED, validator: true, errorMessage: 'This field cannot be empty.' }]);",
+    "explanation": "Sets a required validator on the 'isActive' column in the 'environmentsTable'."
+  },
+  {
+    "title": "Custom Validator on Form Field",
+    "synonyms": [
+      "custom function validation",
+      "form field with user-defined rule"
+    ],
+    "tags": ["form", "validation", "custom"],
+    "syntax": "Page.Widgets.[formWidgetName].formfields.[fieldWidgetName].setValidators([customFunction])",
+    "code": "Page.dialog1Opened = function ($event, widget) {\n  Page.Widgets.loginForm.formfields.username.setValidators([lastNameVal]);\n};\n\nfunction lastNameVal(field, form) {\n  if (field.value && field.value.length < 2) {\n    return {\n      errorMessage: \"Enter your full name.\"\n    };\n  }\n}",
+    "explanation": "Applies a custom validator on the 'username' field of 'loginForm' to ensure at least 2 characters on opening the dialog."
+  },
+  {
+    "title": "Custom Validator on Table Column",
+    "synonyms": [
+      "table column with custom validator",
+      "add function validation to datatable"
+    ],
+    "tags": ["table", "validation", "custom"],
+    "syntax": "Page.Widgets.[tableWidgetName].columns.[columnName].setValidators([customFunction])",
+    "code": "Page.Widgets.onBoardTable.columns.isBoarded.setValidators([lastNameVal]);\n\nfunction lastNameVal(field, table) {\n  if (field.value && field.value.length < 2) {\n    return {\n      errorMessage: \"Enter your full name.\"\n    };\n  }\n}",
+    "explanation": "Applies a custom validator on 'isBoarded' column of 'onBoardTable' to check minimum length."
+  },
+  {
+    "title": "Combined Validators on Form Field",
+    "synonyms": [
+      "regex and custom validator",
+      "multiple validators for form field"
+    ],
+    "tags": ["form", "validation", "regex", "required"],
+    "syntax": "Page.Widgets.[formWidgetName].formfields.[fieldWidgetName].setValidators([customFunction, builtInValidator])",
+    "code": "var VALIDATOR = App.getDependency('CONSTANTS').VALIDATOR;\n Page.Widgets.employeeForm.formfields.lastname.setValidators([\n  emailRequired,\n  {\n    type: VALIDATOR.REGEXP,\n    validator: /\\w+@\\w+\\.\\w{2,3}/,\n    errorMessage: \"Not a Valid Email\"\n  }\n]);\n\nfunction emailRequired(field, form) {\n  if (!field.value || field.value.length < 1) {\n    return {\n      errorMessage: \"Email cannot be empty.\"\n    };\n  }\n}",
+    "explanation": "Combines a required custom check and regex email format validation for 'lastname' field in 'employeeForm'."
+  },
+  {
+    "title": "Combined Validators on Table Column",
+    "synonyms": [
+      "add multiple validations to table column",
+      "regex and custom validation"
+    ],
+    "tags": ["table", "validation", "regex", "required"],
+    "syntax": "Page.Widgets.[tableWidgetName].columns.[columnName].setValidators([customFunction, builtInValidator])",
+    "code": "var VALIDATOR = App.getDependency('CONSTANTS').VALIDATOR;\n Page.Widgets.userTable.columns.lastname.setValidators([\n  emailRequired,\n  {\n    type: VALIDATOR.REGEXP,\n    validator: /\\w+@\\w+\\.\\w{2,3}/,\n    errorMessage: \"Not a Valid Email\"\n  }\n]);\n\nfunction emailRequired(field, table) {\n  if (!field.value || field.value.length < 1) {\n    return {\n      errorMessage: \"Email cannot be empty.\"\n    };\n  }\n}",
+    "explanation": "Combines required and regex validation on 'lastname' column of 'userTable'."
+  },
+  {
+    "title": "Observe and Confirm Password Validation - Form",
+    "synonyms": ["confirm password match", "password confirm validator"],
+    "tags": ["form", "password", "validation"],
+    "syntax": "Page.Widgets.[formWidgetName].formfields.[confirmField].observeOn(['password'])",
+    "code": "Page.Widgets.EmployeeForm1.formfields.passowrd.setValidators([confirmPasswordEval]);\nPage.Widgets.EmployeeForm1.formfields.confirmpassword.observeOn(['password']);\n\nfunction confirmPasswordEval(field, form) {\n  if (field.value && form.formfields.password.value !== field.value) {\n    return {\n      errorMessage: \"Password & Confirm Password are not the same value\"\n    };\n  }\n}",
+    "explanation": "Ensures confirm password matches password in 'EmployeeForm1'."
+  },
+  {
+    "title": "Observe and Confirm Password Validation - Table",
+    "synonyms": [
+      "validate confirm password in table",
+      "match passwords in table column"
+    ],
+    "tags": ["table", "password", "validation"],
+    "syntax": "Page.Widgets.[tableWidgetName].columns.[confirmColumn].observeOn(['password'])",
+    "code": "Page.Widgets.tableGetEmployees.columns.confirmPassword.setValidators([confirmPasswordEval]);\nPage.Widgets.staticVariable2Table1.columns.confirmpassword.observeOn(['password']);\n\nfunction confirmPasswordEval(field, table) {\n  if (field.value && table.columns.password.value !== field.value) {\n    return {\n      errorMessage: \"Password & Confirm Password are not the same value\"\n    };\n  }\n}",
+    "explanation": "Validates matching password-confirm password in the specified table."
+  },
+  {
+    "title": "Set Async Validator on Email Field",
+    "synonyms": ["async email validator", "check email exists asynchronously"],
+    "tags": ["form", "validation", "async"],
+    "syntax": "Page.Widgets.[formWidgetName].formfields.[fieldWidgetName].setAsyncValidators([asyncFunction])",
+    "code": "Page.Widgets.RegistationForm.formfields.email.setAsyncValidators([emailAsync]);\n\nfunction emailAsync(field, form) {\n  return new Promise(function(resolve, reject) {\n    if (field.value === \"duplicate@example.com\") {\n      reject({\n        errorMessage: \"Email already exists.\"\n      });\n    } else {\n      resolve();\n    }\n  });\n}",
+    "explanation": "Adds asynchronous validator to check if email already exists in 'RegistationForm'."
+  },
+  {
+    "title": "Before Submit on Form",
+    "synonyms": ["validate form before submit", "pre-submit form checks"],
+    "tags": ["form", " before submit"],
+    "syntax": "Page.[formWidgetName]Beforesubmit = function ($event, widget, $data) { ... };",
+    "code": "Page.employeeFormBeforesubmit = function ($event, widget, $data) {\n  if (!$data.username || $data.username.length < 4) {\n    Page.Actions.notifyError.invoke();\n    return false;\n  }\n  $data.createdOn = moment.now();\n};",
+    "explanation": "Validates username length before form submission and sets creation timestamp if valid."
+  },
+  {
+    "title": "Submit Form and Invoke Service Variable",
+    "synonyms": ["form submit", "submit and call variable"],
+    "tags": ["form", "submit", "variable"],
+    "syntax": "Page.[formWidgetName]Submit = function ($event, widget, $formdata) { ... };",
+    "code": "Page.employeeFormSubmit = function ($event, widget, $formdata) {\n  Page.Variables.createUser.invoke({ inputFields: $formdata });\n};",
+    "explanation": "Submits the form and passes form data as input to 'createUser' service variable."
+  },
+  {
+    "title": "Handle Success after Form Submit",
+    "synonyms": ["form success event", "on form submit success"],
+    "tags": ["form", "success", "submit"],
+    "syntax": "Page.[formWidgetName]Success = function ($event, widget, $data) { ... };",
+    "code": "Page.employeeFormSuccess = function ($event, widget, $data) {\n  App.Variables.userDetails.dataSet = $data;\n  Page.Widgets.labelName.caption = $data.name;\n};",
+    "explanation": "Handles post-submit success by updating app variable and label with submitted user name."
+  },
+  {
+    "title": "Handle Error on Form Submit",
+    "synonyms": ["form submit error", "on form error"],
+    "tags": ["form", "error", "submit"],
+    "syntax": "Page.[formWidgetName]Error = function ($event, widget, $data) { ... };",
+    "code": "Page.employeeFormError = function ($event, widget, $data) {\n  console.log(\"Error from server:\", $data);\n};",
+    "explanation": "Logs error response to console when form submission fails."
+  },
+  {
+    "title": "Data Table Row Click Handler",
+    "synonyms": ["row click action", "handle datatable row click"],
+    "tags": ["datatable", "click", "row"],
+    "syntax": "[Scope].[TableName]Rowclick = function($event, widget, row) { ... };",
+    "code": "Page.departmentTableRowclick = function($event, widget, row) {\n  Page.Variables.selectedDept.setData({\n    id: row.deptId,\n    name: row.name,\n    location: row.location\n  });\n  Page.Widgets.label_deptName.caption = `Department: ${row.name}`;\n  Page.Widgets.label_location.caption = `Location: ${row.location}`;\n  Page.Widgets.label_budget.caption = `Budget: $${row.budget.toLocaleString()}`;\n  Page.Actions.goToPage_DeptDetails.invoke({\n    data: {\n      deptId: row.deptId,\n      deptName: row.name\n    }\n  });\n};",
+    "explanation": "On clicking a row, sets selected department info, updates labels, and navigates to department details page."
+  },
+  {
+    "title": "Data Table Row Select Event",
+    "synonyms": ["select row in datatable", "row select action"],
+    "tags": ["datatable", "select", "event"],
+    "syntax": "[Scope].[TableName]Select = function($event, widget, row) { ... };",
+    "code": "Page.employeeTableSelect = function($event, widget, row) {\n  console.log(\"Selected row data:\", row.index, row);\n};",
+    "explanation": "Logs index and content of selected row when row selection occurs."
+  },
+  {
+    "title": "Data Table Row Deselect Event",
+    "synonyms": ["deselect datatable row", "unselect row"],
+    "tags": ["datatable", "deselect", "event"],
+    "syntax": "[Scope].[TableName]Deselect = function($event, widget, row) { ... };",
+    "code": "Partial.employeeTableDeselect = function($event, widget, row) {\n  console.log(\"Deselected row:\", row.index, row);\n};",
+    "explanation": "Logs details of the row when deselected in the Data Table."
+  },
+  {
+    "title": "Data Table Sort Event",
+    "synonyms": ["column sort handler", "sort event in table"],
+    "tags": ["datatable", "sort", "column"],
+    "syntax": "[Scope].[TableName]Sort = function($event, widget, $data) { ... };",
+    "code": "Partial.employeeTableSort = function($event, widget, $data) {\n  console.log(\"Sorted column info:\", $data);\n};",
+    "explanation": "Logs sorting details when a table column is sorted."
+  },
+  {
+    "title": "Data Table Header Click Event",
+    "synonyms": ["datatable header click", "click on table column header"],
+    "tags": ["datatable", "header", "click"],
+    "syntax": "[Scope].[TableName]Headerclick = function($event, widget, column) { ... };",
+    "code": "Page.employeeTableHeaderclick = function($event, widget, column) {\n  console.log(\"Clicked header column:\", column.field);\n};",
+    "explanation": "Logs which column header was clicked in a Data Table."
+  },
+  {
+    "title": "List Click and Fetch Details",
+    "synonyms": ["list click event", "get details on list click"],
+    "tags": ["list", "click", "variable"],
+    "syntax": "[Scope].[WidgetName]Click = function($event, widget) { ... };",
+    "code": "Page.EmployeeListClick = function($event, widget) {\n  const empId = widget.item.deptId;\n  const deptName = widget.item.name;\n  Page.Variables.getDepartmentDetails.setInput({ id: empId });\n  Page.Variables.getDepartmentDetails.invoke();\n  Page.Widgets.selectedDeptName.caption = `Selected: ${deptName}`;\n};",
+    "explanation": "Triggered on list item click; fetches department details and updates label with selected name."
+  },
+  {
+    "title": "List  Double Click to Navigate",
+    "synonyms": ["navigate on list double click", "double click list action"],
+    "tags": ["list", "dblclick", "navigation"],
+    "syntax": "[Scope].[WidgetName]Dblclick = function($event, widget) { ... };",
+    "code": "Page.EmployeeListDblclick = function($event, widget) {\n  Page.Actions.goToPage_DeptDetails.invoke({\n    data: {\n      deptId: widget.item.deptId,\n      deptName: widget.item.name\n    }\n  });\n};",
+    "explanation": "Navigates to department details page using data from the double-clicked list item."
+  },
+  {
+    "title": "List  Mouse Enter Highlight",
+    "synonyms": ["highlight on hover", "mouseenter list style change"],
+    "tags": ["list", "hover", "mouseenter"],
+    "syntax": "[Scope].[WidgetName]Mouseenter = function($event, widget) { ... };",
+    "code": "Page.EmployeeListMouseenter = function($event, widget) {\n  widget.itemClass += ' hover-highlight';\n  widget._currentItemWidgets.Name.caption = `Viewing: ${widget.item.name}`;\n};",
+    "explanation": "Adds CSS highlight and updates label inside hovered list item. //here widget.item is the list item data and widget._currentItemWidgets gives the widgets which are present in li or list item"
+  },
+  {
+    "title": "List  Mouse Leave Reset",
+    "synonyms": ["reset on hover leave", "mouseleave list style reset"],
+    "tags": ["list", "hover", "mouseleave"],
+    "syntax": "[Scope].[WidgetName]Mouseleave = function($event, widget) { ... };",
+    "code": "Page.EmployeeListMouseleave = function($event, widget) {\n  widget.itemClass = widget.itemClass.replace(' hover-highlight', '');\n  widget._currentItemWidgets.Name.caption = widget.item.name;\n};",
+    "explanation": "Removes hover style and resets label text on list item mouse leave. //here widget.itemClass is the class is for  list and widget._currentItemWidgets gives the widgets which are present in li or list item"
+  },
+  {
+    "title": "List Enter Key Press Trigger",
+    "synonyms": ["enter key search", "trigger on enter in list"],
+    "tags": ["list", "keypress", "search"],
+    "syntax": "[Scope].[WidgetName]Enterkeypress = function($event, widget) { ... };",
+    "code": "Page.EmployeeListEnterkeypress = function($event, widget, item, index) {\n  Page.Variables.searchUser.setInput({ keyword: item.name });\n  Page.Variables.searchUser.invoke();\n};",
+    "explanation": "Fires search with keyword from selected item when Enter is pressed."
+  },
+  {
+    "title": "List Pagination Change",
+    "synonyms": ["list page change", "pagination in list"],
+    "tags": ["list", "pagination", "event"],
+    "syntax": "[Scope].[WidgetName]Paginationchange = function($event, widget, pageInfo) { ... };",
+    "code": "Page.EmployeeListPaginationchange = function($event, widget, pageInfo) {\n  console.log(\"Page changed to:\", pageInfo.page);\n  Page.Variables.getPaginatedUsers.setInput({ page: pageInfo.page });\n  Page.Variables.getPaginatedUsers.invoke();\n};",
+    "explanation": "Loads new page of data when pagination changes in list widget."
+  },
+  {
+    "title": "Select Specific Item in List",
+    "synonyms": ["select item in list", "highlight specific list entry"],
+    "tags": ["list", "select", "index"],
+    "syntax": "[Scope].Widgets.[WidgetName].selectItem(index);",
+    "code": "Page.Widgets.EmployeeList1.selectItem(1);",
+    "explanation": "Programmatically selects the item at index 1 in the list."
+  },
+  {
+    "title": "Deselect Item in List",
+    "synonyms": ["remove selection from list", "unselect item in list"],
+    "tags": ["list", "deselect", "utility"],
+    "syntax": "[Scope].Widgets.[WidgetName].deselectItem(index);",
+    "code": "Page.Widgets.EmployeeList1.deselectItem(1);",
+    "explanation": "Removes selection from the item at index 1 in the list widget."
+  },
+  {
+    "title": "Clear All Items from List",
+    "synonyms": ["reset list items", "clear list"],
+    "tags": ["list", "utility", "clear"],
+    "syntax": "[Scope].Widgets.[WidgetName].clear();",
+    "code": "Page.Widgets.EmployeeList1.clear();",
+    "explanation": "Clears all data/items from the list widget."
+  },
+  {
+    "title": "Card Click to Open Dialog and Set Variable",
+    "synonyms": ["card click dialog open", "select card and open popup"],
+    "tags": ["card", "click", "dialog"],
+    "syntax": "[Scope].[WidgetName]Click = function ($event, widget) { ... };",
+    "code": "Page.Card1Click = function ($event, widget) {\n  console.log(\"Card clicked:\", widget.item);\n  Page.Variables.selectedUser.setData(widget.item);\n  Page.Widgets.dialog1.open();\n};",
+    "explanation": "Opens a dialog and sets selected user into a variable when the card is clicked."
+  },
+  {
+    "title": "Card Double Click to Navigate",
+    "synonyms": ["navigate on card double click", "card dblclick action"],
+    "tags": ["card", "dblclick", "navigate"],
+    "syntax": "[Scope].[WidgetName]Dblclick = function ($event, widget) { ... };",
+    "code": "Page.Card1Dblclick = function ($event, widget) {\n  Page.Actions.goToPage_UserDetails.invoke({\n    data: {\n      userId: widget.item.id,\n      name: widget.item.name\n    }\n  });\n};",
+    "explanation": "Navigates to the user detail page with ID and name from the selected card item."
+  },
+  {
+    "title": "Card Mouse Enter Styling and Label Update",
+    "synonyms": ["hover over card", "mouseenter card styling"],
+    "tags": ["card", "hover", "mouseenter"],
+    "syntax": "[Scope].[WidgetName]Mouseenter = function ($event, widget) { ... };",
+    "code": "Page.Card1Mouseenter = function ($event, widget) {\n  widget.itemClass += ' card-hover';\n  widget._currentItemWidgets.EmailID.caption = `Hovering over: ${widget.item.name}`;\n};",
+    "explanation": "Adds CSS class and updates a label inside card on mouse hover. // widget._currentItemWidgets gives the widgets which are present in li or list item"
+  },
+  {
+    "title": "Card Mouse Leave Styling Reset",
+    "synonyms": ["mouseleave card event", "reset card hover style"],
+    "tags": ["card", "mouseleave", "hover"],
+    "syntax": "[Scope].[WidgetName]Mouseleave = function ($event, widget) { ... };",
+    "code": "Page.Card1Mouseleave = function ($event, widget) {\n  widget.itemClass = widget.itemClass.replace(' card-hover', '');\n  widget._currentItemWidgets.EmailID.caption = widget.item.email;\n};",
+    "explanation": "Removes hover class and restores original email value when mouse leaves the card. //widget._currentItemWidgets gives the widgets which are present in li or list item"
+  },
+  {
+    "title": "Card Tap to Hide Widget",
+    "synonyms": ["tap gesture card", "hide widget on card tap"],
+    "tags": ["card", "tap", "mobile gesture"],
+    "syntax": "[Scope].[WidgetName]Tap = function ($event, widget) { ... };",
+    "code": "Page.Card1Tap = function ($event, widget) {\n  console.log(\"Card tapped:\", widget.item);\n  widget._currentItemWidgets.ProfilePicture.show = false;\n};",
+    "explanation": "Handles tap gesture on card and hides a widget inside the tapped card. //widget._currentItemWidgets gives the widgets which are present in li or list item"
+  },
+  {
+    "title": "Before Render Cards with Computed Values",
+    "synonyms": ["render logic before showing card", "preprocess card data"],
+    "tags": ["card", "render", "formatting"],
+    "syntax": "[Scope].[WidgetName]Beforedatarender = function (widget, $data) { ... }; //$ data is the data assigned to that list either any varibale data or model data",
+    "code": "Page.Card1Beforedatarender = function (widget, $data) {\n  $data.forEach(item => {\n    item.fullname = item.firstName + ' ' + item.lastName;\n    item.formattedBudget = '$' + item.budget.toLocaleString();\n    item.status = item.name.includes('Engineering') ? 'Tech' : 'Non-Tech';\n    item.isLowQ1 = item.q1 < 200000;\n  });\n};",
+    "explanation": "Adds computed values like fullname, formatted budget, and flags low Q1 values before rendering cards."
+  },
+  {
+    "title": "Render List with Default Selection",
+    "synonyms": ["on list render select item", "list render logic"],
+    "tags": ["list", "render", "selection"],
+    "syntax": "[Scope].[WidgetName]Render = function(widget, $data) { }; //$ data is the data assigned to that list either any varibale data or model data",
+    "code": "Page.EmployeeListRender = function(widget, $data) {\n  widget.selectItem(2);\n  Page.Widgets.detailsCard.caption = `Selected: ${$data[2].name}`;\n};",
+    "explanation": "Selects the third list item on render and updates a card caption with selected name."
+  },
+  {
+    "title": "Reorder List  and Save Order",
+    "synonyms": ["drag reorder list", "save list order after drag"],
+    "tags": ["list", "reorder", "drag and drop"],
+    "syntax": "[Scope].[WidgetName]Reorder = function($event, data) { ... };//$ data is the data assigned to that list either any varibale data or model data",
+    "code": "Page.EmployeeListReorder = function($event, data) {\n  App.Variables.savedOrder.setData(data);\n  console.log(\"New order saved to App variable:\", data);\n};",
+    "explanation": "Handles list reordering and stores the updated item order into an App variable."
+  },
+  {
+    "title": "Get Widget by Index from List",
+    "synonyms": ["get widget in list by index", "access list item widget"],
+    "tags": ["list", "widget", "index"],
+    "syntax": "[Scope].Widgets.[WidgetName].getWidgets(widgetName, index).$element.<DOMAction>();",
+    "code": "Page.Widgets.EmployeeList1.getWidgets('EmailID', 2).$element.addClass('text-bold');",
+    "explanation": "Gets the 'EmailID' widget inside the 3rd item and applies a CSS class to it."
+  },
+  {
+    "title": "Get All Widgets by Name from List",
+    "synonyms": ["get all widgets from list", "select widgets by name in list"],
+    "tags": ["list", "widgets", "utility"],
+    "syntax": "[Scope].Widgets.[WidgetName].getWidgets(widgetName);",
+    "code": "const emailWidgets = Page.Widgets.EmployeeList1.getWidgets('EmailID');",
+    "explanation": "Returns all widgets named 'EmailID' from the list items."
+  },
+  {
+    "title": "Get List Item Data by Index",
+    "synonyms": ["access list item data", "get item by index"],
+    "tags": ["list", "item", "data"],
+    "syntax": "let item = [Scope].Widgets.[WidgetName].getItem(index).item;",
+    "code": "let item = Page.Widgets.EmployeeList1.getItem(2).item;",
+    "explanation": "Retrieves the data object for the item at index 2 from the list."
+  },
+  {
+    "title": "Access Selected List Item's Widget",
+    "synonyms": ["selected item widget", "access widget inside selected item"],
+    "tags": ["list", "selected item", "widget"],
+    "syntax": "[Scope].Widgets.[WidgetName].selectedItemWidgets.<widgetName>.<property> = value;",
+    "code": "Page.Widgets.EmployeeList1.selectedItemWidgets.EmailID.caption = 'Updated Caption';",
+    "explanation": "Updates the caption of the 'EmailID' widget inside the currently selected list item."
+  },
+  {
+    "title": "Access Selected Item Data from List",
+    "synonyms": ["get selected list item", "access selected item object"],
+    "tags": ["list", "selected item", "data"],
+    "syntax": "[Scope].Widgets.[WidgetName].selecteditem",
+    "code": "let selected = Page.Widgets.EmployeeList1.selecteditem;\nconsole.log(\"Selected item:\", selected);",
+    "explanation": "Retrieves the currently selected item from the list and logs it."
+  },
+  {
+    "title": "Assign Value to Form Field Programmatically",
+    "synonyms": ["set form field value", "programmatically assign field data"],
+    "tags": ["form", "set value", "field"],
+    "syntax": "Page.Widgets.[formWidgetName].formWidgets.[fieldWidgetName].datavalue = [value];",
+    "code": "Page.Widgets.employeeForm.formWidgets.employeeDob.datavalue = \"AT_DEVOPS\";",
+    "explanation": "Sets a string value to the 'employeeDob' field in the 'employeeForm'."
+  },
+  {
+    "title": "Get Form Output Object",
+    "synonyms": ["get form output", "fetch form data"],
+    "tags": ["form", "dataoutput", "form values"],
+    "syntax": "let formData = Page.Widgets.[formWidgetName].dataoutput;",
+    "code": "let formData = Page.Widgets.employeeForm.dataoutput;",
+    "explanation": "Fetches the complete output object of 'employeeForm' into a variable."
+  },
+  {
+    "title": "Merge Two Form Outputs",
+    "synonyms": ["merge form data", "combine multiple form outputs"],
+    "tags": ["form", "merge", "dataoutput"],
+    "syntax": "Page.Widgets.[targetForm].dataoutput = { ...Page.Widgets.[targetForm].dataoutput, ...Page.Widgets.[sourceForm].dataoutput };",
+    "code": "Page.Widgets.employeeForm.dataoutput = { ...Page.Widgets.employeeForm.dataoutput, ...Page.Widgets.accessRequestForm.dataoutput };",
+    "explanation": "Combines the data output from 'accessRequestForm' into the target form 'employeeForm'."
+  }
+]

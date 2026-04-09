@@ -10,6 +10,7 @@ class CompletionManager {
     constructor({ enabled = true } = {}) {
         this.enabled = enabled;
         this.helperInjected = false;
+        this.helperReady = false;
         this.inlineConfig = {
             debounceTime: 400,
             minRequestInterval: 700
@@ -21,6 +22,17 @@ class CompletionManager {
         this.injectMonacoHelper();
         this.setupAPIKey();
         this.setupMessageListener();
+        this.setupHelperReadyListener();
+    }
+
+    setupHelperReadyListener() {
+        window.addEventListener('message', (event) => {
+            if (event.source === window && event.data?.type === PAGE_MESSAGES.MONACO_HELPER_READY) {
+                this.helperReady = true;
+                // Invalidate page context caches so fresh data is fetched for first completion
+                this.pageContextManager.pageBundleCache.clear();
+            }
+        });
     }
 
     setEnabled(enabled) {
@@ -92,7 +104,7 @@ class CompletionManager {
         const requestId = data?.requestId;
         const modelId = data?.modelId;
 
-        if (!requestId || !modelId || !this.enabled) {
+        if (!requestId || !modelId || !this.enabled || !this.helperReady) {
             this.sendInlineCompletionsResponse(requestId, modelId, []);
             return;
         }

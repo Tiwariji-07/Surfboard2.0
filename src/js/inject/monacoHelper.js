@@ -17,13 +17,19 @@
     let activeEditor = null;
     const registeredLanguages = new Set();
 
-    function waitForMonaco(callback) {
+    function waitForMonaco(callback, attempt) {
+        attempt = attempt || 0;
         if (typeof monaco !== 'undefined') {
             callback();
             return;
         }
 
-        window.setTimeout(() => waitForMonaco(callback), 100);
+        if (attempt > 300) {
+            console.warn('[Surfboard] Monaco not found after 30 s — giving up.');
+            return;
+        }
+
+        window.setTimeout(() => waitForMonaco(callback, attempt + 1), 100);
     }
 
     function setActiveEditor(editor) {
@@ -55,7 +61,12 @@
                 });
                 const cursorOffset = globalCursorOffset - windowStartOffset;
                 const wordUntil = model.getWordUntilPosition(position);
-                const insertColumn = wordUntil && wordUntil.word ? wordUntil.startColumn : position.column;
+                // Use word start when mid-word, but fall back to cursor column for
+                // punctuation, operators, and empty positions so completions insert
+                // at the right spot (e.g. after "Page.Widgets." or "(").
+                const insertColumn = (wordUntil && wordUntil.word && wordUntil.word.length > 0)
+                    ? wordUntil.startColumn
+                    : position.column;
 
                 window.postMessage(
                     {
@@ -132,7 +143,14 @@
         }
 
         if (typeof editor.onDidChangeModel === 'function') {
-            editor.onDidChangeModel(() => setActiveEditor(editor));
+            editor.onDidChangeModel(() => {
+                setActiveEditor(editor);
+                // Re-register completion provider for the new model's language
+                const model = editor.getModel();
+                if (model) {
+                    registerInlineCompletionProvider(model.getLanguageId());
+                }
+            });
         }
 
         if (typeof editor.updateOptions === 'function') {
@@ -329,6 +347,16 @@
 
         const existingEditors = monaco.editor.getEditors();
         existingEditors.forEach(registerEditor);
+
+        // Re-acquire active editor after tab visibility change (Studio may recreate editors)
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') {
+                const editors = monaco.editor.getEditors();
+                if (editors.length > 0 && !editors.includes(activeEditor)) {
+                    registerEditor(editors[0]);
+                }
+            }
+        });
 
         setupWindowListeners();
         window.postMessage({ type: PAGE_MESSAGES.MONACO_HELPER_READY }, '*');

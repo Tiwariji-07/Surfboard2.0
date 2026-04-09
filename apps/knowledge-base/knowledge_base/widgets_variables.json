@@ -1,0 +1,1155 @@
+[
+    {
+    "widgets": [
+        {
+            "Form": {
+                "properties": [
+                    {
+                        "name": "formWidgets",
+                        "type": "object"
+                    },
+                    {
+                        "name": "dataoutput",
+                        "type": "object"
+                    },
+                    {
+                        "name": "class",
+                        "type": "string"
+                    },
+                    {
+                        "name": "dataset",
+                        "type": "object"
+                    },
+                    {
+                        "name": "message",
+                        "type": "string"
+                    },
+                    {
+                        "name": "name",
+                        "type": "string"
+                    },
+                    {
+                        "name": "show",
+                        "type": "boolean"
+                    }
+                ],
+                "methods": [
+                    {
+                        "name": "clearMessage",
+                        "syntax": "<Scope>.Widgets.<widgetName>.clearMessage()"
+                    },
+                    {
+                        "name": "highlightInvalidFields",
+                        "syntax": "<Scope>.Widgets.<widgetName>.highlightInvalidFields()"
+                    },
+                    {
+                        "name": "reset",
+                        "syntax": "<Scope>.Widgets.<widgetName>.reset()"
+                    },
+                    {
+                        "name": "submit",
+                        "syntax": "<Scope>.Widgets.<widgetName>.submit()"
+                    },
+                    {
+                        "name": "toggleMessage",
+                        "syntax": "<Scope>.Widgets.<widgetName>.toggleMessage(message)"
+                    }
+                ],
+                "events": [
+                  "<scope>.<widgetName>Beforesubmit = function ($event, widget, $data) {};",
+                  "<scope>.<widgetName>Submit = function ($event, widget, $formData) {};",
+                  "<scope>.<widgetName>Success = function ($event, widget, $data) {};",
+                  "<scope>.<widgetName>Error = function ($event, widget, $data) {};"
+                ]
+            }
+        },
+        {
+            "Formfield": {
+                "properties": [
+                    {
+                        "name": "class",
+                        "type": "string"
+                    },
+                    {
+                        "name": "datavalue",
+                        "type": "string"
+                    },
+                    {
+                        "name": "inputtype",
+                        "type": "string"
+                    }
+                ],
+                "methods": [
+                    {
+                        "name": "setValidators",
+                        "syntax": "<Scope>.Widgets.<formName>.formWidgets.<fieldName>.setValidators([validators])",
+                        "examples": [
+                          "var VALIDATOR = App.getDependency('CONSTANTS').VALIDATOR; Page.Widgets.formName.formWidgets.fieldName.setValidators([{ type: VALIDATOR.REQUIRED, validator: true, // Display error message for the form field errorMessage: \"This field cannot be empty.\"}]);",
+                          "Page.Widgets.tableName.columns.columnName.setValidators([lastNameVal]); function lastNameVal(field, table) { if (field.value && field.value.length < 2) { return { errorMessage: \"Enter your full name.\" }; }}"
+                        ]
+                    },
+                    {
+                        "name": "setAsyncValidators",
+                        "syntax": "<Scope>.Widgets.<formName>.formWidgets.<fieldName>.setAsyncValidators([validators])",
+                        "examples": [
+                          "Page.Widgets.employeeInfoForm3.formWidgets.email.setAsyncValidators([emailAsync]); function emailAsync(field, form) { if (field.value) { return new Promise(function(resolve, reject) { var emailExists = Page.Variables.EmailData.dataSet.filter(function(data) { if (data.dataValue === field.value) { return true; } }); if (emailExists.length != 0) { reject({ errorMessage: \"The email address is already registered.\" }); } resolve(); }); }}"
+                        ]
+                    },
+                    {
+                        "name": "observeOn",
+                        "syntax": "<Scope>.Widgets.<formName>.formWidgets.<fieldName>.observeOn(fieldNamesArray)",
+                        "examples": [
+                          "Page.Widgets.EmployeeForm1.formWidgets.confirmpassword.setValidators([confirmPasswordEval]); Page.Widgets.EmployeeForm1.formWidgets.confirmpassword.observeOn(['password']); function confirmPasswordEval(field, form) { if (field.value && form.formWidgets.password.datavalue != field.value) { return { errorMessage: \"Password & ConfirmPassword are not the same value\" }; } }"
+                        ]
+                    }
+                ],
+                "events": [
+                  "<scope>.<widgetName>Change = function ($event, widget, newVal, oldVal) {};",
+                  "<scope>.<widgetName>Focus = function ($event, widget) {};",
+                  "<scope>.<widgetName>Blur = function ($event, widget) {};",
+                  "<scope>.<widgetName>Click = function ($event, widget) {};",
+                  "<scope>.<widgetName>Keypress = function ($event, widget) {};"
+                ]
+            }
+        },
+        {
+            "Text": {
+                "properties": [
+                    {
+                        "name": "datavalue",
+                        "type": "string | number"
+                    },
+                    {
+                        "name": "displayformat",
+                        "type": "string"
+                    },
+                    {
+                        "name": "disabled",
+                        "type": "boolean"
+                    },
+                    {
+                        "name": "maxchars",
+                        "type": "number"
+                    },
+                    {
+                        "name": "placeholder",
+                        "type": "string"
+                    },
+                    {
+                        "name": "readonly",
+                        "type": "boolean"
+                    },
+                    {
+                        "name": "required",
+                        "type": "boolean"
+                    },
+                    {
+                        "name": "show",
+                        "type": "boolean"
+                    }
+                ],
+                "events": [
+                  "<scope>.<widgetName>Change = function ($event, widget, newVal, oldVal) {};",
+                  "<scope>.<widgetName>Focus = function ($event, widget) {};",
+                  "<scope>.<widgetName>Blur = function ($event, widget) {};",
+                  "<scope>.<widgetName>Click = function ($event, widget) {};",
+                  "<scope>.<widgetName>Keypress = function ($event, widget) {};"
+                ]
+            }
+        },
+        {
+            "Select": {
+                "properties": [
+                    {
+                        "name": "datafield",
+                        "type": "string"
+                    },
+                    {
+                        "name": "dataset",
+                        "type": "Array<any>"
+                    },
+                    {
+                        "name": "datavalue",
+                        "type": "any"
+                    },
+                    {
+                        "name": "disabled",
+                        "type": "boolean"
+                    },
+                    {
+                        "name": "displayfield",
+                        "type": "string"
+                    },
+                    {
+                        "name": "placeholder",
+                        "type": "string"
+                    },
+                    {
+                        "name": "readonly",
+                        "type": "boolean"
+                    },
+                    {
+                        "name": "required",
+                        "type": "boolean"
+                    },
+                    {
+                        "name": "show",
+                        "type": "boolean"
+                    }
+                ],
+                "events": [
+                  "<scope>.<widgetName>Change = function ($event, widget, newVal, oldVal) {};",
+                  "<scope>.<widgetName>Focus = function ($event, widget) {};",
+                  "<scope>.<widgetName>Blur = function ($event, widget) {};",
+                  "<scope>.<widgetName>Click = function ($event, widget) {};",
+                  "<scope>.<widgetName>Keypress = function ($event, widget) {};"
+                ]
+            }
+        },
+        {
+            "Switch": {
+                "properties": [
+                    {
+                        "name": "datafield",
+                        "type": "string"
+                    },
+                    {
+                        "name": "dataset",
+                        "type": "Array<any> | Object"
+                    },
+                    {
+                        "name": "datavalue",
+                        "type": "any"
+                    },
+                    {
+                        "name": "disabled",
+                        "type": "boolean"
+                    },
+                    {
+                        "name": "displayexpression",
+                        "type": "string"
+                    },
+                    {
+                        "name": "displayfield",
+                        "type": "string"
+                    },
+                    {
+                        "name": "orderby",
+                        "type": "string"
+                    },
+                    {
+                        "name": "required",
+                        "type": "boolean"
+                    },
+                    {
+                        "name": "show",
+                        "type": "boolean"
+                    }
+                ],
+                "events": [
+                  "<scope>.<widgetName>Change = function ($event, widget, newVal, oldVal) {};",
+                  "<scope>.<widgetName>Focus = function ($event, widget) {};",
+                  "<scope>.<widgetName>Blur = function ($event, widget) {};",
+                  "<scope>.<widgetName>Click = function ($event, widget) {};",
+                  "<scope>.<widgetName>Keypress = function ($event, widget) {};"
+                ]
+            }
+        },
+        {
+            "Fileupload": {
+                "properties": [
+                    {
+                        "name": "uploadedFiles",
+                        "type": "array"
+                    },
+                    {
+                        "name": "selectedFiles",
+                        "type": "array"
+                    },
+                    {
+                        "name": "caption",
+                        "type": "string"
+                    },
+                    {
+                        "name": "contenttype",
+                        "type": "string"
+                    },
+                    {
+                        "name": "disabled",
+                        "type": "boolean"
+                    },
+                    {
+                        "name": "fileuploadmessage",
+                        "type": "string"
+                    },
+                    {
+                        "name": "maxfilesize",
+                        "type": "number"
+                    },
+                    {
+                        "name": "multiple",
+                        "type": "boolean"
+                    },
+                    {
+                        "name": "show",
+                        "type": "boolean"
+                    }
+                ],
+                "events": [
+                  "<scope>.<widgetName>Beforeselect = function ($event, widget, files) {};",
+                  "<scope>.<widgetName>Select = function ($event, widget, selectedFiles) {};",
+                  "<scope>.<widgetName>Error = function ($event, widget, files) {};"
+                ]
+            }
+        },
+        {
+            "Checkbox": {
+                "properties": [
+                    {
+                        "name": "datavalue",
+                        "type": "boolean"
+                    },
+                    {
+                        "name": "disabled",
+                        "type": "boolean"
+                    },
+                    {
+                        "name": "readonly",
+                        "type": "boolean"
+                    },
+                    {
+                        "name": "required",
+                        "type": "boolean"
+                    },
+                    {
+                        "name": "show",
+                        "type": "boolean"
+                    }
+                ],
+                "events": [
+                  "<scope>.<widgetName>Change = function ($event, widget, newVal, oldVal) {};",
+                  "<scope>.<widgetName>Focus = function ($event, widget) {};",
+                  "<scope>.<widgetName>Blur = function ($event, widget) {};",
+                  "<scope>.<widgetName>Click = function ($event, widget) {};",
+                  "<scope>.<widgetName>Keypress = function ($event, widget) {};"
+                ]
+            }
+        },
+        {
+            "Checkboxset": {
+                "properties": [
+                    {
+                        "name": "dataset",
+                        "type": "array"
+                    },
+                    {
+                        "name": "displayvalue",
+                        "type": "string"
+                    },
+                    {
+                        "name": "datafield",
+                        "type": "string"
+                    },
+                    {
+                        "name": "datavalue",
+                        "type": "object"
+                    },
+                    {
+                        "name": "disabled",
+                        "type": "boolean"
+                    },
+                    {
+                        "name": "readonly",
+                        "type": "boolean"
+                    },
+                    {
+                        "name": "required",
+                        "type": "boolean"
+                    },
+                    {
+                        "name": "show",
+                        "type": "boolean"
+                    }
+                ],
+                "events": [
+                  "<scope>.<widgetName>Change = function ($event, widget, newVal, oldVal) {};",
+                  "<scope>.<widgetName>Focus = function ($event, widget) {};",
+                  "<scope>.<widgetName>Blur = function ($event, widget) {};",
+                  "<scope>.<widgetName>Click = function ($event, widget) {};",
+                  "<scope>.<widgetName>Keypress = function ($event, widget) {};"
+                ]
+            }
+        },
+        {
+            "Date": {
+                "properties": [
+                    {
+                        "name": "datavalue",
+                        "type": "string"
+                    },
+                    {
+                        "name": "disabled",
+                        "type": "boolean"
+                    },
+                    {
+                        "name": "readonly",
+                        "type": "boolean"
+                    },
+                    {
+                        "name": "required",
+                        "type": "boolean"
+                    },
+                    {
+                        "name": "show",
+                        "type": "boolean"
+                    },
+                    {
+                        "name": "datepattern",
+                        "type": "string"
+                    },
+                    {
+                        "name": "excludedays",
+                        "type": "string"
+                    },
+                    {
+                        "name": "excludedates",
+                        "type": "string"
+                    },
+                    {
+                        "name": "maxdate",
+                        "type": "string"
+                    },
+                    {
+                        "name": "mindate",
+                        "type": "string"
+                    }
+                ]
+            }
+        },
+        {
+            "Datetime": {
+                "properties": [
+                    {
+                        "name": "datavalue",
+                        "type": "string"
+                    },
+                    {
+                        "name": "disabled",
+                        "type": "boolean"
+                    },
+                    {
+                        "name": "readonly",
+                        "type": "boolean"
+                    },
+                    {
+                        "name": "required",
+                        "type": "boolean"
+                    },
+                    {
+                        "name": "show",
+                        "type": "boolean"
+                    },
+                    {
+                        "name": "datepattern",
+                        "type": "string"
+                    },
+                    {
+                        "name": "excludedays",
+                        "type": "string"
+                    },
+                    {
+                        "name": "excludedates",
+                        "type": "string"
+                    },
+                    {
+                        "name": "maxdate",
+                        "type": "string"
+                    },
+                    {
+                        "name": "mindate",
+                        "type": "string"
+                    }
+                ]
+            }
+        },
+        {
+            "Radioset": {
+                "properties": [
+                    {
+                        "name": "dataset",
+                        "type": "array"
+                    },
+                    {
+                        "name": "displayvalue",
+                        "type": "string"
+                    },
+                    {
+                        "name": "datafield",
+                        "type": "string"
+                    },
+                    {
+                        "name": "datavalue",
+                        "type": "object"
+                    },
+                    {
+                        "name": "disabled",
+                        "type": "boolean"
+                    },
+                    {
+                        "name": "readonly",
+                        "type": "boolean"
+                    },
+                    {
+                        "name": "required",
+                        "type": "boolean"
+                    },
+                    {
+                        "name": "show",
+                        "type": "boolean"
+                    }
+                ]
+            }
+        },
+        {
+            "Spinner": {
+                "properties": [
+                    {
+                        "name": "caption",
+                        "type": "string"
+                    },
+                    {
+                        "name": "image",
+                        "type": "string"
+                    },
+                    {
+                        "name": "show",
+                        "type": "boolean"
+                    }
+                ]
+            }
+        },
+        {
+            "Textarea": {
+                "properties": [
+                    {
+                        "name": "datavalue",
+                        "type": "string"
+                    },
+                    {
+                        "name": "disabled",
+                        "type": "boolean"
+                    },
+                    {
+                        "name": "maxchars",
+                        "type": "number"
+                    },
+                    {
+                        "name": "placeholder",
+                        "type": "string"
+                    },
+                    {
+                        "name": "readonly",
+                        "type": "boolean"
+                    },
+                    {
+                        "name": "required",
+                        "type": "boolean"
+                    },
+                    {
+                        "name": "show",
+                        "type": "boolean"
+                    }
+                ],
+                "events": [
+                  "<scope>.<widgetName>Change = function ($event, widget, newVal, oldVal) {};",
+                  "<scope>.<widgetName>Focus = function ($event, widget) {};",
+                  "<scope>.<widgetName>Blur = function ($event, widget) {};",
+                  "<scope>.<widgetName>Click = function ($event, widget) {};",
+                  "<scope>.<widgetName>Keypress = function ($event, widget) {};"
+                ]
+            }
+        },
+        {
+            "Number": {
+                "properties": [
+                    {
+                        "name": "datavalue",
+                        "type": "number"
+                    },
+                    {
+                        "name": "displayformat",
+                        "type": "string"
+                    },
+                    {
+                        "name": "disabled",
+                        "type": "boolean"
+                    },
+                    {
+                        "name": "maxchars",
+                        "type": "number"
+                    },
+                    {
+                        "name": "placeholder",
+                        "type": "string"
+                    },
+                    {
+                        "name": "readonly",
+                        "type": "boolean"
+                    },
+                    {
+                        "name": "required",
+                        "type": "boolean"
+                    },
+                    {
+                        "name": "show",
+                        "type": "boolean"
+                    }
+                ],
+                "events": [
+                  "<scope>.<widgetName>Change = function ($event, widget, newVal, oldVal) {};",
+                  "<scope>.<widgetName>Focus = function ($event, widget) {};",
+                  "<scope>.<widgetName>Blur = function ($event, widget) {};",
+                  "<scope>.<widgetName>Click = function ($event, widget) {};",
+                  "<scope>.<widgetName>Keypress = function ($event, widget) {};"
+                ]
+            }
+        },
+        {
+            "Chips": {
+                "properties": [
+                    {
+                        "name": "show",
+                        "type": "boolean"
+                    },
+                    {
+                        "name": "readonly",
+                        "type": "string"
+                    },
+                    {
+                        "name": "dataset",
+                        "type": "array"
+                    },
+                    {
+                        "name": "displayvalue",
+                        "type": "string"
+                    },
+                    {
+                        "name": "datafield",
+                        "type": "string"
+                    },
+                    {
+                        "name": "datavalue",
+                        "type": "object"
+                    }
+                ],
+                "events": [
+                  "<scope>.<widgetName>Change = function ($event, widget, newVal, oldVal) {};",
+                  "<scope>.<widgetName>Focus = function ($event, widget) {};",
+                  "<scope>.<widgetName>Blur = function ($event, widget) {};",
+                  "<scope>.<widgetName>Click = function ($event, widget) {};",
+                  "<scope>.<widgetName>Keypress = function ($event, widget) {};"
+                ]
+            }
+        },
+        {
+            "Search": {
+                "properties": [
+                    {
+                        "name": "datafield",
+                        "type": "string"
+                    },
+                    {
+                        "name": "dataset",
+                        "type": "Array<any>"
+                    },
+                    {
+                        "name": "datavalue",
+                        "type": "object"
+                    },
+                    {
+                        "name": "disabled",
+                        "type": "boolean"
+                    },
+                    {
+                        "name": "displayfield",
+                        "type": "string"
+                    },
+                    {
+                        "name": "placeholder",
+                        "type": "string"
+                    },
+                    {
+                        "name": "readonly",
+                        "type": "boolean"
+                    },
+                    {
+                        "name": "required",
+                        "type": "boolean"
+                    },
+                    {
+                        "name": "show",
+                        "type": "boolean"
+                    }
+                ],
+                "events": [
+                  "<scope>.<widgetName>Change = function ($event, widget, newVal, oldVal) {};",
+                  "<scope>.<widgetName>Focus = function ($event, widget) {};",
+                  "<scope>.<widgetName>Blur = function ($event, widget) {};",
+                  "<scope>.<widgetName>Click = function ($event, widget) {};",
+                  "<scope>.<widgetName>Keypress = function ($event, widget) {};",
+                  "<scope>.<widgetName>clear = function ($event, widget) {};",
+                  "<scope>.<widgetName>Beforeservicecall = function (widget, inputData) {};",
+                  "<scope>.<widgetName>Datasetready = function (widget, data) {};",
+                  "<scope>.<widgetName>Submit = function ($event, widget) {};",
+                  "<scope>.<widgetName>Select = function ($event, widget, selectedValue) {};"
+                ]
+            }
+        },
+    {
+      "Button": {
+        "properties": [
+          { "name": "caption", "type": "string" },
+          { "name": "disabled", "type": "boolean" },
+          { "name": "show", "type": "boolean" }
+        ],
+        "events": [
+          "<scope>.<widgetName>Focus = function ($event, widget) {};",
+          "<scope>.<widgetName>Blur = function ($event, widget) {};",
+          "<scope>.<widgetName>Click = function ($event, widget) {};",
+          "<scope>.<widgetName>Dbclick = function ($event, widget) {};"
+        ]
+      }
+    },
+    {
+      "Anchor": {
+        "properties": [
+          { "name": "caption", "type": "string" },
+          { "name": "hyperlink", "type": "string" },
+          { "name": "show", "type": "boolean" },
+          { "name": "target", "type": "string" }
+        ],
+        "events": [
+          "<scope>.<widgetName>Focus = function ($event, widget) {};",
+          "<scope>.<widgetName>Blur = function ($event, widget) {};",
+          "<scope>.<widgetName>Click = function ($event, widget) {};",
+          "<scope>.<widgetName>Dbclick = function ($event, widget) {};"
+        ]
+      }
+    },
+    {
+      "Designdialog": {
+        "methods": [
+          { "name": "close", "syntax": "<Scope>.Widgets.<widgetName>.close()" },
+          { "name": "open", "syntax": "<Scope>.Widgets.<widgetName>.open()" }
+        ],
+        "events": [
+          "<scope>.<widgetName>Opened = function ($event, widget) {};",
+          "<scope>.<widgetName>Closed = function ($event, widget) {};"
+        ]
+      }
+    },
+    {
+      "Label": {
+        "properties": [
+          { "name": "caption", "type": "string" },
+          { "name": "show", "type": "boolean" }
+        ],
+        "events": [
+          "<scope>.<widgetName>Click = function ($event, widget) {};",
+          "<scope>.<widgetName>Dbclick = function ($event, widget) {};"
+        ]
+      }
+    },
+    {
+      "List": {
+        "methods": [
+          { "name": "clear", "syntax": "<Scope>.Widgets.<widgetName>.clear()" },
+          { "name": "deselectItem", "syntax": "<Scope>.Widgets.<widgetName>.deselectItem(index)" },
+          { "name": "getWidgets", "syntax": "<Scope>.Widgets.<widgetName>.getWidgets(widgetName, index)" }
+        ],
+        "properties": [
+          { "name": "selecteditem", "type": "object" },
+          { "name": "selectedItemWidgets", "type": "object" },
+          { "name": "dataNavigator", "type": "boolean" },
+          { "name": "dataset", "type": "Array<any>" },
+          { "name": "navigation", "type": "boolean" },
+          { "name": "pagesize", "type": "number" },
+          { "name": "show", "type": "boolean" }
+        ],
+        "events": [
+          "<scope>.<widgetName>Render = function (widget, $data) {};",
+          "<scope>.<widgetName>Blur = function ($event, widget) {};",
+          "<scope>.<widgetName>Click = function ($event, widget) {};",
+          "<scope>.<widgetName>Dbclick = function ($event, widget) {};",
+          "<scope>.<widgetName>Select = function (widget, $data) {};"
+        ]
+      }
+    },
+    {
+      "Chart": {
+        "properties": [
+          { "name": "title", "type": "string" },
+          { "name": "disabled", "type": "boolean" },
+          { "name": "type", "type": "string" },
+          { "name": "show", "type": "boolean" },
+          { "name": "showlabels", "type": "boolean" },
+          { "name": "showlegend", "type": "boolean" }
+        ]
+      }
+    },
+    {
+      "Icon": {
+        "properties": [
+          { "name": "caption", "type": "string" },
+          { "name": "iconclass", "type": "string" },
+          { "name": "iconposition", "type": "string" },
+          { "name": "iconurl", "type": "string" },
+          { "name": "iconwidth", "type": "string" },
+          { "name": "show", "type": "boolean" }
+        ]
+      }
+    },
+    {
+      "Picture": {
+        "properties": [
+          { "name": "picturesource", "type": "any" },
+          { "name": "show", "type": "boolean" }
+        ],
+        "events": [
+          "<scope>.<widgetName>Click = function ($event, widget) {};",
+          "<scope>.<widgetName>Dbclick = function ($event, widget) {};"
+        ]
+      }
+    },
+    {
+      "Table": {
+        "methods": [
+          { "name": "refreshData", "syntax": "<Scope>.Widgets.<widgetName>.refreshData()" }
+        ],
+        "properties": [
+          { "name": "title", "type": "string" },
+          { "name": "show", "type": "boolean" },
+          { "name": "selecteditem", "type": "object" }
+        ],
+        "events": [
+          "<scope>.<widgetName>Render = function (widget, $data) {};",
+          "<scope>.<widgetName>Rowclick = function ($event, widget, row) {};",
+          "<scope>.<widgetName>Rowselect = function ($event, widget, row) {};",
+          "<scope>.<widgetName>Datarender = function (widget, data) {};",
+          "<scope>.<widgetName>Beforedatarender = function (widget, $data, $columns) {};"
+        ]
+      }
+    },
+    {
+      "Video": {
+        "properties": [
+          { "name": "mp4sourcepath", "type": "any" },
+          { "name": "show", "type": "boolean" }
+        ]
+      }
+    },
+    {
+      "Tabs": {
+        "properties": [
+          { "name": "show", "type": "boolean" }
+        ],
+        "methods": [
+          { "name": "prev", "syntax": "<Scope>.Widgets.<widgetName>.prev()" },
+          { "name": "next", "syntax": "<Scope>.Widgets.<widgetName>.next()" },
+          { "name": "goToTab", "syntax": "<Scope>.Widgets.<widgetName>.goToTab(<tabIndex>)" },
+          { "name": "getActiveTabIndex", "syntax": "<Scope>.Widgets.<widgetName>.getActiveTabIndex()" },
+          { "name": "removePane", "syntax": "<Scope>.Widgets.<widgetName>.removePane(<tabPaneName>)" }
+        ],
+        "events": [
+          "<scope>.<widgetName>Change = function ($event, widget, newPaneIndex, oldPaneIndex) {};"
+        ]
+      }
+    },
+    {
+      "TabPane": {
+        "properties": [
+          { "name": "show", "type": "boolean" },
+          { "name": "isSelect", "type": "boolean" },
+          { "name": "title", "type": "string" }
+        ],
+        "methods": [
+          { "name": "select", "syntax": "<Scope>.Widgets.<widgetName>.select()" },
+          { "name": "deselect", "syntax": "<Scope>.Widgets.<widgetName>.deselect()" },
+          { "name": "remove", "syntax": "<Scope>.Widgets.<widgetName>.remove()" }
+        ],
+        "events": [
+          "<scope>.<widgetName>Load = function ($event, widget) {};",
+          "<scope>.<widgetName>Select = function ($event, widget) {};"
+        ]
+      }
+    },
+    {
+      "Wizard": {
+        "properties": [
+          { "name": "show", "type": "boolean" },
+          { "name": "cancelable", "type": "boolean" },
+          { "name": "enableNext", "type": "boolean" }
+        ],
+        "methods": [
+          { "name": "cancel", "syntax": "<Scope>.Widgets.<widgetName>.cancel()" },
+          { "name": "done", "syntax": "<Scope>.Widgets.<widgetName>.done()" },
+          { "name": "next", "syntax": "<Scope>.Widgets.<widgetName>.next()" },
+          { "name": "prev", "syntax": "<Scope>.Widgets.<widgetName>.prev()" },
+          { "name": "skip", "syntax": "<Scope>.Widgets.<widgetName>.skip()" }
+        ],
+        "events": [
+          "<scope>.<widgetName>Cancel = function (widget, steps) {};",
+          "<scope>.<widgetName>Done = function (widget, steps) {};"
+        ]
+      }
+    },
+    {
+      "Wizardstep": {
+        "properties": [
+          { "name": "show", "type": "boolean" },
+          { "name": "enableSkip", "type": "boolean" },
+          { "name": "title", "type": "string" }
+        ],
+        "events": [
+          "<scope>.<widgetName>Next = function (widget, currentStep, stepIndex) {};",
+          "<scope>.<widgetName>Prev = function (widget, currentStep, stepIndex) {};",
+          "<scope>.<widgetName>Skip = function (widget, currentStep, stepIndex) {};"
+        ]
+      }
+    },
+    {
+      "Accordion": {
+        "properties": [
+          { "name": "show", "type": "boolean" }
+        ],
+        "methods": [
+          { "name": "removePane", "syntax": "<Scope>.Widgets.<widgetName>.removePane()" },
+          { "name": "expandPane", "syntax": "<Scope>.Widgets.<widgetName>.expandPane(index)" },
+          { "name": "addPane", "syntax": "<Scope>.Widgets.<widgetName>.addPane(pane)" }
+        ],
+        "events": [
+          "<scope>.<widgetName>Change = function ($event, widget, newPaneIndex, oldPaneIndex) {};"
+        ]
+      }
+    },
+    {
+      "Accordionpane": {
+        "properties": [
+          { "name": "show", "type": "boolean" },
+          { "name": "content", "type": "string" },
+          { "name": "title", "type": "string" }
+        ],
+        "methods": [
+          { "name": "expand", "syntax": "<Scope>.Widgets.<widgetName>.expand()" },
+          { "name": "collapse", "syntax": "<Scope>.Widgets.<widgetName>.collapse()" },
+          { "name": "toggle", "syntax": "<Scope>.Widgets.<widgetName>.toggle()" },
+          { "name": "remove", "syntax": "<Scope>.Widgets.<widgetName>.remove()" }
+        ],
+        "events": [
+          "<scope>.<widgetName>Expand = function ($event, widget) {};",
+          "<scope>.<widgetName>Collapse = function ($event, widget) {};"
+        ]
+      }
+    },
+    {
+      "Breadcrumb": {
+        "properties": [
+          { "name": "dataset", "type": "Array" },
+          { "name": "show", "type": "boolean" }
+        ]
+      }
+    },
+    {
+      "Popover": {
+        "properties": [
+          { "name": "content", "type": "any" },
+          { "name": "show", "type": "boolean" }
+        ],
+        "methods": [
+          { "name": "open", "syntax": "<Scope>.Widgets.<widgetName>.open()" },
+          { "name": "close", "syntax": "<Scope>.Widgets.<widgetName>.close()" }
+        ],
+        "events": [
+          "<scope>.<widgetName>Show = function ($event, widget) {};",
+          "<scope>.<widgetName>Hide = function ($event, widget) {};"
+        ]
+      }
+    },
+    {
+      "Menu": {
+        "properties": [
+          { "name": "dataset", "type": "Array" },
+          { "name": "datavalue", "type": "string" },
+          { "name": "show", "type": "boolean" }
+        ],
+        "events": [
+          "<scope>.<widgetName>Show = function ($event, widget, $item) {};"
+        ]
+      }
+    }
+    ],
+    "variables": [
+    {
+      "wm.LiveVariable": {
+        "properties": [
+          { "name": "dataSet", "type": "object" }
+        ],
+        "methods": [
+          {
+            "name": "listRecords",
+            "syntax": "<scope>.Variables.<crudVariableName>.listRecords();"
+          },
+          {
+            "name": "createRecord",
+            "syntax": "<scope>.Variables.<crudVariableName>.createRecord({ \"row\" :entityJsonObject});"
+          },
+          {
+            "name": "deleteRecord",
+            "syntax": "<scope>.Variables.<crudVariableName>.deleteRecord({ \"row\" :entityJsonObjectWithPrimaryKeyField});"
+          },
+          {
+            "name": "updateRecord",
+            "syntax": "<scope>.Variables.<crudVariableName>.updateRecord({ \"row\" :entityJsonObject});"
+          },
+          {
+            "name": "invoke",
+            "syntax": "<scope>.Variables.<crudVariableName>.invoke();"
+          },
+          {
+            "name": "setInput",
+            "syntax": "<scope>.Variables.<crudVariableName>.setInput(<key1>, <value1>)"
+          },
+          {
+            "name": "setInput",
+            "syntax": "<scope>.Variables.<crudVariableName>.setInput({ <key1>: <value1>, <key2>: <value2> })"
+          }
+        ],
+        "events": [
+          "<scope>.<variableName>onBeforeDatasetReady = function (variable, data) {};",
+          "<scope>.<variableName>onResult = function (variable, data) {};",
+          "<scope>.<variableName>onSuccess = function (variable, data) {};",
+          "<scope>.<variableName>onError = function (variable, data) {};",
+          "<scope>.<variableName>onBeforeInsertRecord = function (variable, inputData, options) {};",
+          "<scope>.<variableName>onBeforeListRecords = function (variable, dataFilter, options) {};",
+          "<scope>.<variableName>onCanUpdate = function (variable, data) {};"
+        ]
+      }
+    },
+    {
+      "wm.ServiceVariable": {
+        "properties": [
+          { "name": "dataSet", "type": "object" }
+        ],
+        "methods": [
+          {
+            "name": "invoke",
+            "syntax": "<scope>.Variables.<ServiceVariableName>.invoke();",
+            "parameters": [
+              {
+                  "name": "options",
+                  "optional": true,
+                  "type": "key value pairs",
+                  "description": " It can have fields as inputFields (key-value pair of inputData), page (pagination for Query Service Variable), size (pagination for Query Service Variable), orderBy (pagination for Query Service Variable)"
+              },
+              {
+                  "type": "successCallback",
+                  "description": "an optional callback method called on successful invocation of the variable."
+              },
+              {
+                  "type": "errorCallback",
+                  "description": "an optional callback method called on error invocation of the variable."
+              }
+            ],
+            "examples": [
+                "var sv = Page.Variables.[variable_name]; sv.invoke({ \"inputFields\": { \"fname\": \"Steve\", \"lname\": \"Rogers\" } }, function(data) { // Success Callback console.log(\"success\", data); }, function(error) { // Error Callback console.log(\"error\", error) });"
+            ]
+          },
+          {
+            "name": "cancel",
+            "syntax": "<scope>.Variables.<serviceVariableName>.cancel()"
+          },
+          {
+            "name": "setInput",
+            "syntax": "<scope>.Variables.<serviceVariableName>.setInput(<key1>, <value1>)"
+          },
+          {
+            "name": "setInput",
+            "syntax": "<scope>.Variables.<serviceVariableName>.setInput({ <key1>: <value1>, <key2>: <value2> })"
+          },
+          {
+            "name": "clearData",
+            "syntax": "<scope>.Variables.<serviceVariableName>.clearData()"
+          },
+          {
+            "name": "getData",
+            "syntax": "<scope>.Variables.<serviceVariableName>.getData()"
+          }
+        ],
+        "events": [
+          "<scope>.<variableName>onBeforeDatasetReady = function (variable, data) {};",
+          "<scope>.<variableName>onResult = function (variable, data) {};",
+          "<scope>.<variableName>onSuccess = function (variable, data) {};",
+          "<scope>.<variableName>onError = function (variable, data) {};",
+          "<scope>.<variableName>onBeforeUpdate = function (variable, inputData, options) {};",
+          "<scope>.<variableName>onCanUpdate = function (variable, data) {};"
+        ]
+      }
+    },
+    {
+      "wm.Variable": {
+        "properties": [
+          { "name": "dataSet", "type": "any" },
+          { "name": "type", "type": "string" }
+        ],
+        "methods": [
+          {
+            "name": "setValue",
+            "syntax": "<scope>.Variables.<serviceVariableName>.setValue(<key1>, <value1>)"
+          },
+          {
+            "name": "setData",
+            "syntax": "<scope>.Variables.<serviceVariableName>.setData({ <key1>: <value1>, <key2>: <value2> })"
+          }
+        ]
+      }
+    },
+    {
+      "wm.NavigationVariable": {
+        "methods": [
+          {
+            "name": "invoke",
+            "syntax": "<Scope>.Actions.<navigationActionName>.invoke();",
+            "examples": [
+                "Page.Actions.goToPage_employee_profile.invoke()",
+                "Page.Actions.goToPage_employee_profile.invoke({ data: {empId: item.empId } });"
+            ]
+          },
+          {
+            "name": "setData",
+            "syntax": "<Scope>.Actions.<navigationActionName>.setData({ 'param1': \"param value\",\"param2\": \"param value 2\" })"
+          }
+        ]
+      }
+    },
+    {
+      "wm.NotificationVariable": {
+        "properties": [],
+        "methods": [
+          {
+            "name": "invoke",
+            "syntax": "<Scope>.Actions.<notificationActionName>.invoke();",
+            "examples": [
+                "Page.Actions.notificationToast.invoke({ message: 'text', position: 'bottom right', class: 'info' })",
+                "App.Actions.appNotification.invoke();"
+            ]
+          },
+          {
+            "name": "setData",
+            "syntax": "<Scope>.Actions.<navigationActionName>.setData({ 'param1': \"param value\",\"param2\": \"param value 2\" })"
+          }
+        ]
+      }
+    }
+    ]
+    }
+]

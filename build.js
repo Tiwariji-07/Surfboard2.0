@@ -72,7 +72,10 @@ function copyStaticAssets() {
         'src/js/services/logService.js',
         'src/js/services/openaiService.js',
         'src/js/services/searchService.js',
+        'src/js/services/knowledgeBaseService.js',
         'src/js/services/studioApiService.js',
+        'src/js/constants/knowledgeBase.js',
+        'src/js/constants/wavemakerRules.js',
         'src/js/ui/logPanel.js',
         'src/js/ui/searchPanel.js',
         'src/js/ui/sidebar.js'

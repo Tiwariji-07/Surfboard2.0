@@ -1,55 +1,148 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>WaveMaker Copilot Settings</title>
+    <title>Surfboard AI Settings</title>
     <style>
+        :root {
+            --bg-primary: #0f1117;
+            --bg-secondary: #1a1d27;
+            --bg-tertiary: #232734;
+            --bg-input: #181b24;
+            --border-subtle: rgba(255, 255, 255, 0.06);
+            --border-focus: #6366f1;
+            --text-primary: #f0f0f3;
+            --text-secondary: #9a9cae;
+            --text-muted: #5f6177;
+            --accent: #6366f1;
+            --accent-hover: #818cf8;
+            --accent-glow: rgba(99, 102, 241, 0.25);
+            --success-bg: rgba(52, 211, 153, 0.1);
+            --success-text: #34d399;
+            --success-border: rgba(52, 211, 153, 0.2);
+            --error-bg: rgba(248, 113, 113, 0.1);
+            --error-text: #f87171;
+            --error-border: rgba(248, 113, 113, 0.2);
+            --radius-sm: 8px;
+            --radius-md: 12px;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
         body {
-            width: 320px;
-            padding: 16px;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            width: 360px;
+            padding: 20px;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            -webkit-font-smoothing: antialiased;
         }
 
         .container {
             display: flex;
             flex-direction: column;
-            gap: 16px;
+            gap: 20px;
         }
 
+        /* Header */
+        .header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid var(--border-subtle);
+        }
+
+        .header img {
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+        }
+
+        .header-text h1 {
+            font-size: 16px;
+            font-weight: 600;
+            letter-spacing: -0.01em;
+            color: var(--text-primary);
+        }
+
+        .header-text span {
+            font-size: 11px;
+            color: var(--text-muted);
+            letter-spacing: 0.02em;
+        }
+
+        /* Sections */
+        .section {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .section-label {
+            font-size: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--text-muted);
+        }
+
+        /* Input Groups */
         .input-group {
             display: flex;
             flex-direction: column;
-            gap: 8px;
+            gap: 5px;
         }
 
         label {
+            font-size: 12px;
             font-weight: 500;
-            color: #333;
+            color: var(--text-secondary);
         }
 
         input[type="text"] {
-            padding: 8px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-            font-size: 14px;
+            padding: 9px 12px;
+            background: var(--bg-input);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-sm);
+            font-size: 13px;
+            font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+            color: var(--text-primary);
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        input[type="text"]::placeholder {
+            color: var(--text-muted);
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         }
 
         input[type="text"]:focus {
             outline: none;
-            border-color: #0066cc;
-            box-shadow: 0 0 0 2px rgba(0,102,204,0.2);
+            border-color: var(--border-focus);
+            box-shadow: 0 0 0 3px var(--accent-glow);
         }
 
-        .toggle-group {
+        /* Toggle */
+        .toggle-row {
             display: flex;
             align-items: center;
-            gap: 8px;
+            justify-content: space-between;
+            padding: 12px 14px;
+            background: var(--bg-secondary);
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border-subtle);
+        }
+
+        .toggle-row label {
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-primary);
         }
 
         .toggle {
             position: relative;
             display: inline-block;
-            width: 44px;
-            height: 24px;
+            width: 40px;
+            height: 22px;
         }
 
         .toggle input {
@@ -61,101 +154,154 @@
         .slider {
             position: absolute;
             cursor: pointer;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background-color: #ccc;
-            transition: .4s;
-            border-radius: 24px;
+            inset: 0;
+            background-color: var(--bg-tertiary);
+            transition: background-color 0.25s ease;
+            border-radius: 22px;
         }
 
-        .slider:before {
+        .slider::before {
             position: absolute;
             content: "";
-            height: 18px;
-            width: 18px;
+            height: 16px;
+            width: 16px;
             left: 3px;
             bottom: 3px;
-            background-color: white;
-            transition: .4s;
+            background-color: var(--text-muted);
+            transition: transform 0.25s ease, background-color 0.25s ease;
             border-radius: 50%;
         }
 
         input:checked + .slider {
-            background-color: #2196F3;
+            background-color: var(--accent);
         }
 
-        input:checked + .slider:before {
-            transform: translateX(20px);
+        input:checked + .slider::before {
+            transform: translateX(18px);
+            background-color: #fff;
         }
 
-        button {
-            padding: 8px 16px;
-            background-color: #0066cc;
-            color: white;
+        /* Save Button */
+        .save-button {
+            padding: 10px 16px;
+            background: var(--accent);
+            color: #fff;
             border: none;
-            border-radius: 4px;
+            border-radius: var(--radius-sm);
             cursor: pointer;
-            font-size: 14px;
-            font-weight: 500;
+            font-size: 13px;
+            font-weight: 600;
+            letter-spacing: 0.01em;
+            transition: background 0.2s, transform 0.1s, box-shadow 0.2s;
         }
 
-        button:hover {
-            background-color: #0052a3;
+        .save-button:hover {
+            background: var(--accent-hover);
+            box-shadow: 0 0 16px var(--accent-glow);
         }
 
+        .save-button:active {
+            transform: scale(0.98);
+        }
+
+        /* Status */
         .status {
-            padding: 8px;
-            border-radius: 4px;
-            font-size: 14px;
+            padding: 10px 12px;
+            border-radius: var(--radius-sm);
+            font-size: 12px;
+            font-weight: 500;
             display: none;
+            text-align: center;
+            animation: statusIn 0.25s ease;
         }
 
         .status.success {
-            background-color: #e6f4ea;
-            color: #1e7e34;
+            background: var(--success-bg);
+            color: var(--success-text);
+            border: 1px solid var(--success-border);
         }
 
         .status.error {
-            background-color: #fde7e9;
-            color: #b71c1c;
+            background: var(--error-bg);
+            color: var(--error-text);
+            border: 1px solid var(--error-border);
+        }
+
+        @keyframes statusIn {
+            from { opacity: 0; transform: translateY(-4px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Divider */
+        .divider {
+            height: 1px;
+            background: var(--border-subtle);
+        }
+
+        /* Model grid - two columns for model inputs */
+        .model-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .model-grid .input-group.full {
+            grid-column: 1 / -1;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <div class="input-group">
-            <label for="litellmApiKey">LiteLLM API Key</label>
-            <input type="text" id="litellmApiKey" placeholder="Enter your LiteLLM key">
+        <div class="header">
+            <img src="https://wm-ps-igniters.s3.amazonaws.com/surfboard-2.0/surfboard-logo.png" alt="Surfboard AI">
+            <div class="header-text">
+                <h1>Surfboard AI</h1>
+                <span>WaveMaker Studio Assistant</span>
+            </div>
         </div>
 
-        <div class="input-group">
-            <label for="litellmBaseUrl">LiteLLM Base URL</label>
-            <input type="text" id="litellmBaseUrl" placeholder="http://localhost:4000">
+        <!-- Connection -->
+        <div class="section">
+            <span class="section-label">Connection</span>
+            <div class="input-group">
+                <label for="litellmApiKey">API Key</label>
+                <input type="text" id="litellmApiKey" placeholder="sk-...">
+            </div>
+            <div class="input-group">
+                <label for="litellmBaseUrl">LiteLLM Base URL</label>
+                <input type="text" id="litellmBaseUrl" placeholder="http://localhost:4000">
+            </div>
+            <div class="input-group">
+                <label for="editAgentBaseUrl">Edit Agent URL</label>
+                <input type="text" id="editAgentBaseUrl" placeholder="http://127.0.0.1:8787">
+            </div>
         </div>
 
-        <div class="input-group">
-            <label for="litellmChatModel">Chat Model</label>
-            <input type="text" id="litellmChatModel" placeholder="claude-sonnet">
+        <div class="divider"></div>
+
+        <!-- Models -->
+        <div class="section">
+            <span class="section-label">Models</span>
+            <div class="model-grid">
+                <div class="input-group">
+                    <label for="litellmChatModel">Chat</label>
+                    <input type="text" id="litellmChatModel" placeholder="claude-sonnet">
+                </div>
+                <div class="input-group">
+                    <label for="litellmCompletionModel">Completion</label>
+                    <input type="text" id="litellmCompletionModel" placeholder="gemini-flash">
+                </div>
+                <div class="input-group full">
+                    <label for="litellmLogModel">Log Analysis</label>
+                    <input type="text" id="litellmLogModel" placeholder="claude-sonnet">
+                </div>
+            </div>
         </div>
 
-        <div class="input-group">
-            <label for="litellmCompletionModel">Completion Model</label>
-            <input type="text" id="litellmCompletionModel" placeholder="gemini/gemini-3.1-flash-lite-preview">
-        </div>
+        <div class="divider"></div>
 
-        <div class="input-group">
-            <label for="litellmLogModel">Log Analysis Model</label>
-            <input type="text" id="litellmLogModel" placeholder="claude-sonnet">
-        </div>
-
-        <div class="input-group">
-            <label for="editAgentBaseUrl">Edit Agent Base URL</label>
-            <input type="text" id="editAgentBaseUrl" placeholder="http://127.0.0.1:8787">
-        </div>
-
-        <div class="toggle-group">
+        <!-- Toggle + Save -->
+        <div class="toggle-row">
             <label for="enableCopilot">Enable Copilot</label>
             <label class="toggle">
                 <input type="checkbox" id="enableCopilot" checked>
@@ -163,7 +309,7 @@
             </label>
         </div>
 
-        <button id="saveButton">Save Settings</button>
+        <button id="saveButton" class="save-button">Save Settings</button>
         <div id="status" class="status"></div>
     </div>
     <script type="module" src="../js/popup.js"></script>

@@ -1,0 +1,4160 @@
+{
+  "form": {
+    "name": "form",
+    "common": {
+      "binding_info": [
+        "Body prefix transformation: form fields starting with 'body_' map to API targets with 'body.' prefix",
+        "Examples: body_name \u2192 body.name, body_category_id \u2192 body.category.id, body_password_value \u2192 body.password.value",
+        "Form binding rules: ONLY update main dataset binding like <wm-form dataset=\"bind:Variables.{newVariableName}\"> and remove value attributes from <wm-form-field> elements"
+      ],
+      "properties": [
+        {
+          "name": "formWidgets",
+          "type": "object"
+        },
+        {
+          "name": "dataoutput",
+          "type": "object"
+        },
+        {
+          "name": "dataset",
+          "type": "object"
+        },
+        {
+          "name": "name",
+          "type": "string"
+        },
+        {
+          "name": "show",
+          "type": "boolean"
+        }
+      ],
+      "methods": [
+        {
+          "name": "reset",
+          "syntax": "<Scope>.Widgets.<widgetName>.reset()"
+        },
+        {
+          "name": "submit",
+          "syntax": "<Scope>.Widgets.<widgetName>.submit()"
+        },
+        {
+          "name": "toggleMessage",
+          "syntax": "<Scope>.Widgets.<widgetName>.toggleMessage(message)"
+        }
+      ],
+      "events": [
+        "<scope>.<widgetName>Beforesubmit = function ($event, widget, $data) {}; // Examples: Page.employeeFormBeforesubmit = function ($event, widget, $data) {//$data conatains input data of variable bound with form \n if (!$data.Employee.username || $data.Employee.username.length < 4) { Page.Actions.notifyError.invoke(); return false; } $data.Employee.createdOn = moment.now(); }; // Explanation: Triggers before form submit. Checks if 'username' is too short; if yes, shows error; else, sets createdOn.",
+        "<scope>.<widgetName>Submit = function ($event, widget, $formData) {}; // Example: Partial.departmentFormSubmit = function ($event, widget, $formdata) {//$formdata conatains input data of variable bound with form \n console.log($formdata.Department.name}); }; // Explanation: Triggers on form submit and console logs department name.",
+        "<scope>.<widgetName>Result = function ($event, widget, $data) {}; // Example: Page.employeeFormResult = function ($event, widget, $data) {//$data conatains dataSet of variable binded with form \n App.Variables.userDetails.dataSet = $data; Page.Widgets.employeeFirstname.caption = $data.firstname; }; // Explanation: On successful form submit, updates app variable and label caption.",
+        "<scope>.<widgetName>Success = function ($event, widget, $data) {}; // Example: Page.employeeFormSuccess = function ($event, widget, $data) {//$data conatains dataSet of variable binded with form \n App.Variables.userDetails.dataSet = $data; Page.Widgets.employeeFirstname.caption = $data.firstname; }; // Explanation: On successful form submit, updates app variable and label caption.",
+        "<scope>.<widgetName>Error = function ($event, widget, $data) {}; // Example: Page.employeeFormError = function ($event, widget, $data) {//$data conatains dataSet of variable binded with form \n console.log(\"Error from server:\", $data); }; // Explanation: Logs the error response if form submission fails."
+      ]
+    },
+    "web": {
+      "dynamic_forms": {
+        "description": "Wavemaker allows users to create dynamic forms using the 'form' widget. User can create form fields at the time page ready or on form render. for dynamic forms user need to remove dataset field from form widget in markup and add metadata field through script on page ready or on form render.",
+        "metadata": "fields available in metadata are name, displayname, type, required, widget, dataset. type can be big_decimal, big_integer, blob, boolean, byte, character, clob, date, datetime, double, file, float, integer, list, long, number, short, string, text, time, timestamp. and widget can be autocomplete,checkbox,checkboxset,chips,colorpicker,currency,date,datetime,number,password,radioset,rating,richtext,select,slider,switch,text,textarea,time,timestamp,toggle,upload",
+        "example": "Page.onReady = function () {    let metadata = [{ \"name\": \"username\", //name of the field \"displayname\": \"User Name\", //name to be displayed for the field \"type\": \"email\", //type of the field \"required\": true, //isRequired \"widget\": \"text\", //widget type for the field \"dataset\": \"\" //dataset for the field, if the widget is accepting the dataset    }, { \"name\": \"password\",  \"displayname\": \"Password\",  \"type\": \"password\",  \"required\": true,  \"widget\": \"password\",  \"dataset\": \"\"     }, { \"name\": \"age\",  \"displayname\": \"Age\",  \"type\": \"number\",  \"required\": false, \"widget\": \"number\",  \"dataset\": \"\"    }, { \"name\": \"gender\", \"displayname\": \"Gender\",  \"type\": \"string\",  \"required\": false,  \"widget\": \"checkboxset\",  \"dataset\": ['male', 'female']     }]    Page.Widgets.createEmployeeForm1.metadata = metadata;};",
+        "response": "If user ask for a dynamic form, prompt him to remove all the fields from the form and remove dataset field of form from markup and add metadata field through script on page ready. and bind on submit of form invoke the varibale with the form data."
+      },
+      "properties": [
+        {
+          "name": "message",
+          "type": "string"
+        }
+      ],
+      "methods": [
+        {
+          "name": "clearMessage",
+          "syntax": "<Scope>.Widgets.<widgetName>.clearMessage()"
+        },
+        {
+          "name": "highlightInvalidFields",
+          "syntax": "<Scope>.Widgets.<widgetName>.highlightInvalidFields()"
+        }
+      ],
+      "events": []
+    },
+    "mobile": {
+      "properties": [],
+      "methods": [],
+      "events": []
+    }
+  },
+  "formfield": {
+    "name": "formfield",
+    "common": {
+      "binding_info": [
+        "In validators: Always use field.value (not field.datavalue) to get widget value"
+      ],
+      "properties": [
+        {
+          "name": "datavalue",
+          "type": "string"
+        }
+      ],
+      "methods": [],
+      "events": [
+        "<scope>.<widgetName>Focus = function ($event, widget) {};",
+        "<scope>.<widgetName>Blur = function ($event, widget) {};",
+        "<scope>.<widgetName>Keypress = function ($event, widget) {};"
+      ]
+    },
+    "web": {
+      "properties": [],
+      "methods": [
+        {
+          "name": "setValidators",
+          "description": "Sets form field validations, if form directly present in page, use this method in onReady function. If form is inside lazy loading widgets like wizardstep, tabpane, accordionpane then add validation in widget load event like wizardstepLoad, tabpaneLoad, accordionpaneExpand. And if in case the form is inside dialog then write validations in dialogOpened event",
+          "syntax": "<Scope>.Widgets.<formName>.formWidgets.<fieldName>.setValidators([validators])",
+          "constant validators": [
+            "VALIDATOR.REQUIRED",
+            "VALIDATOR.MAXCHARS",
+            "VALIDATOR.MINVALUE",
+            "VALIDATOR.MAXVALUE",
+            "VALIDATOR.REGEXP",
+            "VALIDATOR.MINDATE",
+            "VALIDATOR.MAXDATE",
+            "VALIDATOR.EXCLUDEDATES",
+            "VALIDATOR.EXCLUDEDAYS",
+            "VALIDATOR.MINTIME",
+            "VALIDATOR.MAXTIME"
+          ],
+          "examples": [
+            [
+              "var VALIDATOR = App.getDependency('CONSTANTS').VALIDATOR; Page.Widgets.formName.formWidgets.fieldName.setValidators([{ type: VALIDATOR.REQUIRED, validator: true, // Display error message for the form field errorMessage: \"This field cannot be empty.\"}]);",
+              "Page.Widgets.tableName.columns.columnName.setValidators([lastNameVal]); function lastNameVal(field, table) { if (field.value && field.value.length < 2) { return { errorMessage: \"Enter your full name.\" }; }}"
+            ],
+            {
+              "code": "Page.onReady = function() {\n  Page.Widgets.departmentForm.formfields.departmentName.setValidators([{\n    type: VALIDATOR.REQUIRED,\n    validator: true,\n    errorMessage: \"This field cannot be empty.\"\n  }]);\n};",
+              "explanation": "On Page ready, sets a required validator on the field."
+            },
+            {
+              "code": "Page.dialog1Opened = function ($event, widget) {\n  Page.Widgets.loginForm.formfields.username.setValidators([lastNameVal]);\n};\n\nfunction lastNameVal(field, form) {\n  if (field.value && field.value.length < 2) { //to get datavalue of widget must use field.value not field.datavalue \n    return {\n      errorMessage: \"Enter your full name.\"\n    };\n  }\n}",
+              "explanation": "Applies a custom validator on a form field."
+            },
+            {
+              "code": "Page.Widgets.employeeForm.formfields.lastname.setValidators([\n  emailRequired,\n  {\n    type: VALIDATOR.REGEXP,\n    validator: /\\w+@\\w+\\.\\w{2,3}/,\n    errorMessage: \"Not a Valid Email\"\n  }\n]);\n\nfunction emailRequired(field, form) {\n  if (!field.value || field.value.length < 1) { //to get datavalue of widget must use field.value not field.datavalue \n    return {\n      errorMessage: \"Email cannot be empty.\"\n    };\n  }\n}",
+              "explanation": "Combines a custom required check and a regex email format validator."
+            }
+          ]
+        },
+        {
+          "name": "setAsyncValidators",
+          "syntax": "<Scope>.Widgets.<formName>.formWidgets.<fieldName>.setAsyncValidators([validators])",
+          "examples": [
+            "Page.Widgets.employeeInfoForm3.formWidgets.email.setAsyncValidators([emailAsync]); function emailAsync(field, form) { if (field.value) { return new Promise(function(resolve, reject) { var emailExists = Page.Variables.EmailData.dataSet.filter(function(data) { if (data.dataValue === field.value) { //to get datavalue of widget must use field.value not field.datavalue \n return true; } }); if (emailExists.length != 0) { reject({ errorMessage: \"The email address is already registered.\" }); } resolve(); }); }}",
+            {
+              "code": "Page.Widgets.RegistationForm.formfields.email.setAsyncValidators([emailAsync]);\n\nfunction emailAsync(field, form) {\n  return new Promise(function(resolve, reject) {\n    if (field.value === \"duplicate@example.com\") { //to get datavalue of widget must use field.value not field.datavalue \n      reject({\n        errorMessage: \"Email already exists.\"\n      });\n    } else {\n      resolve();\n    }\n  });\n}",
+              "explanation": "Checks email uniqueness using async validator."
+            }
+          ]
+        },
+        {
+          "name": "observeOn",
+          "syntax": "<Scope>.Widgets.<formName>.formWidgets.<fieldName>.observeOn(fieldNamesArray)",
+          "examples": [
+            "Page.Widgets.EmployeeForm1.formWidgets.confirmpassword.setValidators([confirmPasswordEval]); Page.Widgets.EmployeeForm1.formWidgets.confirmpassword.observeOn(['password']); function confirmPasswordEval(field, form) { if (field.value && form.formWidgets.password.datavalue != field.value) { //to get datavalue of widget must use field.value not field.datavalue return { errorMessage: \"Password & ConfirmPassword are not the same value\" }; } }",
+            {
+              "code": "Page.Widgets.EmployeeForm1.formfields.passowrd.setValidators([confirmPasswordEval]);\nPage.Widgets.EmployeeForm1.formfields.confirmpassword.observeOn(['password']);\n\nfunction confirmPasswordEval(field, form) {\n  if (field.value && form.formfields.password.value !== field.value) { //to get datavalue of widget must use field.value not field.datavalue \n    return {\n      errorMessage: \"Password & Confirm Password are not the same value\"\n    };\n  }\n}",
+              "explanation": "Adds confirm password logic to check matching values between password and confirm password."
+            }
+          ]
+        }
+      ],
+      "events": [
+        "<scope>.<widgetName>Change = function ($event, widget, newVal, oldVal) {};",
+        "<scope>.<widgetName>Click = function ($event, widget) {};",
+        "<scope>.<widgetName>Mouseenter = function ($event, widget) {};",
+        "<scope>.<widgetName>Mouseleave = function ($event, widget) {};"
+      ]
+    },
+    "mobile": {
+      "properties": [],
+      "methods": [],
+      "events": [
+        "<scope>.<widgetName>Change = function ($event, widget, newVal, oldVal) {}; // Usefull to add validations on form widgets"
+      ]
+    }
+  },
+  "text": {
+    "name": "text",
+    "common": {
+      "properties": [
+        {
+          "name": "datavalue",
+          "type": "string | number"
+        },
+        {
+          "name": "displayformat",
+          "type": "string"
+        },
+        {
+          "name": "disabled",
+          "type": "boolean"
+        },
+        {
+          "name": "maxchars",
+          "type": "number"
+        },
+        {
+          "name": "placeholder",
+          "type": "string"
+        },
+        {
+          "name": "readonly",
+          "type": "boolean"
+        },
+        {
+          "name": "required",
+          "type": "boolean"
+        },
+        {
+          "name": "show",
+          "type": "boolean"
+        },
+        {
+          "name": "regexp",
+          "type": "string"
+        },
+        {
+          "name": "conditionalclass",
+          "type": "string",
+          "example": "Variables.userStats.dataSet[0].promptsCountRank <=10 && Variables.userStats.dataSet[0].promptsCountRank >=6) ? \"btn-pill-primary\" : ((Variables.userStats.dataSet[0].promptsCountRank <=5 && Variables.userStats.dataSet[0].promptsCountRank >=4) ? \"btn-pill-secondary\" : (Variables.userStats.dataSet[0].promptsCountRank <=3 && Variables.userStats.dataSet[0].promptsCountRank >=1) ? \"btn-pill-tertiary\" : \"\")"
+        }
+      ],
+      "methods": [],
+      "events": [
+        "<scope>.<widgetName>Change = function ($event, widget, newVal, oldVal) {};",
+        "<scope>.<widgetName>Focus = function ($event, widget) {};",
+        "<scope>.<widgetName>Blur = function ($event, widget) {};",
+        "<scope>.<widgetName>Keypress = function ($event, widget) {};"
+      ]
+    },
+    "web": {
+      "properties": [
+        {
+          "name": "type",
+          "type": "string",
+          "values": [
+            "text",
+            "password",
+            "number",
+            "date",
+            "color",
+            "week",
+            "url",
+            "month",
+            "tel",
+            "time",
+            "search",
+            "datetime-local"
+          ]
+        }
+      ],
+      "methods": [],
+      "events": [
+        "<scope>.<widgetName>Click = function ($event, widget) {};",
+        "<scope>.<widgetName>Mouseenter = function ($event, widget) {};",
+        "<scope>.<widgetName>Mouseleave = function ($event, widget) {};"
+      ]
+    },
+    "mobile": {
+      "properties": [],
+      "methods": [],
+      "events": []
+    }
+  },
+  "select": {
+    "name": "select",
+    "common": {
+      "properties": [
+        {
+          "name": "datafield",
+          "type": "string"
+        },
+        {
+          "name": "dataset",
+          "type": "Array<any>"
+        },
+        {
+          "name": "datavalue",
+          "type": "any"
+        },
+        {
+          "name": "disabled",
+          "type": "boolean"
+        },
+        {
+          "name": "displayfield",
+          "type": "string"
+        },
+        {
+          "name": "placeholder",
+          "type": "string"
+        },
+        {
+          "name": "readonly",
+          "type": "boolean"
+        },
+        {
+          "name": "required",
+          "type": "boolean"
+        },
+        {
+          "name": "show",
+          "type": "boolean"
+        }
+      ],
+      "methods": [],
+      "events": [
+        "<scope>.<widgetName>Change = function ($event, widget, newVal, oldVal) {};",
+        "<scope>.<widgetName>Focus = function ($event, widget) {};",
+        "<scope>.<widgetName>Blur = function ($event, widget) {};",
+        "<scope>.<widgetName>Keypress = function ($event, widget) {};"
+      ]
+    },
+    "web": {
+      "properties": [],
+      "methods": [],
+      "events": [
+        "<scope>.<widgetName>Click = function ($event, widget) {};",
+        "<scope>.<widgetName>Mouseenter = function ($event, widget) {};",
+        "<scope>.<widgetName>Mouseleave = function ($event, widget) {};"
+      ]
+    },
+    "mobile": {
+      "properties": [],
+      "methods": [],
+      "events": []
+    }
+  },
+  "switch": {
+    "name": "switch",
+    "common": {
+      "properties": [
+        {
+          "name": "datafield",
+          "type": "string"
+        },
+        {
+          "name": "dataset",
+          "type": "Array<any> | Object"
+        },
+        {
+          "name": "datavalue",
+          "type": "any"
+        },
+        {
+          "name": "disabled",
+          "type": "boolean"
+        },
+        {
+          "name": "displayexpression",
+          "type": "string"
+        },
+        {
+          "name": "displayfield",
+          "type": "string"
+        },
+        {
+          "name": "orderby",
+          "type": "string"
+        },
+        {
+          "name": "required",
+          "type": "boolean"
+        },
+        {
+          "name": "show",
+          "type": "boolean"
+        }
+      ],
+      "methods": [],
+      "events": [
+        "<scope>.<widgetName>Change = function ($event, widget, newVal, oldVal) {};",
+        "<scope>.<widgetName>Focus = function ($event, widget) {};",
+        "<scope>.<widgetName>Blur = function ($event, widget) {};",
+        "<scope>.<widgetName>Keypress = function ($event, widget) {};"
+      ]
+    },
+    "web": {
+      "properties": [],
+      "methods": [],
+      "events": [
+        "<scope>.<widgetName>Click = function ($event, widget) {};",
+        "<scope>.<widgetName>Mouseenter = function ($event, widget) {};",
+        "<scope>.<widgetName>Mouseleave = function ($event, widget) {};"
+      ]
+    },
+    "mobile": {
+      "properties": [],
+      "methods": [],
+      "events": []
+    }
+  },
+  "fileupload": {
+    "name": "fileupload",
+    "common": {
+      "binding_info": [
+        "Caption binding: Use caption=\"text\" for static, caption=\"bind:Variables.var.field\" for simple binding, caption.bind=\"'Text ' + Variables.var.field\" for expressions"
+      ],
+      "properties": [
+        {
+          "name": "uploadedFiles",
+          "type": "array"
+        },
+        {
+          "name": "selectedFiles",
+          "type": "array"
+        },
+        {
+          "name": "caption",
+          "type": "string"
+        },
+        {
+          "name": "contenttype",
+          "type": "string"
+        },
+        {
+          "name": "disabled",
+          "type": "boolean"
+        },
+        {
+          "name": "fileuploadmessage",
+          "type": "string"
+        },
+        {
+          "name": "maxfilesize",
+          "type": "number"
+        },
+        {
+          "name": "multiple",
+          "type": "boolean"
+        },
+        {
+          "name": "show",
+          "type": "boolean"
+        }
+      ],
+      "methods": [],
+      "events": [
+        "<scope>.<widgetName>Beforeselect = function ($event, widget, files) {};",
+        "<scope>.<widgetName>Select = function ($event, widget, selectedFiles) {};",
+        "<scope>.<widgetName>Error = function ($event, widget, files) {};"
+      ]
+    },
+    "web": {
+      "properties": [],
+      "methods": [],
+      "events": []
+    },
+    "mobile": {
+      "properties": [],
+      "methods": [],
+      "events": []
+    }
+  },
+  "checkbox": {
+    "name": "checkbox",
+    "common": {
+      "properties": [
+        {
+          "name": "datavalue",
+          "type": "boolean"
+        },
+        {
+          "name": "disabled",
+          "type": "boolean"
+        },
+        {
+          "name": "readonly",
+          "type": "boolean"
+        },
+        {
+          "name": "required",
+          "type": "boolean"
+        },
+        {
+          "name": "show",
+          "type": "boolean"
+        }
+      ],
+      "methods": [],
+      "events": [
+        "<scope>.<widgetName>Change = function ($event, widget, newVal, oldVal) {};",
+        "<scope>.<widgetName>Focus = function ($event, widget) {};",
+        "<scope>.<widgetName>Blur = function ($event, widget) {};",
+        "<scope>.<widgetName>Keypress = function ($event, widget) {};",
+        "<scope>.<widgetName>Mouseenter = function ($event, widget) {};",
+        "<scope>.<widgetName>Mouseleave = function ($event, widget) {};"
+      ]
+    },
+    "web": {
+      "properties": [],
+      "methods": [],
+      "events": [
+        "<scope>.<widgetName>Click = function ($event, widget) {};"
+      ]
+    },
+    "mobile": {
+      "properties": [],
+      "methods": [],
+      "events": []
+    }
+  },
+  "checkboxset": {
+    "name": "checkboxset",
+    "common": {
+      "properties": [
+        {
+          "name": "dataset",
+          "type": "array"
+        },
+        {
+          "name": "displayvalue",
+          "type": "string"
+        },
+        {
+          "name": "datafield",
+          "type": "string"
+        },
+        {
+          "name": "datavalue",
+          "type": "object"
+        },
+        {
+          "name": "disabled",
+          "type": "boolean"
+        },
+        {
+          "name": "readonly",
+          "type": "boolean"
+        },
+        {
+          "name": "required",
+          "type": "boolean"
+        },
+        {
+          "name": "show",
+          "type": "boolean"
+        }
+      ],
+      "methods": [],
+      "events": [
+        "<scope>.<widgetName>Change = function ($event, widget, newVal, oldVal) {};"
+      ]
+    },
+    "web": {
+      "properties": [],
+      "methods": [],
+      "events": [
+        "<scope>.<widgetName>Click = function ($event, widget) {};",
+        "<scope>.<widgetName>Focus = function ($event, widget) {};",
+        "<scope>.<widgetName>Blur = function ($event, widget) {};",
+        "<scope>.<widgetName>Keypress = function ($event, widget) {};",
+        "<scope>.<widgetName>Mouseenter = function ($event, widget) {};",
+        "<scope>.<widgetName>Mouseleave = function ($event, widget) {};"
+      ]
+    },
+    "mobile": {
+      "properties": [],
+      "methods": [],
+      "events": [
+        "<scope>.<widgetName>Tap = function ($event, widget) {};"
+      ]
+    }
+  },
+  "date": {
+    "name": "date",
+    "common": {
+      "properties": [
+        {
+          "name": "datavalue",
+          "type": "string"
+        },
+        {
+          "name": "disabled",
+          "type": "boolean"
+        },
+        {
+          "name": "readonly",
+          "type": "boolean"
+        },
+        {
+          "name": "required",
+          "type": "boolean"
+        },
+        {
+          "name": "show",
+          "type": "boolean"
+        },
+        {
+          "name": "datepattern",
+          "type": "string"
+        },
+        {
+          "name": "excludedays",
+          "type": "string"
+        },
+        {
+          "name": "excludedates",
+          "type": "string"
+        },
+        {
+          "name": "maxdate",
+          "type": "string"
+        },
+        {
+          "name": "mindate",
+          "type": "string"
+        }
+      ],
+      "methods": [],
+      "events": [
+        "<scope>.<widgetName>Change = function ($event, widget, newVal, oldVal) {};",
+        "<scope>.<widgetName>Focus = function ($event, widget) {};",
+        "<scope>.<widgetName>Blur = function ($event, widget) {};",
+        "<scope>.<widgetName>Keypress = function ($event, widget) {};"
+      ]
+    },
+    "web": {
+      "properties": [],
+      "methods": [],
+      "events": [
+        "<scope>.<widgetName>Click = function ($event, widget) {};"
+      ]
+    },
+    "mobile": {
+      "properties": [],
+      "methods": [],
+      "events": [
+        "<scope>.<widgetName>Tap = function ($event, widget) {};"
+      ]
+    }
+  },
+  "datetime": {
+    "name": "datetime",
+    "common": {
+      "properties": [
+        {
+          "name": "datavalue",
+          "type": "string"
+        },
+        {
+          "name": "disabled",
+          "type": "boolean"
+        },
+        {
+          "name": "readonly",
+          "type": "boolean"
+        },
+        {
+          "name": "required",
+          "type": "boolean"
+        },
+        {
+          "name": "show",
+          "type": "boolean"
+        },
+        {
+          "name": "datepattern",
+          "type": "string"
+        },
+        {
+          "name": "excludedays",
+          "type": "string"
+        },
+        {
+          "name": "excludedates",
+          "type": "string"
+        },
+        {
+          "name": "maxdate",
+          "type": "string"
+        },
+        {
+          "name": "mindate",
+          "type": "string"
+        }
+      ],
+      "methods": [],
+      "events": [
+        "<scope>.<widgetName>Change = function ($event, widget, newVal, oldVal) {};",
+        "<scope>.<widgetName>Focus = function ($event, widget) {};",
+        "<scope>.<widgetName>Blur = function ($event, widget) {};",
+        "<scope>.<widgetName>Keypress = function ($event, widget) {};"
+      ]
+    },
+    "web": {
+      "properties": [],
+      "methods": [],
+      "events": [
+        "<scope>.<widgetName>Click = function ($event, widget) {};",
+        "<scope>.<widgetName>Mouseenter = function ($event, widget) {};",
+        "<scope>.<widgetName>Mouseleave = function ($event, widget) {};"
+      ]
+    },
+    "mobile": {
+      "properties": [],
+      "methods": [],
+      "events": [
+        "<scope>.<widgetName>Tap = function ($event, widget) {};"
+      ]
+    }
+  },
+  "radioset": {
+    "name": "radioset",
+    "common": {
+      "properties": [
+        {
+          "name": "dataset",
+          "type": "array"
+        },
+        {
+          "name": "displayvalue",
+          "type": "string"
+        },
+        {
+          "name": "datafield",
+          "type": "string"
+        },
+        {
+          "name": "datavalue",
+          "type": "object"
+        },
+        {
+          "name": "disabled",
+          "type": "boolean"
+        },
+        {
+          "name": "readonly",
+          "type": "boolean"
+        },
+        {
+          "name": "required",
+          "type": "boolean"
+        },
+        {
+          "name": "show",
+          "type": "boolean"
+        }
+      ],
+      "methods": [],
+      "events": [
+        "<scope>.<widgetName>Change = function ($event, widget, newVal, oldVal) {};",
+        "<scope>.<widgetName>Focus = function ($event, widget) {};",
+        "<scope>.<widgetName>Blur = function ($event, widget) {};",
+        "<scope>.<widgetName>Keypress = function ($event, widget) {};"
+      ]
+    },
+    "web": {
+      "properties": [],
+      "methods": [],
+      "events": [
+        "<scope>.<widgetName>Click = function ($event, widget) {};",
+        "<scope>.<widgetName>Mouseenter = function ($event, widget) {};",
+        "<scope>.<widgetName>Mouseleave = function ($event, widget) {};"
+      ]
+    },
+    "mobile": {
+      "properties": [],
+      "methods": [],
+      "events": [
+        "<scope>.<widgetName>Tap = function ($event, widget) {};"
+      ]
+    }
+  },
+  "spinner": {
+    "name": "spinner",
+    "common": {
+      "binding_info": [
+        "Caption binding: Use caption=\"text\" for static, caption=\"bind:Variables.var.field\" for simple binding, caption.bind=\"'Text ' + Variables.var.field\" for expressions"
+      ],
+      "properties": [
+        {
+          "name": "caption",
+          "type": "string"
+        },
+        {
+          "name": "image",
+          "type": "string"
+        },
+        {
+          "name": "show",
+          "type": "boolean"
+        }
+      ],
+      "methods": [],
+      "events": []
+    },
+    "web": {
+      "properties": [],
+      "methods": [],
+      "events": []
+    },
+    "mobile": {
+      "properties": [],
+      "methods": [],
+      "events": []
+    }
+  },
+  "textarea": {
+    "name": "textarea",
+    "common": {
+      "properties": [
+        {
+          "name": "datavalue",
+          "type": "string"
+        },
+        {
+          "name": "disabled",
+          "type": "boolean"
+        },
+        {
+          "name": "maxchars",
+          "type": "number"
+        },
+        {
+          "name": "placeholder",
+          "type": "string"
+        },
+        {
+          "name": "readonly",
+          "type": "boolean"
+        },
+        {
+          "name": "required",
+          "type": "boolean"
+        },
+        {
+          "name": "show",
+          "type": "boolean"
+        }
+      ],
+      "methods": [],
+      "events": [
+        "<scope>.<widgetName>Change = function ($event, widget, newVal, oldVal) {};",
+        "<scope>.<widgetName>Focus = function ($event, widget) {};",
+        "<scope>.<widgetName>Blur = function ($event, widget) {};",
+        "<scope>.<widgetName>Keypress = function ($event, widget) {};"
+      ]
+    },
+    "web": {
+      "properties": [],
+      "methods": [],
+      "events": []
+    },
+    "mobile": {
+      "properties": [],
+      "methods": [],
+      "events": [
+        "<scope>.<widgetName>Tap = function ($event, widget) {};"
+      ]
+    }
+  },
+  "number": {
+    "name": "number",
+    "common": {
+      "properties": [
+        {
+          "name": "datavalue",
+          "type": "number"
+        },
+        {
+          "name": "displayformat",
+          "type": "string"
+        },
+        {
+          "name": "disabled",
+          "type": "boolean"
+        },
+        {
+          "name": "maxchars",
+          "type": "number"
+        },
+        {
+          "name": "placeholder",
+          "type": "string"
+        },
+        {
+          "name": "readonly",
+          "type": "boolean"
+        },
+        {
+          "name": "required",
+          "type": "boolean"
+        },
+        {
+          "name": "show",
+          "type": "boolean"
+        }
+      ],
+      "methods": [],
+      "events": [
+        "<scope>.<widgetName>Change = function ($event, widget, newVal, oldVal) {};",
+        "<scope>.<widgetName>Focus = function ($event, widget) {};",
+        "<scope>.<widgetName>Blur = function ($event, widget) {};",
+        "<scope>.<widgetName>Keypress = function ($event, widget) {};"
+      ]
+    },
+    "web": {
+      "properties": [],
+      "methods": [],
+      "events": [
+        "<scope>.<widgetName>Click = function ($event, widget) {};",
+        "<scope>.<widgetName>Mouseenter = function ($event, widget) {};",
+        "<scope>.<widgetName>Mouseleave = function ($event, widget) {};"
+      ]
+    },
+    "mobile": {
+      "properties": [],
+      "methods": [],
+      "events": [
+        "<scope>.<widgetName>Tap = function ($event, widget) {};"
+      ]
+    }
+  },
+  "chips": {
+    "name": "chips",
+    "common": {
+      "properties": [
+        {
+          "name": "show",
+          "type": "boolean"
+        },
+        {
+          "name": "readonly",
+          "type": "string"
+        },
+        {
+          "name": "dataset",
+          "type": "array"
+        },
+        {
+          "name": "displayvalue",
+          "type": "string"
+        },
+        {
+          "name": "datafield",
+          "type": "string"
+        },
+        {
+          "name": "datavalue",
+          "type": "object"
+        }
+      ],
+      "methods": [],
+      "events": [
+        "<scope>.<widgetName>Change = function ($event, widget, newVal, oldVal) {};",
+        "<scope>.<widgetName>Beforeadd = function ($event, widget, newitem) {};",
+        "<scope>.<widgetName>Add = function ($event, widget, $item) {};",
+        "<scope>.<widgetName>Beforeremove = function ($event, widget, $item) {};",
+        "<scope>.<widgetName>Remove = function ($event, widget, $item) {};",
+        "<scope>.<widgetName>Chipselect = function ($event, widget, $item) {};",
+        "<scope>.<widgetName>Chipclick = function ($event, widget, $item) {};"
+      ]
+    },
+    "web": {
+      "properties": [],
+      "methods": [],
+      "events": [
+        "<scope>.<widgetName>Beforeservicecall = function ($event, widget) {};",
+        "<scope>.<widgetName>Beforereorder = function ($event, widget) {};",
+        "<scope>.<widgetName>Reorder = function ($event, widget) {};"
+      ]
+    },
+    "mobile": {
+      "properties": [],
+      "methods": [],
+      "events": []
+    }
+  },
+  "search": {
+    "name": "search",
+    "common": {
+      "properties": [
+        {
+          "name": "datacompletemsg",
+          "type": "string",
+          "description": "The message displayed for data completion."
+        },
+        {
+          "name": "datafield",
+          "type": "string",
+          "description": "Specifies the data field to be used for the search."
+        },
+        {
+          "name": "dataset",
+          "type": "any",
+          "description": "The data to be used for the search."
+        },
+        {
+          "name": "datavalue",
+          "type": "any",
+          "description": "The current value of the search input. Use for: selected result display, form field population, displaying chosen item."
+        },
+        {
+          "name": "disabled",
+          "type": "boolean",
+          "description": "Disables the search widget."
+        },
+        {
+          "name": "displayimagesrc",
+          "type": "string",
+          "description": "Specifies the source for an image to be displayed."
+        },
+        {
+          "name": "displaylabel",
+          "type": "string",
+          "description": "The label to be displayed for the search results."
+        },
+        {
+          "name": "dropup",
+          "type": "boolean",
+          "description": "Controls the dropdown direction."
+        },
+        {
+          "name": "hint",
+          "type": "string",
+          "description": "Provides a hint text for the search input."
+        },
+        {
+          "name": "imagewidth",
+          "type": "string",
+          "description": "Specifies the width of the image displayed."
+        },
+        {
+          "name": "limit",
+          "type": "number",
+          "description": "The maximum number of results to display."
+        },
+        {
+          "name": "loadingdatamsg",
+          "type": "string",
+          "description": "The message to display while data is loading."
+        },
+        {
+          "name": "minchars",
+          "type": "number",
+          "description": "The minimum number of characters required to trigger a search."
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "description": "The name of the component."
+        },
+        {
+          "name": "orderby",
+          "type": "string",
+          "description": "Specifies the field to order the search results by."
+        },
+        {
+          "name": "placeholder",
+          "type": "string",
+          "description": "The placeholder text for the search input."
+        },
+        {
+          "name": "query",
+          "type": "string",
+          "description": "The search query. Use for: search input/filtering, filter lists, search parameters, input binding to other widgets."
+        },
+        {
+          "name": "readonly",
+          "type": "boolean",
+          "description": "Makes the search input read-only."
+        },
+        {
+          "name": "required",
+          "type": "boolean",
+          "description": "Specifies if the input is required."
+        },
+        {
+          "name": "searchkey",
+          "type": "string",
+          "description": "The key used for searching."
+        },
+        {
+          "name": "shortcutkey",
+          "type": "string",
+          "description": "A shortcut key to activate the search widget."
+        },
+        {
+          "name": "show",
+          "type": "boolean",
+          "description": "Controls the visibility of the widget."
+        },
+        {
+          "name": "showsearchicon",
+          "type": "boolean",
+          "description": "Shows or hides the search icon."
+        },
+        {
+          "name": "tabindex",
+          "type": "number",
+          "description": "The tab order of the element."
+        },
+        {
+          "name": "type",
+          "type": "string",
+          "description": "The type of search behavior ('search' or 'autocomplete')."
+        }
+      ],
+      "methods": [],
+      "events": [
+        "<scope>.<widgetName>Change = function ($event, widget, newVal, oldVal) {};",
+        "<scope>.<widgetName>Focus = function ($event, widget) {};",
+        "<scope>.<widgetName>Blur = function ($event, widget) {};",
+        "<scope>.<widgetName>Datasetready = function (widget, data) {};",
+        "<scope>.<widgetName>Submit = function ($event, widget) {};",
+        "<scope>.<widgetName>Select = function ($event, widget, selectedValue) {};",
+        "<scope>.<widgetName>clear = function ($event, widget) {};"
+      ]
+    },
+    "web": {
+      "properties": [],
+      "methods": [],
+      "events": [
+        "<scope>.<widgetName>Click = function ($event, widget) {};",
+        "<scope>.<widgetName>Keypress = function ($event, widget) {};",
+        "<scope>.<widgetName>Beforeservicecall = function (widget, inputData) {};"
+      ]
+    },
+    "mobile": {
+      "properties": [],
+      "methods": [],
+      "events": []
+    }
+  },
+  "button": {
+    "name": "button",
+    "common": {
+      "binding_info": [
+        "Caption binding: Use caption=\"text\" for static, caption=\"bind:Variables.var.field\" for simple binding, caption.bind=\"'Text ' + Variables.var.field\" for expressions"
+      ],
+      "properties": [
+        {
+          "name": "caption",
+          "type": "string"
+        },
+        {
+          "name": "disabled",
+          "type": "boolean"
+        },
+        {
+          "name": "show",
+          "type": "boolean"
+        },
+        {
+          "name": "iconclass",
+          "type": "string"
+        }
+      ],
+      "methods": [],
+      "events": []
+    },
+    "web": {
+      "properties": [],
+      "methods": [],
+      "events": [
+        "<scope>.<widgetName>Focus = function ($event, widget) {};",
+        "<scope>.<widgetName>Blur = function ($event, widget) {};",
+        "<scope>.<widgetName>Click = function ($event, widget) {};",
+        "<scope>.<widgetName>Dbclick = function ($event, widget) {};",
+        "<scope>.<widgetName>Mouseenter = function ($event, widget) {};",
+        "<scope>.<widgetName>Mouseleave = function ($event, widget) {};"
+      ]
+    },
+    "mobile": {
+      "properties": [],
+      "methods": [],
+      "events": [
+        "<scope>.<widgetName>Tap = function ($event, widget) {};",
+        "<scope>.<widgetName>Doubletap = function ($event, widget) {};",
+        "<scope>.<widgetName>Longtap = function ($event, widget) {};",
+        "<scope>.<widgetName>Touchstart = function ($event, widget) {};",
+        "<scope>.<widgetName>Touchend = function ($event, widget) {};"
+      ]
+    }
+  },
+  "anchor": {
+    "name": "anchor",
+    "common": {
+      "binding_info": [
+        "Caption binding: Use caption=\"text\" for static, caption=\"bind:Variables.var.field\" for simple binding, caption.bind=\"'Text ' + Variables.var.field\" for expressions"
+      ],
+      "properties": [
+        {
+          "name": "caption",
+          "type": "string"
+        },
+        {
+          "name": "hyperlink",
+          "type": "string"
+        },
+        {
+          "name": "show",
+          "type": "boolean"
+        },
+        {
+          "name": "target",
+          "type": "string"
+        }
+      ],
+      "methods": [],
+      "events": []
+    },
+    "web": {
+      "properties": [],
+      "methods": [],
+      "events": [
+        "<scope>.<widgetName>Focus = function ($event, widget) {};",
+        "<scope>.<widgetName>Blur = function ($event, widget) {};",
+        "<scope>.<widgetName>Click = function ($event, widget) {};",
+        "<scope>.<widgetName>Dbclick = function ($event, widget) {};",
+        "<scope>.<widgetName>Mouseenter = function ($event, widget) {};",
+        "<scope>.<widgetName>Mouseleave = function ($event, widget) {};"
+      ]
+    },
+    "mobile": {
+      "properties": [],
+      "methods": [],
+      "events": [
+        "<scope>.<widgetName>Tap = function ($event, widget) {};",
+        "<scope>.<widgetName>Doubletap = function ($event, widget) {};",
+        "<scope>.<widgetName>Longtap = function ($event, widget) {};",
+        "<scope>.<widgetName>Touchstart = function ($event, widget) {};",
+        "<scope>.<widgetName>Touchend = function ($event, widget) {};"
+      ]
+    }
+  },
+  "designdialog": {
+    "name": "designdialog",
+    "common": {
+      "properties": [],
+      "methods": [
+        {
+          "name": "close",
+          "syntax": "<Scope>.Widgets.<widgetName>.close()"
+        },
+        {
+          "name": "open",
+          "syntax": "<Scope>.Widgets.<widgetName>.open()"
+        }
+      ],
+      "events": [
+        "<scope>.<widgetName>Opened = function ($event, widget) {};",
+        "<scope>.<widgetName>Closed = function ($event, widget) {};"
+      ]
+    },
+    "web": {
+      "properties": [],
+      "methods": [],
+      "events": []
+    },
+    "mobile": {
+      "properties": [],
+      "methods": [],
+      "events": []
+    }
+  },
+  "pagedialog": {
+    "name": "pagedialog",
+    "common": {
+      "properties": [],
+      "methods": [
+        {
+          "name": "close",
+          "syntax": "<Scope>.Widgets.<widgetName>.close()"
+        },
+        {
+          "name": "open",
+          "syntax": "<Scope>.Widgets.<widgetName>.open()"
+        }
+      ],
+      "events": [
+        "<scope>.<widgetName>Opened = function ($event, widget) {};",
+        "<scope>.<widgetName>Closed = function ($event, widget) {};"
+      ]
+    },
+    "web": {
+      "properties": [],
+      "methods": [],
+      "events": []
+    },
+    "mobile": {
+      "properties": [],
+      "methods": [],
+      "events": []
+    }
+  },
+  "alertdialog": {
+    "name": "alertdialog",
+    "common": {
+      "properties": [],
+      "methods": [
+        {
+          "name": "close",
+          "syntax": "<Scope>.Widgets.<widgetName>.close()"
+        },
+        {
+          "name": "open",
+          "syntax": "<Scope>.Widgets.<widgetName>.open()"
+        }
+      ],
+      "events": [
+        "<scope>.<widgetName>Opened = function ($event, widget) {};",
+        "<scope>.<widgetName>Ok = function ($event, widget) {};"
+      ]
+    },
+    "web": {
+      "properties": [],
+      "methods": [],
+      "events": []
+    },
+    "mobile": {
+      "properties": [],
+      "methods": [],
+      "events": []
+    }
+  },
+  "confirmdialog": {
+    "name": "confirmdialog",
+    "common": {
+      "properties": [],
+      "methods": [
+        {
+          "name": "close",
+          "syntax": "<Scope>.Widgets.<widgetName>.close()"
+        },
+        {
+          "name": "open",
+          "syntax": "<Scope>.Widgets.<widgetName>.open()"
+        }
+      ],
+      "events": [
+        "<scope>.<widgetName>Opened = function ($event, widget) {};",
+        "<scope>.<widgetName>Ok = function ($event, widget) {};",
+        "<scope>.<widgetName>Cancel = function ($event, widget) {};"
+      ]
+    },
+    "web": {
+      "properties": [],
+      "methods": [],
+      "events": []
+    },
+    "mobile": {
+      "properties": [],
+      "methods": [],
+      "events": []
+    }
+  },
+  "logindialog": {
+    "name": "logindialog",
+    "common": {
+      "properties": [],
+      "methods": [
+        {
+          "name": "close",
+          "syntax": "<Scope>.Widgets.<widgetName>.close()"
+        },
+        {
+          "name": "open",
+          "syntax": "<Scope>.Widgets.<widgetName>.open()"
+        }
+      ],
+      "events": [
+        "<scope>.<widgetName>Opened = function ($event, widget) {};",
+        "<scope>.<widgetName>Close = function ($event, widget) {};",
+        "<scope>.<widgetName>Submit = function ($event, widget) {};",
+        "<scope>.<widgetName>Success = function ($event, widget) {};",
+        "<scope>.<widgetName>Error = function ($event, widget) {};"
+      ]
+    },
+    "web": {
+      "properties": [],
+      "methods": [],
+      "events": []
+    },
+    "mobile": {
+      "properties": [],
+      "methods": [],
+      "events": []
+    }
+  },
+  "label": {
+    "name": "label",
+    "common": {
+      "binding_info": [
+        "Caption binding: Use caption=\"text\" for static, caption=\"bind:Variables.var.field\" for simple binding, caption.bind=\"'Text ' + Variables.var.field\" for expressions"
+      ],
+      "properties": [
+        {
+          "name": "caption",
+          "type": "string"
+        },
+        {
+          "name": "show",
+          "type": "boolean"
+        }
+      ],
+      "methods": [],
+      "events": []
+    },
+    "web": {
+      "properties": [],
+      "methods": [],
+      "events": [
+        "<scope>.<widgetName>Click = function ($event, widget) {};",
+        "<scope>.<widgetName>Dbclick = function ($event, widget) {};",
+        "<scope>.<widgetName>Mouseenter = function ($event, widget) {};",
+        "<scope>.<widgetName>Mouseleave = function ($event, widget) {};"
+      ]
+    },
+    "mobile": {
+      "properties": [],
+      "methods": [],
+      "events": [
+        "<scope>.<widgetName>Tap = function ($event, widget) {};",
+        "<scope>.<widgetName>Doubletap = function ($event, widget) {};",
+        "<scope>.<widgetName>Longtap = function ($event, widget) {};",
+        "<scope>.<widgetName>Touchstart = function ($event, widget) {};",
+        "<scope>.<widgetName>Touchend = function ($event, widget) {};"
+      ]
+    }
+  },
+  "list": {
+    "name": "list",
+    "common": {
+      "binding_info": [
+        "Template binding syntax: Use [$i] for row/item index in repeating content (e.g., bind:Variables.{var}.dataSet[$i].{field})",
+        "List item template: bind:Variables.{variableName}.dataSet[$i].{fieldName} for list item content",
+        "Dashboard/Summary binding: No [$i] index for single values (e.g., bind:Variables.{var}.dataSet.{field})",
+        "Must update BOTH main dataset AND all inner template bindings when changing variables"
+      ],
+      "properties": [
+        {
+          "name": "dataset",
+          "type": "any",
+          "description": "The data to be displayed in the list."
+        },
+        {
+          "name": "direction",
+          "type": "string",
+          "description": "The direction of the list layout (e.g., 'vertical', 'horizontal')."
+        },
+        {
+          "name": "disableitem",
+          "type": "string",
+          "description": "A condition to disable certain items in the list."
+        },
+        {
+          "name": "enablereorder",
+          "type": "boolean",
+          "description": "Enables reordering of list items."
+        },
+        {
+          "name": "groupby",
+          "type": "string",
+          "description": "The property by which to group list items."
+        },
+        {
+          "name": "horizontalalign",
+          "type": "string",
+          "description": "Horizontal alignment of elements within the list."
+        },
+        {
+          "name": "iconclass",
+          "type": "string",
+          "description": "CSS class for the icon of each list item."
+        },
+        {
+          "name": "itemclass",
+          "type": "string",
+          "description": "CSS class for each individual list item."
+        },
+        {
+          "name": "itemsperrow",
+          "type": "number",
+          "description": "Number of items to display per row."
+        },
+        {
+          "name": "listclass",
+          "type": "string",
+          "description": "CSS class for the list container."
+        },
+        {
+          "name": "loadingdatamsg",
+          "type": "string",
+          "description": "Message to display while the list data is loading."
+        },
+        {
+          "name": "loadingicon",
+          "type": "string",
+          "description": "CSS class for the loading icon."
+        },
+        {
+          "name": "match",
+          "type": "string",
+          "description": "Condition for matching data for grouping."
+        },
+        {
+          "name": "maxsize",
+          "type": "number",
+          "description": "The maximum number of items in the list."
+        },
+        {
+          "name": "multiselect",
+          "type": "boolean",
+          "description": "Allows multiple items to be selected."
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "description": "The name of the component."
+        },
+        {
+          "name": "navigation",
+          "type": "string",
+          "description": "The type of pagination or navigation to use."
+        },
+        {
+          "name": "navigationalign",
+          "type": "string",
+          "description": "Alignment of the navigation controls."
+        },
+        {
+          "name": "nodatamessage",
+          "type": "string",
+          "description": "Message to display when there is no data."
+        },
+        {
+          "name": "ondemandmessage",
+          "type": "string",
+          "description": "Message for on-demand loading."
+        },
+        {
+          "name": "orderby",
+          "type": "string",
+          "description": "Field to order the list items by."
+        },
+        {
+          "name": "pagesize",
+          "type": "number",
+          "description": "The number of items to display per page."
+        },
+        {
+          "name": "paginationclass",
+          "type": "string",
+          "description": "CSS class for the pagination controls."
+        },
+        {
+          "name": "selectfirstitem",
+          "type": "boolean",
+          "description": "Selects the first item in the list by default."
+        },
+        {
+          "name": "selectionlimit",
+          "type": "number",
+          "description": "The maximum number of items that can be selected."
+        },
+        {
+          "name": "show",
+          "type": "boolean",
+          "description": "Controls the visibility of the widget."
+        },
+        {
+          "name": "showcount",
+          "type": "boolean",
+          "description": "Shows the count of items in the list."
+        },
+        {
+          "name": "showrecordcount",
+          "type": "boolean",
+          "description": "Shows the total record count."
+        },
+        {
+          "name": "subheading",
+          "type": "string",
+          "description": "Subheading for the list."
+        },
+        {
+          "name": "tabindex",
+          "type": "number",
+          "description": "The tab order of the widget."
+        },
+        {
+          "name": "title",
+          "type": "string",
+          "description": "Title of the list."
+        },
+        {
+          "name": "selecteditem",
+          "type": "object",
+          "Example": "Page.Widgets.listEmployees.selecteditem"
+        },
+        {
+          "name": "selectedItemWidgets",
+          "type": "object",
+          "Example": "Page.Widgets.listEmployees.selectedItemWidgets"
+        }
+      ],
+      "methods": [
+        {
+          "name": "clear",
+          "syntax": "<Scope>.Widgets.<widgetName>.clear()"
+        },
+        {
+          "name": "deselectItem",
+          "syntax": "<Scope>.Widgets.<widgetName>.deselectItem(index)"
+        },
+        {
+          "name": "getWidgets",
+          "syntax": "<Scope>.Widgets.<widgetName>.getWidgets(widgetName, index)"
+        }
+      ],
+      "events": [
+        "<scope>.[WidgetName]Paginationchange = function($event, widget, pageInfo) {}; // Example: Page.EmployeeListPaginationchange = function($event, widget, pageInfo) { console.log(\"Page changed to:\", pageInfo.page); Page.Variables.getPaginatedUsers.setInput({ page: pageInfo.page }); Page.Variables.getPaginatedUsers.invoke(); }; // Explanation: Triggers data reload when pagination changes.",
+        "<scope>.[WidgetName]Beforedatarender = function(widget, $data) {}; //Use this event to modify, transform or format the list data // Example: Page.EmployeeListBeforedatarender = function(widget, $data) {//$data conatains dataSet of variable binded with list mostly array \n widget.selectItem(2); Page.Widgets.detailsCard.caption = `Selected: ${$data[2].name}`; }; // Explanation: Selects third item on render and updates a card.",
+        "<scope>.[WidgetName]Render = function(widget, $data) {}; // Example: Page.EmployeeListRender = function(widget, $data) {//$data conatains dataSet of variable binded with list mostly array \n widget.selectItem(2); Page.Widgets.detailsCard.caption = `Selected: ${$data[2].name}`; }; // Explanation: Selects third item on render and updates a card.",
+        "<scope>.[WidgetName]Select = function(widget, $data) {}; // Example: Page.EmployeeListSelect = function(widget, $data) {//$data conatains data slected list item \n console.log(`selected employee name : ${$data.firstname})`; };"
+      ],
+      "listItemWidgets": {
+        "eventsDescription": "For any widget placed inside a List or Cards, all event handler signatures receive two additional parameters: `item` (the data object for this present li item or cards) and `currentItemWidgets` (current widget instances of all widgets present in list ). Use `item` to access present li item data, and `currentItemWidgets` to control or read values of current widgets at present li item.",
+        "generalSyntax": "<scope>.<widgetName><Event> = function(<Existing event parameters>, item, currentItemWidgets)",
+        "parameters": {
+          "item": "The data object for the current list/card item. For example: { id: 123, name: 'Alice', ... }",
+          "currentItemWidgets": "Object mapping widget names to their widget instances inside the same list/card item. Use this to get or set properties on other widgets in this item."
+        },
+        "notes": [
+          "All standard widget events (change, click, blur, focus, keypress, etc.) are supported using this extended signature inside List and Cards",
+          "For List and Card, always use the extended signature with item and currentItemWidgets to react contextually to each row/card's data and UI."
+        ],
+        "examples": [
+          {
+            "standaloneWidgetSyntax": "Page.WmEnvironment_branchNameChange = function ($event, widget, newVal, oldVal) { ... }",
+            "liItemWidgetSyntax": "Page.WmEnvironment_branchNameChange = function ($event, widget, item, currentItemWidgets, newVal, oldVal) { ... }"
+          },
+          {
+            "standaloneWidgetSyntax": "Page.buttonLunchKeypress = function ($event, widget) { ... }",
+            "liItemWidgetSyntax": "Page.buttonLunchKeypress = function ($event, widget, item, currentItemWidgets) { ... }"
+          },
+          {
+            "standaloneWidgetSyntax": "Page.number1Change = function ($event, widget, newVal, oldVal) { ... }",
+            "liItemWidgetSyntax": "Page.number1Change = function ($event, widget, item, currentItemWidgets, newVal, oldVal) { ... }"
+          },
+          {
+            "standaloneWidgetSyntax": "Page.image2Click = function ($event, widget) { ... }",
+            "liItemWidgetSyntax": "Page.image2Click = function ($event, widget, item, currentItemWidgets) { ... }"
+          }
+        ]
+      }
+    },
+    "web": {
+      "properties": [],
+      "methods": [],
+      "events": [
+        "<scope>.[WidgetName]Click = function($event, widget) {}; // Example: Page.EmployeeListClick = function($event, widget) { const empId = widget.item.deptId; const deptName = widget.item.name; Page.Variables.getDepartmentDetails.setInput({ id: empId }); Page.Variables.getDepartmentDetails.invoke(); Page.Widgets.selectedDeptName.caption = `Selected: ${deptName}`; }; // Explanation: Uses widget.item for department data, fetches details, and updates a label.",
+        "<scope>.[WidgetName]Dblclick = function($event, widget) {}; // Example: Page.EmployeeListDblclick = function($event, widget) { Page.Actions.goToPage_DeptDetails.invoke({ data: { deptId: widget.item.deptId, deptName: widget.item.name } }); }; // Explanation: Navigates to the department detail page with deptId and deptName.",
+        "<scope>.[WidgetName]Mouseenter = function($event, widget) {}; // Example: Page.EmployeeListMouseenter = function($event, widget) { widget.itemClass += ' hover-highlight'; widget._currentItemWidgets.Name.caption = `Viewing: ${widget.item.name}`; }; // Explanation: Adds a hover class and updates a label.",
+        "<scope>.[WidgetName]Mouseleave = function($event, widget) {}; // Example: Page.EmployeeListMouseleave = function($event, widget) { widget.itemClass = widget.itemClass.replace(' hover-highlight', ''); widget._currentItemWidgets.Name.caption = widget.item.name; }; // Explanation: Removes hover class and resets the label."
+      ]
+    },
+    "mobile": {
+      "properties": [],
+      "methods": [],
+      "events": [
+        "<scope>.<widgetName>Tap = function ($event, widget) {};",
+        "<scope>.<widgetName>Doubletap = function ($event, widget) {};",
+        "<scope>.<widgetName>Longtap = function ($event, widget) {};",
+        "<scope>.<widgetName>Touchstart = function ($event, widget) {};",
+        "<scope>.<widgetName>Touchend = function ($event, widget) {};"
+      ]
+    }
+  },
+  "chart": {
+    "name": "chart",
+    "common": {
+      "binding_info": [
+        "For yaxisdatakey: Use comma-separated keys for multiple series (e.g., 'price,change,volume')",
+        "ONLY update dataset attribute, never replace with complex composite chart markup"
+      ],
+      "properties": [
+        {
+          "name": "aggregation",
+          "type": "string",
+          "description": "Shows options to aggregate data."
+        },
+        {
+          "name": "aggregationcolumn",
+          "type": "string",
+          "description": "Columns used to aggregate data."
+        },
+        {
+          "name": "areaviewtype",
+          "type": "string",
+          "description": "Controls how area is shown in an Area chart, with a default of 'stack'."
+        },
+        {
+          "name": "barspacing",
+          "type": "string",
+          "description": "Controls spacing between bars for bar and column charts, with a default of 'medium'."
+        },
+        {
+          "name": "bubblesize",
+          "type": "string",
+          "description": "Controls the size of bubbles for a Bubble chart."
+        },
+        {
+          "name": "centerlabel",
+          "type": "string",
+          "description": "Determines the text for the center of a donut chart."
+        },
+        {
+          "name": "customcolors",
+          "type": "string",
+          "description": "Allows defining custom colors."
+        },
+        {
+          "name": "datavalue",
+          "type": "string",
+          "description": "Defines the value of the chart widget."
+        },
+        {
+          "name": "donutratio",
+          "type": "string",
+          "description": "Controls the radius of a Donut chart, with a default of 'medium'."
+        },
+        {
+          "name": "formattype",
+          "type": "string",
+          "description": "Shows options to format number types."
+        },
+        {
+          "name": "groupby",
+          "type": "string",
+          "description": "Shows options to group data."
+        },
+        {
+          "name": "highlightpoints",
+          "type": "boolean",
+          "description": "A boolean that decides whether to highlight points, with a default of false."
+        },
+        {
+          "name": "iconclass",
+          "type": "string",
+          "description": "The CSS class of an icon."
+        },
+        {
+          "name": "interpolation",
+          "type": "string",
+          "description": "Determines how data points are joined, with a default of 'linear'."
+        },
+        {
+          "name": "labeltype",
+          "type": "string",
+          "description": "Controls the type of label to be shown, with a default of 'percent'."
+        },
+        {
+          "name": "linethickness",
+          "type": "string",
+          "description": "Controls the thickness of lines in line charts."
+        },
+        {
+          "name": "loadingdatamsg",
+          "type": "string",
+          "description": "The message displayed when data is loading, with a default of 'Loading...'."
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "description": "The name of the chart widget."
+        },
+        {
+          "name": "nodatamessage",
+          "type": "string",
+          "description": "The message displayed when there is no data, with a default of 'No Data Available.'."
+        },
+        {
+          "name": "offset",
+          "type": "string",
+          "description": "Controls the offset of the chart."
+        },
+        {
+          "name": "orderby",
+          "type": "string",
+          "description": "Shows options to order the data."
+        },
+        {
+          "name": "reducexticks",
+          "type": "boolean",
+          "description": "A boolean that controls whether to reduce xticks, with a default of true."
+        },
+        {
+          "name": "show",
+          "type": "boolean",
+          "description": "A boolean to show or hide the chart widget, with a default of true."
+        },
+        {
+          "name": "showlabels",
+          "type": "string",
+          "description": "Controls the visibility of labels, with a default of 'outside'."
+        },
+        {
+          "name": "showlegend",
+          "type": "string",
+          "description": "Controls where to show legends, with a default of 'top'."
+        },
+        {
+          "name": "showvalues",
+          "type": "boolean",
+          "description": "A boolean to show values on bars, with a default of false."
+        },
+        {
+          "name": "showxaxis",
+          "type": "boolean",
+          "description": "A boolean to show or hide the x-axis, with a default of true."
+        },
+        {
+          "name": "showxdistance",
+          "type": "boolean",
+          "description": "A boolean to enable showing the distance from the x-axis, with a default of false."
+        },
+        {
+          "name": "showyaxis",
+          "type": "boolean",
+          "description": "A boolean to show or hide the y-axis, with a default of true."
+        },
+        {
+          "name": "showydistance",
+          "type": "boolean",
+          "description": "A boolean to enable showing the distance from the y-axis, with a default of false."
+        },
+        {
+          "name": "staggerlabels",
+          "type": "boolean",
+          "description": "A boolean to stagger labels, with a default of false."
+        },
+        {
+          "name": "subheading",
+          "type": "string",
+          "description": "A subheading for the chart widget."
+        },
+        {
+          "name": "theme",
+          "type": "string",
+          "description": "Controls the theme of the chart."
+        },
+        {
+          "name": "title",
+          "type": "string",
+          "description": "A title for the chart widget."
+        },
+        {
+          "name": "tooltips",
+          "type": "boolean",
+          "description": "A boolean to show tooltips on hover, with a default of true."
+        },
+        {
+          "name": "type",
+          "type": "string",
+          "values": [
+            "Line",
+            "Column",
+            "Area",
+            "Pie",
+            "Bar",
+            "Cumulative line",
+            "Donut",
+            "Bubble"
+          ],
+          "description": "The type of the chart."
+        },
+        {
+          "name": "xaxisdatakey",
+          "type": "string",
+          "description": "Defines the key of the object on the y-axis. only one key is allowed.",
+          "example": "xaxisdatakey=\"employee.city\""
+        },
+        {
+          "name": "xaxislabel",
+          "type": "string",
+          "description": "The caption of the x-axis."
+        },
+        {
+          "name": "xaxislabeldistance",
+          "type": "string",
+          "description": "Controls the distance between the x-axis and its label."
+        },
+        {
+          "name": "xdateformat",
+          "type": "string",
+          "description": "Shows options to format date types in the x-axis."
+        },
+        {
+          "name": "xdigits",
+          "type": "string",
+          "description": "Defines the number of digits after the decimal in the x-axis."
+        },
+        {
+          "name": "xnumberformat",
+          "type": "string",
+          "description": "Shows options to format number types in the x-axis."
+        },
+        {
+          "name": "xunits",
+          "type": "string",
+          "description": "Defines the number of digits after the decimal in the x-axis."
+        },
+        {
+          "name": "yaxisdatakey",
+          "type": "string",
+          "description": "Specifies units for the y-axis.",
+          "example": "yaxisdatakey=\"employee.deptId,employee.empId,employee.managerId\""
+        },
+        {
+          "name": "yaxislabel",
+          "type": "string",
+          "description": "The caption of the y-axis."
+        },
+        {
+          "name": "yaxislabeldistance",
+          "type": "string",
+          "description": "Controls the distance between the y-axis and its label."
+        },
+        {
+          "name": "ydigits",
+          "type": "string",
+          "description": "Shows the number of digits after the decimal in the y-axis."
+        },
+        {
+          "name": "ynumberformat",
+          "type": "string",
+          "description": "Shows options to format number types in the y-axis."
+        },
+        {
+          "name": "yunits",
+          "type": "string",
+          "description": "Specifies units for the y-axis."
+        }
+      ],
+      "methods": [],
+      "events": [
+        "<scope>.[WidgetName]Select = function($event, widget, selectedItem, selectedChartItem) {};",
+        "<scope>.[WidgetName]Transform = function($event, widget) {};",
+        "<scope>.[WidgetName]Beforerender = function(widget, chartInstance) {};"
+      ]
+    },
+    "web": {
+      "properties": [],
+      "methods": [],
+      "events": [
+        "<scope>.[WidgetName]Beforerender = function(widget, chartInstance) {}; Examples: Page.configureChartBeforeRender = function (widget, chartInstance) {\\n  // When configuring an NVD3 chart, it's crucial to check the chart type   // before applying specific properties or functions, as not all are available for every chart type.\\n  // Always refer to the official NVD3 documentation for chart-specific properties and methods.\\n\\n  // Example: chartInstance.barColor([\"#1f77b4\"]); // For bar charts\\n  // Example: chartInstance.color(['#1f77b4']); // For other chart types\\n  // Example: chartInstance.margin({ bottom: 80 });\\n  // Example: chartInstance.xAxis.axisLabel(\"Value\");\\n  // Example: chartInstance.yAxis.axisLabel(\"Years\");\\n\\n  return chartInstance;\\n};",
+        "Page.chart1Beforerender = function(widget, chartInstance) { chartInstance.showLegend(false); }; // This sets the chart legend to be hidden.",
+        "Page.chart1Beforerender = function(widget, chartInstance) { chartInstance.yAxis.axisLabel('Sales'); chartInstance.xAxis.axisLabel('Months'); }; // This sets the x and y axis titles of the chart.",
+        "Page.chart1Beforerender = function(widget, chartInstance) { chartInstance.tooltip.contentGenerator(function(d) { return '<h3>' + d.point.x + '</h3>' + '<p>' + d.point.y + '</p>'; }); }; // This customizes the content of the tooltip.",
+        "Page.chart1Beforerender = function(widget, chartInstance) { if (!widget.dataset || !widget.dataset.length) { chartInstance.noData(\"No Data Available\"); } }; // This handles the corner case where the chart has no data to display.",
+        "Page.chart1Beforerender = function(widget, chartInstance) { chartInstance.yAxis.tickFormat(d3.format('$,.2f')); }; // This formats the Y-axis labels as currency.",
+        "Page.chart1Beforerender = function(widget, chartInstance) { chartInstance.color(function(d, i) { return d.y > 100 ? 'red' : 'green'; }); }; // This changes the color of the chart based on the data.",
+        "Page.chart1Beforerender = function(widget, chartInstance) { chartInstance.discretebar.dispatch.on('elementClick', function(e) { console.log('Clicked on:', e.data); }); }; // This adds a click event listener to the chart elements."
+      ]
+    },
+    "mobile": {
+      "properties": [],
+      "methods": [],
+      "events": []
+    }
+  },
+  "icon": {
+    "name": "icon",
+    "common": {
+      "binding_info": [
+        "Caption binding: Use caption=\"text\" for static, caption=\"bind:Variables.var.field\" for simple binding, caption.bind=\"'Text ' + Variables.var.field\" for expressions"
+      ],
+      "properties": [
+        {
+          "name": "caption",
+          "type": "string"
+        },
+        {
+          "name": "iconclass",
+          "type": "string"
+        },
+        {
+          "name": "iconposition",
+          "type": "string"
+        },
+        {
+          "name": "iconurl",
+          "type": "string"
+        },
+        {
+          "name": "iconwidth",
+          "type": "string"
+        },
+        {
+          "name": "show",
+          "type": "boolean"
+        }
+      ],
+      "methods": [],
+      "events": []
+    },
+    "web": {
+      "properties": [],
+      "methods": [],
+      "events": []
+    },
+    "mobile": {
+      "properties": [],
+      "methods": [],
+      "events": []
+    }
+  },
+  "picture": {
+    "name": "picture",
+    "common": {
+      "properties": [
+        {
+          "name": "picturesource",
+          "type": "any"
+        },
+        {
+          "name": "show",
+          "type": "boolean"
+        }
+      ],
+      "methods": [],
+      "events": []
+    },
+    "web": {
+      "properties": [],
+      "methods": [],
+      "events": [
+        "<scope>.<widgetName>Click = function ($event, widget) {};",
+        "<scope>.<widgetName>Dbclick = function ($event, widget) {};",
+        "<scope>.<widgetName>Mouseenter = function ($event, widget) {};",
+        "<scope>.<widgetName>Mouseleave = function ($event, widget) {};"
+      ]
+    },
+    "mobile": {
+      "properties": [],
+      "methods": [],
+      "events": [
+        "<scope>.<widgetName>Tap = function ($event, widget) {};",
+        "<scope>.<widgetName>Doubletap = function ($event, widget) {};",
+        "<scope>.<widgetName>Longtap = function ($event, widget) {};",
+        "<scope>.<widgetName>Touchstart = function ($event, widget) {};",
+        "<scope>.<widgetName>Touchend = function ($event, widget) {};"
+      ]
+    }
+  },
+  "table": {
+    "name": "table",
+    "common": {
+      "binding_info": [
+        "Template binding syntax: Use [$i] for row/item index in repeating content (e.g., bind:Variables.{var}.dataSet[$i].{field})",
+        "Array field transformation: Always use [0] index for single value display in table column labels (e.g., photoUrls[0] not photoUrls)",
+        "Table column binding: <wm-table-column binding=\"name\"><wm-label caption=\"bind:Variables.myVar.dataSet[$i].name\"></wm-label></wm-table-column> for single fields",
+        "Table column binding for arrays: <wm-table-column binding=\"photoUrls\"><wm-label caption=\"bind:Variables.myVar.dataSet[$i].photoUrls[0]\"></wm-label></wm-table-column> for array fields",
+        "Must update BOTH main dataset AND all inner template bindings when changing variables"
+      ],
+      "properties": [],
+      "methods": [],
+      "events": []
+    },
+    "web": {
+      "properties": [
+        {
+          "name": "title",
+          "type": "string"
+        },
+        {
+          "name": "show",
+          "type": "boolean"
+        },
+        {
+          "name": "selecteditem",
+          "type": "object"
+        }
+      ],
+      "methods": [
+        {
+          "name": "refreshData",
+          "syntax": "<Scope>.Widgets.<widgetName>.refreshData()"
+        },
+        {
+          "name": "setValidators",
+          "syntax": "Page.Widgets.[tableWidgetName].columns.[columnName].setValidators([...])",
+          "examples": [
+            {
+              "code": "Page.Widgets.environmentsTable.columns.isActive.setValidators([{\n  type: VALIDATOR.REQUIRED,\n  validator: true,\n  errorMessage: \"This field cannot be empty.\"\n}]);",
+              "syntax": "Page.Widgets.[tableWidgetName].columns.[columnName].setValidators([...])",
+              "explanation": "Sets a required validator on a table column."
+            },
+            {
+              "code": "Page.Widgets.onBoardTable.columns.isBoarded.setValidators([lastNameVal]);\n\nfunction lastNameVal(field, table) {\n  if (field.value && field.value.length < 2) {\n    return {\n      errorMessage: \"Enter your full name.\"\n    };\n  }\n}",
+              "explanation": "Applies a custom validator on a table column."
+            }
+          ]
+        },
+        {
+          "name": "observeOn",
+          "syntax": "Page.Widgets.[tableWidgetName].columns.[confirmColumn].observeOn(['password'])",
+          "examples": [
+            {
+              "code": "Page.Widgets.staticVariable2Table1.columns.confirmpassword.observeOn(['password']);\n\nfunction confirmPasswordEval(field, table) {\n  if (field.value && table.columns.password.value !== field.value) {\n    return {\n      errorMessage: \"Password & Confirm Password are not the same value\"\n    };\n  }\n}",
+              "explanation": "Validates that 'confirmPassword' matches 'password' in the specified table column context."
+            }
+          ]
+        }
+      ],
+      "events": [
+        "<scope>.[TableName]Rowclick = function($event, widget, row) {}; // Example: Page.departmentTableRowclick = function($event, widget, row) { console.log(\"Clicked department row:\", row); Page.Variables.selectedDept.setData({ id: row.deptId, name: row.name, location: row.location }); Page.Widgets.label_deptName.caption = `Department: ${row.name}`; Page.Widgets.label_location.caption = `Location: ${row.location}`; Page.Widgets.label_budget.caption = `Budget: $${row.budget.toLocaleString()}`; Page.Actions.goToPage_DeptDetails.invoke({ data: { deptId: row.deptId, deptName: row.name } }); }; // Explanation: Uses row data to update labels, set a variable, and navigate to detail page.",
+        "<scope>.[TableName]Select = function($event, widget, row) {}; // Example: Page.employeeTableSelect = function($event, widget, row) { console.log(\"Selected row data:\", row.index, row); }; // Explanation: Triggers when a row is selected.",
+        "<scope>.[TableName]Deselect = function($event, widget, row) {}; // Example: Partial.employeeTableDeselect = function($event, widget, row) { console.log(\"Deselected row:\", row.index, row); }; // Explanation: Runs when a row is deselected.",
+        "<scope>.[TableName]Beforedatarender = function (widget, data, columns) {} //Use this event to modify, transform or format the table data",
+        "<scope>.[TableName]Datarender = function (widget, data, columns) {} //Triggers on table data is rendered",
+        "<scope>.[TableName]Headerclick = function($event, widget, column) {}; // Example: Page.employeeTableHeaderclick = function($event, widget, column) { console.log(\"Clicked header column:\", column.field); }; // Explanation: Triggers when a Data Table column header is clicked.",
+        "<scope>.[TableName]Beforerowupdate = function($event, widget, row, options) {}; // Example: Page.employeeTableBeforerowupdate = function($event, widget, row, options) { if (row.status === '') { wmToaster.show('error', 'Status is required'); return false; } row.updatedAt = new Date(); }; // Explanation: Validates the 'status' field before row update and adds a timestamp.",
+        "<scope>.[TableName]Rowupdate = function($event, widget, row) {}; // Example: Page.employeeTableRowupdate = function($event, widget, row) { console.log(\"Row updated successfully:\", row); }; // Explanation: Executes after a row update and logs the updated data.",
+        "<scope>.[TableName]Beforerowinsert = function($event, widget, row, options) {}; // Example: Page.employeeTableBeforerowinsert = function($event, widget, row, options) { if (row.password.length < 6) { wmToaster.show('error', 'ERROR', 'Password too short'); return false; } row.createdAt = Date.now(); }; // Explanation: Validates password length before inserting a row.",
+        "<scope>.[TableName]Rowinsert = function($event, widget, row) {}; // Example: Page.employeeTableRowinsert = function($event, widget, row) { console.log(\"New row added:\", row); }; // Explanation: Runs after inserting a new row, logging the inserted data.",
+        "<scope>.[TableName]Beforerowdelete = function($event, widget, row, options) {}; // Example: Page.employeeTableBeforerowdelete = function($event, widget, row, options) { if (row.status === 'locked') { wmToaster.show('error', 'ERROR', 'Cannot delete locked row'); return false; } }; // Explanation: Prevents deletion if row has a 'locked' status.",
+        "<scope>.[TableName]Rowdelete = function($event, widget, row) {}; // Example: Page.employeeTableRowdelete = function($event, widget, row) { console.log(\"Deleted row data:\", row); }; // Explanation: Fires after a row is deleted, logging the deleted data."
+      ]
+    },
+    "mobile": {
+      "properties": [],
+      "methods": [],
+      "events": []
+    }
+  },
+  "video": {
+    "name": "video",
+    "common": {
+      "properties": [
+        {
+          "name": "mp4sourcepath",
+          "type": "any"
+        },
+        {
+          "name": "show",
+          "type": "boolean"
+        }
+      ],
+      "methods": [],
+      "events": []
+    },
+    "web": {
+      "properties": [],
+      "methods": [],
+      "events": []
+    },
+    "mobile": {
+      "properties": [],
+      "methods": [],
+      "events": []
+    }
+  },
+  "tabs": {
+    "name": "tabs",
+    "common": {
+      "binding_info": [
+        "Template binding syntax: Use [$i] for row/item index in repeating content (e.g., bind:Variables.{var}.dataSet[$i].{field})",
+        "Dashboard/Summary binding: No [$i] index for single values (e.g., bind:Variables.{var}.dataSet.{field})",
+        "Must update BOTH main dataset AND all inner template bindings when changing variables",
+        "Tab pane content: Update all bindings within tab pane templates to use new variable references"
+      ],
+      "properties": [
+        {
+          "name": "show",
+          "type": "boolean"
+        }
+      ],
+      "methods": [
+        {
+          "name": "prev",
+          "syntax": "<Scope>.Widgets.<widgetName>.prev()"
+        },
+        {
+          "name": "next",
+          "syntax": "<Scope>.Widgets.<widgetName>.next()"
+        },
+        {
+          "name": "goToTab",
+          "syntax": "<Scope>.Widgets.<widgetName>.goToTab(<tabIndex>)"
+        }
+      ],
+      "events": [
+        "<scope>.<widgetName>Change = function ($event, widget, newPaneIndex, oldPaneIndex) {};"
+      ]
+    },
+    "web": {
+      "properties": [],
+      "methods": [
+        {
+          "name": "getActiveTabIndex",
+          "syntax": "<Scope>.Widgets.<widgetName>.getActiveTabIndex()"
+        },
+        {
+          "name": "removePane",
+          "syntax": "<Scope>.Widgets.<widgetName>.removePane(<tabPaneName>)"
+        }
+      ],
+      "events": []
+    },
+    "mobile": {
+      "properties": [],
+      "methods": [],
+      "events": []
+    }
+  },
+  "tabPane": {
+    "name": "tabPane",
+    "common": {
+      "properties": [
+        {
+          "name": "show",
+          "type": "boolean"
+        },
+        {
+          "name": "isSelect",
+          "type": "boolean"
+        },
+        {
+          "name": "title",
+          "type": "string"
+        }
+      ],
+      "methods": [
+        {
+          "name": "select",
+          "syntax": "<Scope>.Widgets.<widgetName>.select()"
+        },
+        {
+          "name": "deselect",
+          "syntax": "<Scope>.Widgets.<widgetName>.deselect()"
+        },
+        {
+          "name": "remove",
+          "syntax": "<Scope>.Widgets.<widgetName>.remove()"
+        }
+      ],
+      "events": [
+        "<scope>.<widgetName>Load = function ($event, widget) {};",
+        "<scope>.<widgetName>Select = function ($event, widget) {};"
+      ]
+    },
+    "web": {
+      "properties": [],
+      "methods": [],
+      "events": []
+    },
+    "mobile": {
+      "properties": [],
+      "methods": [],
+      "events": [
+        "<scope>.<widgetName>Deselect = function ($event, widget) {};"
+      ]
+    }
+  },
+  "wizard": {
+    "name": "wizard",
+    "common": {
+      "binding_info": [
+        "Template binding syntax: Use [$i] for row/item index in repeating content (e.g., bind:Variables.{var}.dataSet[$i].{field})",
+        "Dashboard/Summary binding: No [$i] index for single values (e.g., bind:Variables.{var}.dataSet.{field})",
+        "Must update BOTH main dataset AND all inner template bindings when changing variables",
+        "Wizard step content: Update all bindings within wizard step templates to use new variable references"
+      ],
+      "properties": [
+        {
+          "name": "show",
+          "type": "boolean"
+        },
+        {
+          "name": "cancelable",
+          "type": "boolean"
+        },
+        {
+          "name": "enableNext",
+          "type": "boolean"
+        }
+      ],
+      "methods": [
+        {
+          "name": "cancel",
+          "syntax": "<Scope>.Widgets.<widgetName>.cancel()"
+        },
+        {
+          "name": "done",
+          "syntax": "<Scope>.Widgets.<widgetName>.done()"
+        },
+        {
+          "name": "next",
+          "syntax": "<Scope>.Widgets.<widgetName>.next()"
+        },
+        {
+          "name": "prev",
+          "syntax": "<Scope>.Widgets.<widgetName>.prev()"
+        },
+        {
+          "name": "skip",
+          "syntax": "<Scope>.Widgets.<widgetName>.skip()"
+        }
+      ],
+      "events": [
+        "<scope>.<widgetName>Cancel = function (widget, steps) {};",
+        "<scope>.<widgetName>Done = function (widget, steps) {};"
+      ]
+    },
+    "web": {
+      "properties": [],
+      "methods": [],
+      "events": []
+    },
+    "mobile": {
+      "properties": [],
+      "methods": [],
+      "events": []
+    }
+  },
+  "wizardstep": {
+    "name": "wizardstep",
+    "common": {
+      "binding_info": [
+        "Template binding syntax: Use [$i] for row/item index in repeating content (e.g., bind:Variables.{var}.dataSet[$i].{field})",
+        "Dashboard/Summary binding: No [$i] index for single values (e.g., bind:Variables.{var}.dataSet.{field})",
+        "Must update BOTH main dataset AND all inner template bindings when changing variables",
+        "Wizard step content: Update all bindings within this step's template to use new variable references"
+      ],
+      "properties": [
+        {
+          "name": "show",
+          "type": "boolean"
+        },
+        {
+          "name": "enableSkip",
+          "type": "boolean"
+        },
+        {
+          "name": "title",
+          "type": "string"
+        }
+      ],
+      "methods": [],
+      "events": [
+        "<scope>.<widgetName>Next = function (widget, currentStep, stepIndex) {};",
+        "<scope>.<widgetName>Prev = function (widget, currentStep, stepIndex) {};",
+        "<scope>.<widgetName>Skip = function (widget, currentStep, stepIndex) {};",
+        "<scope>.<widgetName>Load = function (widget, stepIndex) {};"
+      ]
+    },
+    "web": {
+      "properties": [],
+      "methods": [],
+      "events": []
+    },
+    "mobile": {
+      "properties": [],
+      "methods": [],
+      "events": []
+    }
+  },
+  "accordion": {
+    "name": "accordion",
+    "common": {
+      "binding_info": [
+        "Template binding syntax: Use [$i] for row/item index in repeating content (e.g., bind:Variables.{var}.dataSet[$i].{field})",
+        "Dashboard/Summary binding: No [$i] index for single values (e.g., bind:Variables.{var}.dataSet.{field})",
+        "Must update BOTH main dataset AND all inner template bindings when changing variables",
+        "Accordion pane content: Update all bindings within accordion pane templates to use new variable references"
+      ],
+      "properties": [
+        {
+          "name": "show",
+          "type": "boolean"
+        }
+      ],
+      "methods": [
+        {
+          "name": "removePane",
+          "syntax": "<Scope>.Widgets.<widgetName>.removePane()"
+        },
+        {
+          "name": "expandPane",
+          "syntax": "<Scope>.Widgets.<widgetName>.expandPane(index)"
+        },
+        {
+          "name": "addPane",
+          "syntax": "<Scope>.Widgets.<widgetName>.addPane(pane)"
+        }
+      ],
+      "events": [
+        "<scope>.<widgetName>Change = function ($event, widget, newPaneIndex, oldPaneIndex) {};"
+      ]
+    },
+    "web": {
+      "properties": [],
+      "methods": [],
+      "events": []
+    },
+    "mobile": {
+      "properties": [],
+      "methods": [],
+      "events": []
+    }
+  },
+  "accordionpane": {
+    "name": "accordionpane",
+    "common": {
+      "properties": [
+        {
+          "name": "show",
+          "type": "boolean"
+        },
+        {
+          "name": "content",
+          "type": "string"
+        },
+        {
+          "name": "title",
+          "type": "string"
+        }
+      ],
+      "methods": [
+        {
+          "name": "expand",
+          "syntax": "<Scope>.Widgets.<widgetName>.expand()"
+        },
+        {
+          "name": "collapse",
+          "syntax": "<Scope>.Widgets.<widgetName>.collapse()"
+        },
+        {
+          "name": "toggle",
+          "syntax": "<Scope>.Widgets.<widgetName>.toggle()"
+        },
+        {
+          "name": "remove",
+          "syntax": "<Scope>.Widgets.<widgetName>.remove()"
+        }
+      ],
+      "events": [
+        "<scope>.<widgetName>Expand = function ($event, widget) {};",
+        "<scope>.<widgetName>Collapse = function ($event, widget) {};"
+      ]
+    },
+    "web": {
+      "properties": [],
+      "methods": [],
+      "events": []
+    },
+    "mobile": {
+      "properties": [],
+      "methods": [],
+      "events": []
+    }
+  },
+  "breadcrumb": {
+    "name": "breadcrumb",
+    "common": {
+      "properties": [
+        {
+          "name": "dataset",
+          "type": "Array"
+        },
+        {
+          "name": "show",
+          "type": "boolean"
+        }
+      ],
+      "methods": [],
+      "events": []
+    },
+    "web": {
+      "properties": [],
+      "methods": [],
+      "events": []
+    },
+    "mobile": {
+      "properties": [],
+      "methods": [],
+      "events": []
+    }
+  },
+  "popover": {
+    "name": "popover",
+    "common": {
+      "properties": [
+        {
+          "name": "contentsource",
+          "type": "inline | partial"
+        },
+        {
+          "name": "content",
+          "type": "any"
+        },
+        {
+          "name": "show",
+          "type": "boolean"
+        }
+      ],
+      "methods": [
+        {
+          "name": "open",
+          "syntax": "<Scope>.Widgets.<widgetName>.open()"
+        },
+        {
+          "name": "close",
+          "syntax": "<Scope>.Widgets.<widgetName>.close()"
+        }
+      ],
+      "events": [
+        "<scope>.<widgetName>Load = function (widget) {};",
+        "<scope>.<widgetName>Show = function ($event, widget) {};",
+        "<scope>.<widgetName>Hide = function ($event, widget) {};"
+      ]
+    },
+    "web": {
+      "properties": [],
+      "methods": [],
+      "events": []
+    },
+    "mobile": {
+      "properties": [],
+      "methods": [],
+      "events": []
+    }
+  },
+  "menu": {
+    "name": "menu",
+    "common": {
+      "properties": [
+        {
+          "name": "dataset",
+          "type": "Array"
+        },
+        {
+          "name": "datavalue",
+          "type": "string"
+        },
+        {
+          "name": "show",
+          "type": "boolean"
+        }
+      ],
+      "methods": [],
+      "events": [
+        "<scope>.<widgetName>Show = function ($event, widget, $item) {};"
+      ]
+    },
+    "web": {
+      "properties": [],
+      "methods": [],
+      "events": []
+    },
+    "mobile": {
+      "properties": [],
+      "methods": [],
+      "events": []
+    }
+  },
+  "custom_textfield": {
+    "name": "custom_textfield",
+    "web": {
+      "properties": [
+        {
+          "style": {
+            "type": "list",
+            "displayName": "Style",
+            "description": "Specifies the style variant between outlined and filled.",
+            "options": [
+              "Outlined",
+              "Filled"
+            ],
+            "value": "Outlined"
+          },
+          "state": {
+            "type": "list",
+            "displayName": "State",
+            "description": "Specifies whether the TextField is interactive(enabled) or non-interactive(disabled) state.",
+            "options": [
+              "Enabled",
+              "Disabled"
+            ],
+            "value": "Enabled"
+          },
+          "text_configurations": {
+            "   type": "string",
+            "displayName": "Text configurations",
+            "description": "Allows you to specify different text types for the TextField, including input text, label text, and placeholder text.",
+            "options": [
+              "Input text",
+              "Label text",
+              "Placeholder text"
+            ],
+            "value": "Input text",
+            "show": "false"
+          },
+          "leading_icon": {
+            "type": "boolean",
+            "displayName": "Leading icon",
+            "description": "Specifies to show/hide the Leading Icon/Button.",
+            "value": "false"
+          },
+          "trailing_icon": {
+            "type": "boolean",
+            "displayName": "Trailing icon",
+            "description": "Specifies to show/hide the Trailing Icon/Button. ",
+            "value": "false"
+          },
+          "show_supporting_text": {
+            "type": "boolean",
+            "displayName": "Show supporting text",
+            "description": "Specifies to show/hide the Supporting text(help text).",
+            "value": "false"
+          },
+          "label_text": {
+            "type": "string",
+            "displayName": "Caption",
+            "description": "Specifies the caption value of the TextField.",
+            "value": "Label"
+          },
+          "placeholder_text": {
+            "type": "string",
+            "displayName": "Placeholder",
+            "description": "Specifies the caption text of the TextField.",
+            "value": "Enter Text"
+          },
+          "input_text": {
+            "type": "string",
+            "displayName": "Default Value",
+            "description": "Specifies the default value of the TextField.",
+            "value": ""
+          },
+          "supporting_text": {
+            "type": "string",
+            "displayName": "Supporting Text",
+            "description": "Specifies the supporting text(helper text) value of the TextField.",
+            "value": "Supporting Text"
+          },
+          "leading_icon_class": {
+            "type": "string",
+            "displayName": "Leading Icon Class",
+            "description": "Allows to specify the icon for the Leading Icon/Button from wm icon library.",
+            "value": "wi wi-search",
+            "widget": "select-icon"
+          },
+          "trailing_icon_class": {
+            "type": "string",
+            "displayName": "Trailing Icon Class",
+            "description": "Allows to specify the icon for the Trailing Icon/Button from wm icon library.",
+            "value": "wi wi-clear",
+            "widget": "select-icon"
+          },
+          "input_type": {
+            "type": "list",
+            "displayName": "Input Type",
+            "description": "Specifies the input type between text, password and tel.",
+            "options": [
+              "text",
+              "password",
+              "tel"
+            ],
+            "value": "text"
+          },
+          "required": {
+            "type": "boolean",
+            "displayName": "Required",
+            "description": "Specifies the textfiled to be mandatory while submittion.",
+            "value": "false"
+          }
+        }
+      ],
+      "events": [
+        "<scope>.<widgetName>Change = function ($event, widget, newVal, oldVal) {};",
+        "<scope>.<widgetName>Focus = function ($event, widget) {};",
+        "<scope>.<widgetName>Blur = function ($event, widget) {};",
+        "<scope>.<widgetName>Keypress = function ($event, widget) {};",
+        "<scope>.<widgetName>Load = function ($event, widget) {};",
+        "<scope>.<widgetName>Destroy = function ($event, widget) {};",
+        "<scope>.<widgetName>trailingIconButtonOnClick = function ($event, widget, newVal, oldVal) {};"
+      ]
+    },
+    "common": {
+      "properties": [],
+      "methods": [],
+      "events": []
+    },
+    "mobile": {
+      "properties": [],
+      "methods": [],
+      "events": []
+    }
+  },
+  "custom_checkbox_set": {
+    "name": "custom_checkbox_set",
+    "web": {
+      "properties": [
+        {
+          "layout": {
+            "type": "list",
+            "displayName": "Layout",
+            "description": "Defines the orientation of the element. 'horizontal' indicates that the element's layout or behavior is aligned along the horizontal axis (left to right), while 'vertical' means the element is aligned along the vertical axis (top to bottom)",
+            "options": [
+              "horizontal",
+              "vertical"
+            ],
+            "value": "horizontal"
+          },
+          "show_intermediate": {
+            "type": "boolean",
+            "displayName": "Intermediate checkbox",
+            "description": "Controls whether the checkbox shows an indeterminate state. True displays the intermediate state",
+            "value": "false"
+          },
+          "state": {
+            "type": "list",
+            "displayName": "State",
+            "description": "Specifies whether the component is active or inactive. 'enabled' means the component is interactive and functional, while 'disabled' means it is non-interactive and inactive",
+            "options": [
+              "Enabled",
+              "Disabled"
+            ],
+            "value": "Enabled"
+          },
+          "label_placement": {
+            "type": "list",
+            "displayName": "Label placement",
+            "description": "Specifies the label's position relative to the component, with options: 'top' (Label appears above the component), 'bottom' (Label appears below the component), 'start' (Label appears left of the component)",
+            "options": [
+              "top",
+              "bottom",
+              "start",
+              "end"
+            ],
+            "value": "end"
+          },
+          "label_text": {
+            "type": "string",
+            "displayName": "Label text",
+            "description": "Label text informs users about what information is requested for a checkboxSet",
+            "value": "Label Text"
+          },
+          "data_set": {
+            "type": "string",
+            "displayName": "Data Set values",
+            "description": "Defines the available options for the data set, typically a list of labels such as 'Option1', 'Option2', 'Option3'",
+            "value": "Option1,Option2,Option3"
+          },
+          "default_value": {
+            "type": "string",
+            "displayName": "Default Value",
+            "description": "Specifies the default value for the checked attribute. Default is 'Option1'",
+            "value": ""
+          },
+          "required": {
+            "type": "boolean",
+            "displayName": "Required",
+            "description": "Indicates whether the checkboxSet is mandatory. True makes it required; false means it is optional",
+            "value": "false"
+          }
+        }
+      ],
+      "events": [
+        "<scope>.<widgetName>Click = function ($event, widget) {};",
+        "<scope>.<widgetName>Focus = function ($event, widget) {};",
+        "<scope>.<widgetName>Blur = function ($event, widget) {};",
+        "<scope>.<widgetName>Keypress = function ($event, widget) {};",
+        "<scope>.<widgetName>Mouseenter = function ($event, widget) {};",
+        "<scope>.<widgetName>Mouseleave = function ($event, widget) {};",
+        "<scope>.<widgetName>Change = function ($event, widget, newVal, oldVal) {};"
+      ]
+    },
+    "common": {
+      "properties": [],
+      "methods": [],
+      "events": []
+    },
+    "mobile": {
+      "properties": [],
+      "methods": [],
+      "events": []
+    }
+  },
+  "custom_discrete_slider": {
+    "name": "custom_discrete_slider",
+    "web": {
+      "properties": [
+        {
+          "state": {
+            "type": "list",
+            "displayName": "State",
+            "description": "Specifies the interactivity of the widget. 'Enabled' allows interaction with the widget, while 'Disabled' makes the widget non-interactive and inactive.",
+            "options": [
+              "Enabled",
+              "Disabled"
+            ],
+            "value": "Enabled"
+          },
+          "show_labels": {
+            "type": "boolean",
+            "displayName": "Show Labels",
+            "description": "Determines whether labels should be displayed on the widget. When set to true, lables will be shown. When false, labels will be hidden.",
+            "value": "false"
+          },
+          "show_icons": {
+            "type": "boolean",
+            "displayName": "Show Icons",
+            "description": "Determines whether icons should be displayed on the widget. When set to true, icons will be shown. When false, icons will be hidden.",
+            "value": "false"
+          },
+          "start_icon": {
+            "type": "string",
+            "displayName": "Start Icon",
+            "description": "The icon to be displayed at the start of the widget. Select an appropriate icon from the available options.",
+            "value": "wi wi-minus",
+            "widget": "select-icon"
+          },
+          "end_icon": {
+            "type": "string",
+            "displayName": "End Icon",
+            "description": "The icon to be displayed at the end of the widget. Select an appropriate icon from the available options.",
+            "value": "wi wi-plus",
+            "widget": "select-icon"
+          },
+          "icon_actions": {
+            "type": "boolean",
+            "displayName": "Icon Actions",
+            "description": "Determines whether the icons on the widget are interactive. When set to true, icons will respond to user actions (e.g., clicks). When false, icons will be displayed but not interactive.",
+            "value": "false"
+          },
+          "value": {
+            "type": "string",
+            "displayName": "Default Value",
+            "description": "Sets the initial value of the slider when the widget is first displayed.",
+            "value": "50"
+          },
+          "step_value": {
+            "type": "string",
+            "displayName": "Step Value",
+            "description": "Defines the increment or decrement steps for the slider. This value controls the amount by which the slider\u2019s value changes with each step.",
+            "value": "10"
+          },
+          "min_value": {
+            "type": "integer",
+            "displayName": "Minimum Value",
+            "description": "Specifies the smallest value the slider can be set to.",
+            "value": "0"
+          },
+          "max_value": {
+            "type": "integer",
+            "displayName": "Maximum Value",
+            "description": "Specifies the largest value the slider can be set to.",
+            "value": "100"
+          }
+        }
+      ],
+      "events": [
+        "<scope>.<widgetName>Incrementbuttonclick = function ($event, widget) {};",
+        "<scope>.<widgetName>Decrementbuttonclick = function ($event, widget) {};",
+        "<scope>.<widgetName>change = function ($event, widget, newVal, oldVal) {};"
+      ]
+    },
+    "common": {
+      "properties": [],
+      "methods": [],
+      "events": []
+    },
+    "mobile": {
+      "properties": [],
+      "methods": [],
+      "events": []
+    }
+  },
+  "custom_slider": {
+    "name": "custom_slider",
+    "web": {
+      "properties": [
+        {
+          "state": {
+            "type": "list",
+            "displayName": "State",
+            "description": "Defines whether the widget is interactive or not. 'Enabled' means the widget is interactive and functional, while 'Disabled' means it is non-interactive and inactive.",
+            "options": [
+              "Enabled",
+              "Disabled"
+            ],
+            "value": "Enabled"
+          },
+          "show_labels": {
+            "type": "boolean",
+            "displayName": "Show Labels",
+            "description": "Determines whether labels should be displayed on the widget. When set to true, lables will be shown. When false, labels will be hidden.",
+            "value": "false"
+          },
+          "show_icons": {
+            "type": "boolean",
+            "displayName": "Show Icons",
+            "description": "Determines whether icons should be displayed on the widget. When set to true, icons will be shown. When false, icons will be hidden.",
+            "value": "false"
+          },
+          "start_icon": {
+            "type": "string",
+            "displayName": "Start Icon",
+            "description": "The icon to be displayed at the start of the widget. Select an appropriate icon from the available options.",
+            "value": "wi wi-minus",
+            "widget": "select-icon"
+          },
+          "end_icon": {
+            "type": "string",
+            "displayName": "End Icon",
+            "description": "The icon to be displayed at the end of the widget. Select an appropriate icon from the available options.",
+            "value": "wi wi-plus",
+            "widget": "select-icon"
+          },
+          "icon_actions": {
+            "type": "boolean",
+            "displayName": "Icon Actions",
+            "description": "Determines whether the icons on the widget are interactive. When set to true, icons will respond to user actions (e.g., clicks). When false, icons will be displayed but not interactive.",
+            "value": "false"
+          },
+          "value": {
+            "type": "string",
+            "displayName": "Default Value",
+            "description": "Sets the default value for the slider. This value is used when the widget is initially rendered.",
+            "value": "50"
+          },
+          "min_value": {
+            "type": "integer",
+            "displayName": "Minimum Value",
+            "description": "Specifies the smallest value the slider can be set to.",
+            "value": "0"
+          },
+          "max_value": {
+            "type": "integer",
+            "displayName": "Maximum Value",
+            "description": "Specifies the largest value the slider can be set to.",
+            "value": "100"
+          }
+        }
+      ],
+      "events": [
+        "<scope>.<widgetName>Incrementbuttonclick = function ($event, widget) {};",
+        "<scope>.<widgetName>Decrementbuttonclick = function ($event, widget) {};",
+        "<scope>.<widgetName>change = function ($event, widget, newVal, oldVal) {};"
+      ]
+    },
+    "common": {
+      "properties": [],
+      "methods": [],
+      "events": []
+    },
+    "mobile": {
+      "properties": [],
+      "methods": [],
+      "events": []
+    }
+  },
+  "custom_divider": {
+    "name": "custom_divider",
+    "web": {
+      "properties": [
+        {
+          "orientation": {
+            "type": "list",
+            "displayName": "Orientation",
+            "description": "Determines the style of the M3 divider being used. Default value is horizontal/full-width.",
+            "options": [
+              "horizontal/full-width",
+              "horizontal/middle-inset",
+              "horizontal/inset",
+              "vertical/full-width",
+              "vertical/middle-inset",
+              "vertical/inset"
+            ],
+            "value": "horizontal/full-width"
+          },
+          "vertical_height": {
+            "type": "integer",
+            "displayName": "Height (only for vertical)",
+            "description": "Determines the height of the vertical divider (in px)",
+            "value": 50
+          }
+        }
+      ],
+      "events": [
+        "<scope>.<widgetName>Render = function ($event, widget) {};"
+      ]
+    },
+    "common": {
+      "properties": [],
+      "methods": [],
+      "events": []
+    },
+    "mobile": {
+      "properties": [],
+      "methods": [],
+      "events": []
+    }
+  },
+  "custom_icon_button": {
+    "name": "custom_icon_button",
+    "web": {
+      "properties": [
+        {
+          "style": {
+            "type": "list",
+            "displayName": "Style",
+            "description": "Specifies the style of the widget. Options include 'Filled', 'Standard', and 'Outlined'.",
+            "options": [
+              "Filled",
+              "Standard",
+              "Outlined"
+            ],
+            "value": "Filled"
+          },
+          "state": {
+            "type": "list",
+            "displayName": "State",
+            "description": "Specifies whether the component is active or inactive. 'enabled' means the component is interactive and functional, while 'disabled' means it is non-interactive and inactive.",
+            "options": [
+              "Enabled",
+              "Disabled"
+            ],
+            "value": "Enabled"
+          },
+          "icon_class": {
+            "type": "string",
+            "displayName": "Icon class",
+            "description": "Specifies the icon class to be used inside icon button ",
+            "value": "fa fa-gear",
+            "widget": "select-icon"
+          },
+          "button_size": {
+            "type": "list",
+            "displayName": "Button size",
+            "description": "This is an optinal property. the value for this property must be either 'xs' for extrasmall etc.",
+            "options": [
+              "xs",
+              "sm",
+              "md",
+              "lg"
+            ],
+            "value": "md"
+          },
+          "color": {
+            "type": "list",
+            "displayName": "Tonal",
+            "description": "This is an optinal property. The value for this property must be either secondary, tertiary, success, error, info, warning.",
+            "options": [
+              "Default",
+              "Primary",
+              "Secondary",
+              "Tertiary",
+              "Success",
+              "Info",
+              "Warning",
+              "Error"
+            ],
+            "value": "Default"
+          }
+        }
+      ],
+      "events": [
+        "<scope>.<widgetName>Render = function ($event, widget) {};",
+        "<scope>.<widgetName>Focus = function ($event, widget) {};",
+        "<scope>.<widgetName>Blur = function ($event, widget) {};",
+        "<scope>.<widgetName>Click = function ($event, widget) {};",
+        "<scope>.<widgetName>Dbclick = function ($event, widget) {};",
+        "<scope>.<widgetName>Mouseenter = function ($event, widget) {};",
+        "<scope>.<widgetName>Mouseleave = function ($event, widget) {};"
+      ]
+    },
+    "common": {
+      "properties": [],
+      "methods": [],
+      "events": []
+    },
+    "mobile": {
+      "properties": [],
+      "methods": [],
+      "events": []
+    }
+  },
+  "custom_icon_button_toggleable": {
+    "name": "custom_icon_button_toggleable",
+    "web": {
+      "properties": [
+        {
+          "state": {
+            "type": "list",
+            "displayName": "State",
+            "description": "Specifies whether the component is active or inactive. 'enabled' means the component is interactive and functional, while 'disabled' means it is non-interactive and inactive.",
+            "options": [
+              "Enabled",
+              "Disabled"
+            ],
+            "value": "Enabled"
+          },
+          "style": {
+            "type": "list",
+            "displayName": "Style",
+            "description": "Specifies the style of the widget. Options include 'Filled', 'Standard', and 'Outlined'.",
+            "options": [
+              "Filled",
+              "Standard",
+              "Outlined"
+            ],
+            "value": "Filled"
+          },
+          "button_size": {
+            "type": "list",
+            "displayName": "Button size",
+            "description": "This is an optinal property. the value for this property must be either 'xs' for extrasmall etc.",
+            "options": [
+              "xs",
+              "sm",
+              "md",
+              "lg"
+            ],
+            "value": "md"
+          },
+          "color": {
+            "type": "list",
+            "displayName": "Tonal",
+            "description": "This is an optinal property. The value for this property must be either secondary, tertiary, success, error, info, warning.",
+            "options": [
+              "Default",
+              "Primary",
+              "Secondary",
+              "Tertiary",
+              "Success",
+              "Info",
+              "Warning",
+              "Error"
+            ],
+            "value": "Default"
+          },
+          "icon_class_unselected": {
+            "type": "string",
+            "displayName": "Unselected Icon class",
+            "description": "Specifies the icon class to use when the icon button toggleable is in the unselected state.",
+            "value": "fa fa-gear",
+            "widget": "select-icon"
+          },
+          "icon_class_selected": {
+            "type": "string",
+            "displayName": "Selected Icon class",
+            "description": "Specifies the icon class to use when the icon button toggleable is in the selected state.",
+            "value": "fa fa-gear",
+            "widget": "select-icon"
+          },
+          "selected": {
+            "type": "boolean",
+            "displayName": "Selected",
+            "description": "Specifies the default value of the icon button toggleable. This value is used to represent the state of the widget. For example, 'true' for checked and 'false' for unchecked.",
+            "value": "false"
+          }
+        }
+      ],
+      "events": [
+        "<scope>.<widgetName>Render = function ($event, widget) {};"
+      ]
+    },
+    "common": {
+      "properties": [],
+      "methods": [],
+      "events": []
+    },
+    "mobile": {
+      "properties": [],
+      "methods": [],
+      "events": []
+    }
+  },
+  "custom_input_chip": {
+    "name": "custom_input_chip",
+    "web": {
+      "properties": [
+        {
+          "state": {
+            "type": "list",
+            "displayName": "State",
+            "description": "Specifies whether the component is active or inactive. 'enabled' means the component is interactive and functional",
+            "options": [
+              "enabled"
+            ],
+            "value": "enabled"
+          },
+          "configuration": {
+            "type": "list",
+            "options": [
+              "Label only",
+              "Label & Leading icon",
+              "Label & avatar"
+            ],
+            "displayName": "Configuration",
+            "description": "Specifies to show/hide the Label, Leading Icon and avatar.",
+            "value": "Label only"
+          },
+          "show_closing_icon": {
+            "type": "boolean",
+            "displayName": "Show Closing icon",
+            "value": "false",
+            "description": "Specifies to show/hide the closing Icon."
+          },
+          "selected": {
+            "type": "boolean",
+            "displayName": "Selected",
+            "value": "false",
+            "description": "Specifies the default value of the input chip. This value is used to represent the state of the input chip. For example, 'true' for selected and 'false' for unselected."
+          },
+          "label_text": {
+            "type": "string",
+            "displayName": "Label text",
+            "description": "Specifies the label value of the Input chip.",
+            "value": "Label"
+          },
+          "leading_icon_class": {
+            "type": "string",
+            "displayName": "Leading Icon Class",
+            "description": "Allows to specify the icon for the Leading Icon/Button from wm icon library.",
+            "value": "fa fa-user",
+            "widget": "select-icon"
+          },
+          "trailing_icon_class": {
+            "type": "string",
+            "displayName": "Trailing Icon Class",
+            "description": "Allows to specify the icon for the Trailing Icon/Button from wm icon library.",
+            "value": "wi wi-clear",
+            "widget": "select-icon"
+          },
+          "picture_source": {
+            "type": "string",
+            "displayName": "Avatar Source",
+            "description": "Allows you to specify the source URL for the avatar image.",
+            "value": "resources/images/imagelists/default-image.png"
+          }
+        }
+      ],
+      "events": [
+        "<scope>.<widgetName>Render = function ($event, widget) {};"
+      ]
+    },
+    "common": {
+      "properties": [],
+      "methods": [],
+      "events": []
+    },
+    "mobile": {
+      "properties": [],
+      "methods": [],
+      "events": []
+    }
+  },
+  "custom_progressbar": {
+    "name": "custom_progressbar",
+    "web": {
+      "properties": [
+        {
+          "progress": {
+            "type": "string",
+            "displayName": "Progress",
+            "description": "Sets the current progress of the bar. This value represents the percentage of completion.",
+            "value": "0"
+          },
+          "linear_type": {
+            "type": "list",
+            "displayName": "Progress Type",
+            "description": "Specifies the type of progress bar. Options include 'determinate' for a fixed progress bar or 'indeterminate' for an animated progress bar without a fixed end.",
+            "options": [
+              "Determinate",
+              "Indeterminate"
+            ],
+            "value": "Determinate"
+          },
+          "color": {
+            "type": "list",
+            "displayName": "Color Variant",
+            "description": "Specifies the type of color for progress indicator. Options include like 'Success' for a success color progress indicator.",
+            "options": [
+              "Primary",
+              "Secondary",
+              "Tertiary",
+              "Success",
+              "Info",
+              "Warning",
+              "Error"
+            ],
+            "value": "Primary"
+          },
+          "transition_duration": {
+            "type": "string",
+            "displayName": "Transition Duration",
+            "description": "Defines the duration of the progress transition animation. This value should be specified in a time format such as '500ms' or '2s'.",
+            "value": "0.75s"
+          }
+        }
+      ],
+      "events": []
+    },
+    "common": {
+      "properties": [],
+      "methods": [],
+      "events": []
+    },
+    "mobile": {
+      "properties": [],
+      "methods": [],
+      "events": []
+    }
+  },
+  "custom_radio_set": {
+    "name": "custom_radio_set",
+    "web": {
+      "properties": [
+        {
+          "layout": {
+            "type": "list",
+            "displayName": "Layout",
+            "description": "Defines the orientation of the element. 'horizontal' indicates that the element's layout or behavior is aligned along the horizontal axis (left to right), while 'vertical' means the element is aligned along the vertical axis (top to bottom)",
+            "options": [
+              "horizontal",
+              "vertical"
+            ],
+            "value": "horizontal"
+          },
+          "state": {
+            "type": "list",
+            "displayName": "State",
+            "description": "Specifies whether the component is active or inactive. 'enabled' means the component is interactive and functional, while 'disabled' means it is non-interactive and inactive",
+            "options": [
+              "Enabled",
+              "Disabled"
+            ],
+            "value": "Enabled"
+          },
+          "label_placement": {
+            "type": "list",
+            "displayName": "Label Placement",
+            "description": "Specifies the label's position relative to the component. Options: 'top' (Label appears above the component), 'bottom' (Label appears below the component), 'start' (Label appears left of the component)",
+            "options": [
+              "top",
+              "bottom",
+              "start",
+              "end"
+            ],
+            "value": "end"
+          },
+          "label_text": {
+            "type": "string",
+            "displayName": "Label Text",
+            "description": "Label text informs users about what information is requested for a RadioSet",
+            "value": "Label Text"
+          },
+          "data_set": {
+            "type": "string",
+            "displayName": "Data Set Values",
+            "description": "Defines the available options for the data set, typically a list of labels such as 'Option1', 'Option2', 'Option3'",
+            "value": "Option1,Option2,Option3"
+          },
+          "default_value": {
+            "type": "string",
+            "displayName": "Default Value",
+            "description": "Specifies the default value for the checked attribute. Default is 'Option1'",
+            "value": ""
+          },
+          "required": {
+            "type": "boolean",
+            "displayName": "Required",
+            "description": "Indicates whether the RadioSet label is mandatory. True makes it required; false means it is optional",
+            "value": "false"
+          }
+        }
+      ],
+      "events": [
+        "<scope>.<widgetName>Change = function ($event, widget, newVal, oldVal) {};",
+        "<scope>.<widgetName>Focus = function ($event, widget) {};",
+        "<scope>.<widgetName>Blur = function ($event, widget) {};",
+        "<scope>.<widgetName>Keypress = function ($event, widget) {};",
+        "<scope>.<widgetName>Click = function ($event, widget) {};",
+        "<scope>.<widgetName>Mouseenter = function ($event, widget) {};",
+        "<scope>.<widgetName>Mouseleave = function ($event, widget) {};"
+      ]
+    },
+    "common": {
+      "properties": [],
+      "methods": [],
+      "events": []
+    },
+    "mobile": {
+      "properties": [],
+      "methods": [],
+      "events": []
+    }
+  },
+  "custom_switch_button": {
+    "name": "custom_switch_button",
+    "web": {
+      "properties": [
+        {
+          "switch_type": {
+            "type": "list",
+            "displayName": "Switch Type",
+            "description": "Specifies the style of the switch. Options include 'filled', 'condensed', and 'iOS'.",
+            "options": [
+              "Filled",
+              "Condensed",
+              "IOS"
+            ],
+            "value": "Filled"
+          },
+          "state": {
+            "type": "list",
+            "displayName": "State",
+            "description": "Specifies whether the component is active or inactive. 'enabled' means the component is interactive and functional, while 'disabled' means it is non-interactive and inactive.",
+            "options": [
+              "Enabled",
+              "Disabled"
+            ],
+            "value": "Enabled"
+          },
+          "label_text": {
+            "type": "string",
+            "displayName": "Label Text",
+            "description": "Sets the text displayed on the label of the switch.",
+            "value": ""
+          },
+          "icon": {
+            "type": "boolean",
+            "displayName": "Switch Icons",
+            "description": "Enables or disables icon options for the switch. If true, you can select icons for the switch.",
+            "value": "false"
+          },
+          "selected_icon": {
+            "type": "string",
+            "displayName": "Selected Icon",
+            "description": "Specifies the icon to use when the switch is in the selected state.",
+            "value": "fa fa-check",
+            "widget": "select-icon"
+          },
+          "unselected_icon": {
+            "type": "string",
+            "displayName": "Unselected Icon",
+            "description": "Specifies the icon to use when the switch is in the unselected state.",
+            "value": "fa fa-close",
+            "widget": "select-icon"
+          },
+          "selected": {
+            "type": "string",
+            "displayName": "Default Value",
+            "description": "Specifies the default value of the switch. This value is used to represent the state of the switch. For example, 'true' for checked and 'false' for unchecked.",
+            "value": "false"
+          },
+          "checked_value": {
+            "type": "string",
+            "displayName": "Checked Value",
+            "description": "Specifies the value to represent the switch when it is checked.",
+            "value": "true"
+          },
+          "unchecked_value": {
+            "type": "string",
+            "displayName": "Unchecked Value",
+            "description": "Specifies the value to represent the switch when it is unchecked.",
+            "value": "false"
+          },
+          "required": {
+            "type": "boolean",
+            "displayName": "Required",
+            "description": "Indicates whether the switch is required. Set to true to make it a required field.",
+            "value": "false"
+          }
+        }
+      ],
+      "events": [
+        "<scope>.<widgetName>Change = function ($event, widget, newVal, oldVal) {};",
+        "<scope>.<widgetName>Focus = function ($event, widget) {};",
+        "<scope>.<widgetName>Blur = function ($event, widget) {};",
+        "<scope>.<widgetName>Keypress = function ($event, widget) {};",
+        "<scope>.<widgetName>Mouseenter = function ($event, widget) {};",
+        "<scope>.<widgetName>Mouseleave = function ($event, widget) {};",
+        "<scope>.<widgetName>Click = function ($event, widget) {};"
+      ]
+    },
+    "common": {
+      "properties": [],
+      "methods": [],
+      "events": []
+    },
+    "mobile": {
+      "properties": [],
+      "methods": [],
+      "events": []
+    }
+  },
+  "wm.LiveVariable": {
+    "name": "wm.LiveVariable",
+    "common": {
+      "properties": [
+        {
+          "name": "dataSet",
+          "type": "object"
+        }
+      ],
+      "methods": [
+        {
+          "name": "listRecords",
+          "syntax": "<scope>.Variables.<crudVariableName>.listRecords();"
+        },
+        {
+          "name": "createRecord",
+          "syntax": "<scope>.Variables.<crudVariableName>.createRecord({ \"row\" :entityJsonObject});"
+        },
+        {
+          "name": "deleteRecord",
+          "syntax": "<scope>.Variables.<crudVariableName>.deleteRecord({ \"row\" :entityJsonObjectWithPrimaryKeyField});"
+        },
+        {
+          "name": "updateRecord",
+          "syntax": "<scope>.Variables.<crudVariableName>.updateRecord({ \"row\" :entityJsonObject});"
+        },
+        {
+          "name": "invoke",
+          "syntax": "<scope>.Variables.<crudVariableName>.invoke();",
+          "examples": [
+            {
+              "syntax": "<scope>.Variables.[variableName].setInput({ key: value });\n<scope>.Variables.[variableName].invoke();",
+              "code": "Page.Variables.getDepartmentDetails.setInput({ id: empId });\nPage.Variables.getDepartmentDetails.invoke();",
+              "explanation": "Sets input parameters using `setInput()` and invokes the variable to fetch data or perform an operation."
+            },
+            {
+              "syntax": "<scope>.Variables.[VariableName].invoke({ inputFields }, successCallback, errorCallback);",
+              "code": "App.Variables.wsGetCoreProjects.invoke({\n  inputFields: {\n    platformType: widget.item.platformType.toUpperCase() === 'MOBILE' ? 'NATIVE_MOBILE' : widget.item.platformType.toUpperCase(),\n    projectType: 'APPLICATION'\n  }\n}, function(data) {\n  enableCustomization(data);\n}, function(error) {\n  console.log(\"Error:\", error);\n});",
+              "explanation": "Invoke the variable with input fields and handle success/error inline for this call only."
+            }
+          ]
+        },
+        {
+          "name": "setInput",
+          "syntax": "<scope>.Variables.<crudVariableName>.setInput(<key1>, <value1>)",
+          "examples": [
+            {
+              "code": "var sv = Page.Variables.[variable_name];\nsv.setInput(\"fname\", \"Peter\");\nsv.setInput(\"lname\", \"Parker\");\nsv.invoke();",
+              "explanation": "Set input fields individually before invoking."
+            }
+          ]
+        },
+        {
+          "name": "setInput",
+          "syntax": "<scope>.Variables.<crudVariableName>.setInput({ <key1>: <value1>, <key2>: <value2> })",
+          "examples": [
+            {
+              "code": "var sv = Page.Variables.[variable_name];\nsv.setInput({\n  fname: \"Peter\",\n  lname: \"Parker\"\n});\nsv.invoke();",
+              "explanation": "Set multiple inputs in a single object before invoking."
+            }
+          ]
+        }
+      ],
+      "events": [
+        {
+          "JS_format": [
+            "<scope>.<variableName>onBeforeDatasetReady = function (variable, data) {}; // Example: Page.dbGetEmployeeonBeforeDatasetReady = function (variable, data) { data.forEach((item) => { item.studioProjectUrl = App.getStudioPath(item); }); return data; }; // Explanation: Runs before dataset is bound to the UI. Modifies each record by adding a computed URL using an App function.",
+            "<scope>.<variableName>onResult = function (variable, data) {}; // Example: Page.dbGetEmployeeonResult = function (variable, data) { console.log(\"onResult triggered:\", data); Page.Variables.filteredData.dataSet = data.filter(app => app.isActive); }; // Explanation: Filters only active entries and saves them to another variable.",
+            "<scope>.<variableName>onSuccess = function (variable, data) {}; // Example: Page.wsGetCoreProjectsonSuccess = function(variable, data) { console.log(\"Success handler triggered:\", data); }; // Explanation: Registers a permanent event handler for success.",
+            "<scope>.<variableName>onError = function (variable, data) {}; // Example: Page.jsCreateEmployeeonError = function (variable, data) { console.error(\"onError triggered:\", data); Page.Variables.hasError.dataSet = true; }; // Explanation: Logs the error and flags a variable on failure.",
+            "<scope>.<variableName>onBeforeInsertRecord = function (variable, inputData, options) {};",
+            "<scope>.<variableName>onBeforeListRecords = function (variable, dataFilter, options) {};",
+            "<scope>.<variableName>onCanUpdate = function (variable, data) {}; // Example: Page.jvInvokeServiceonCanUpdate = function (variable, inputData) { if (!inputData || !inputData.appName) { console.warn(\"Update blocked: Missing appName\"); return false; } return true; }; // Explanation: Prevents update call when 'appName' is missing in input."
+          ],
+          "variables.json format": [
+            "\"onCanUpdate\" : \"<variableName>onCanUpdate(variable, data, options)\"",
+            "\"onBeforeUpdate\" : \"<variableName>onBeforeUpdate(variable, inputData, options)\"",
+            "\"onResult\" : \"<variableName>onResult(variable, data, options)\"",
+            "\"onSuccess\" : \"<variableName>onSuccess(variable, data, options)\"",
+            "\"onError\" : \"<variableName>onError(variable, data, options)\"",
+            "\"onBeforeDatasetReady\" : \"<variableName>onBeforeDatasetReady(variable, data, options)\"",
+            "\"onBeforeInsertRecord\" : \"<variableName>onBeforeInsertRecord(variable, inputData, options)\"",
+            "\"onBeforeListRecords\" : \"<variableName>onBeforeListRecords(variable, dataFilter, options)\""
+          ]
+        }
+      ]
+    },
+    "web": {
+      "properties": [],
+      "methods": [],
+      "events": []
+    },
+    "mobile": {
+      "properties": [],
+      "methods": [],
+      "events": []
+    }
+  },
+  "wm.ServiceVariable": {
+    "name": "wm.ServiceVariable",
+    "common": {
+      "properties": [
+        {
+          "name": "dataSet",
+          "type": "object"
+        }
+      ],
+      "methods": [
+        {
+          "name": "invoke",
+          "syntax": "<scope>.Variables.<ServiceVariableName>.invoke();",
+          "parameters": [
+            {
+              "name": "options",
+              "type": "key value pairs",
+              "description": " It can have fields as inputFields (key-value pair of inputData), page (pagination for Query Service Variable), size (pagination for Query Service Variable), orderBy (pagination for Query Service Variable)"
+            },
+            {
+              "type": "successCallback",
+              "description": "an optional callback method called on successful invocation of the variable."
+            },
+            {
+              "type": "errorCallback",
+              "description": "an optional callback method called on error invocation of the variable."
+            }
+          ],
+          "examples": [
+            {
+              "syntax": "<scope>.Variables.[variableName].setInput({ key: value });\n<scope>.Variables.[variableName].invoke();",
+              "code": "Page.Variables.getDepartmentDetails.setInput({ id: empId });\nPage.Variables.getDepartmentDetails.invoke();",
+              "explanation": "Sets input parameters using `setInput()` and invokes the variable."
+            },
+            {
+              "syntax": "var sv = <scope>.Variables.[variableName];\nsv.invoke({ inputFields }, successCallback, errorCallback);",
+              "code": "var sv = Page.Variables.[variable_name];\nsv.invoke({ inputFields: { fname: \"Steve\", lname: \"Rogers\" } }, function(data) { console.log(\"success\", data); }, function(error) { console.log(\"error\", error); });",
+              "explanation": "Invoke with dynamic data, success, and error callbacks."
+            }
+          ]
+        },
+        {
+          "name": "cancel",
+          "syntax": "<scope>.Variables.<serviceVariableName>.cancel()"
+        },
+        {
+          "name": "setInput",
+          "syntax": "<scope>.Variables.<serviceVariableName>.setInput(<key1>, <value1>)",
+          "examples": [
+            {
+              "syntax": "var sv = <scope>.Variables.[variableName];\nsv.setInput('key', value);\nsv.invoke();",
+              "code": "var sv = Page.Variables.[variable_name];\nsv.setInput(\"fname\", \"Peter\");\nsv.setInput(\"lname\", \"Parker\");\nsv.invoke();",
+              "explanation": "Set input fields individually before invoking."
+            },
+            {
+              "syntax": "var sv = <scope>.Variables.[variableName];\nsv.setInput({ key1: value1, key2: value2 });\nsv.invoke();",
+              "code": "var sv = Page.Variables.[variable_name];\nsv.setInput({ fname: \"Peter\", lname: \"Parker\" });\nsv.invoke();",
+              "explanation": "Set multiple inputs in a single object before invoking."
+            }
+          ]
+        },
+        {
+          "name": "clearData",
+          "syntax": "<scope>.Variables.<serviceVariableName>.clearData()"
+        },
+        {
+          "name": "getData",
+          "syntax": "<scope>.Variables.<serviceVariableName>.getData()"
+        }
+      ],
+      "events": [
+        {
+          "JS_format": [
+            "<scope>.<variableName>onBeforeDatasetReady = function (variable, data) {}; // Example: Page.dbGetEmployeeonBeforeDatasetReady = function (variable, data) { data.forEach((item) => { item.studioProjectUrl = App.getStudioPath(item); }); return data; }; // Explanation: Runs before dataset is bound to the UI.",
+            "<scope>.<variableName>onResult = function (variable, data) {}; // Example: Page.dbGetEmployeeonResult = function (variable, data) { console.log(\"onResult triggered:\", data); Page.Variables.filteredData.dataSet = data.filter(app => app.isActive); }; // Explanation: Filters and sets data.",
+            "<scope>.<variableName>onSuccess = function (variable, data) {}; // Example: Page.wsGetCoreProjectsonSuccess = function(variable, data) { console.log(\"Success handler triggered:\", data); }; // Explanation: Registers a permanent event handler for success.",
+            "<scope>.<variableName>onError = function (variable, data) {}; // Example: Page.jsCreateEmployeeonError = function (variable, data) { console.error(\"onError triggered:\", data); Page.Variables.hasError.dataSet = true; }; // Explanation: Logs the error and flags a variable on failure.",
+            "<scope>.<variableName>onBeforeUpdate = function (variable, inputData) {}; // Example: Page.mdToggleDataonBeforeUpdate = function (variable, inputData) { inputData.lastModified = moment().format(); inputData.updatedBy = App.Variables.currentUser.dataSet.username; }; // Explanation: Adds metadata before update.",
+            "<scope>.<variableName>onCanUpdate = function (variable, data) {}; // Example: Page.jvInvokeServiceonCanUpdate = function (variable, inputData) { if (!inputData || !inputData.appName) { console.warn(\"Update blocked: Missing appName\"); return false; } return true; }; // Explanation: Prevents update call when 'appName' is missing in input."
+          ],
+          "variables.json format": [
+            "\"onCanUpdate\" : \"<variableName>onCanUpdate(variable, data, options)\"",
+            "\"onBeforeUpdate\" : \"<variableName>onBeforeUpdate(variable, inputData, options)\"",
+            "\"onResult\" : \"<variableName>onResult(variable, data, options)\"",
+            "\"onSuccess\" : \"<variableName>onSuccess(variable, data, options)\"",
+            "\"onError\" : \"<variableName>onError(variable, data, options)\"",
+            "\"onBeforeDatasetReady\" : \"<variableName>onBeforeDatasetReady(variable, data, options)\""
+          ]
+        }
+      ]
+    },
+    "web": {
+      "properties": [],
+      "methods": [],
+      "events": []
+    },
+    "mobile": {
+      "properties": [],
+      "methods": [],
+      "events": []
+    }
+  },
+  "wm.Variable": {
+    "name": "wm.Variable",
+    "common": {
+      "properties": [
+        {
+          "name": "dataSet",
+          "type": "any"
+        },
+        {
+          "name": "type",
+          "type": "string"
+        }
+      ],
+      "methods": [
+        {
+          "name": "setValue",
+          "syntax": "<scope>.Variables.<VariableName>.setValue(<key1>, <value1>)"
+        },
+        {
+          "name": "setData",
+          "syntax": "<scope>.Variables.<VariableName>.setData({ <key1>: <value1>, <key2>: <value2> })"
+        }
+      ],
+      "events": []
+    },
+    "web": {
+      "properties": [],
+      "methods": [],
+      "events": []
+    },
+    "mobile": {
+      "properties": [],
+      "methods": [],
+      "events": []
+    }
+  },
+  "wm.NavigationVariable": {
+    "name": "wm.NavigationVariable",
+    "common": {
+      "properties": [],
+      "syntax": "<scope>.Actions.variableName",
+      "methods": [
+        {
+          "name": "invoke",
+          "syntax": "<Scope>.Actions.<navigationActionName>.invoke();",
+          "examples": [
+            {
+              "syntax": "<scope>.Actions.goToPage_<PageName>.invoke();",
+              "code": "Page.Actions.goToPage_TestPage.invoke();",
+              "explanation": "Triggers navigation to 'TestPage' without passing any parameters."
+            },
+            {
+              "syntax": "<scope>.Actions.goToPage_<PageName>.invoke({ data: { key1: value1, key2: value2 } });",
+              "code": "Page.Actions.goToPage_EmployeeDetailsPage.invoke({ data: { 'paramDept': '1', 'paramEmpdId': '2' } });",
+              "explanation": "Navigates to 'EmployeeDetailsPage' and passes parameters."
+            }
+          ]
+        },
+        {
+          "name": "setData",
+          "syntax": "<Scope>.Actions.<navigationActionName>.setData({ 'param1': \"param value\",\"param2\": \"param value 2\" })",
+          "examples": [
+            {
+              "syntax": "<scope>.Actions.goToPage_<PageName>.nv.setData({ key: value }); nv.invoke();",
+              "code": "var nv = Partial.Actions.goToPage_TestPage;\nnv.setData({ 'param1': 'param value', 'param2': 'param value 2' });\nnv.invoke();",
+              "explanation": "Uses setData to pass values before invoking navigation."
+            }
+          ]
+        }
+      ],
+      "events": []
+    },
+    "web": {
+      "properties": [],
+      "methods": [],
+      "events": []
+    },
+    "mobile": {
+      "properties": [],
+      "methods": [],
+      "events": []
+    }
+  },
+  "wm.NotificationVariable": {
+    "name": "wm.NotificationVariable",
+    "common": {
+      "properties": [],
+      "syntax": "<scope>.Actions.variableName",
+      "methods": [
+        {
+          "name": "invoke",
+          "syntax": "<Scope>.Actions.<notificationActionName>.invoke();",
+          "examples": [
+            {
+              "syntax": "<scope>.Actions.<NotificationActionName>.invoke();",
+              "code": "Page.Actions.notificationAction1.invoke();",
+              "explanation": "Triggers the default notification action."
+            },
+            {
+              "syntax": "<scope>.Actions.<NotificationActionName>.invoke({ message: 'text', position: 'bottom right', class: 'info' });",
+              "code": "Partial.Actions.notificationAction1.invoke({ message: 'My custom message', position: 'bottom right', class: 'info' });",
+              "explanation": "Displays a custom toast notification."
+            },
+            {
+              "syntax": "<scope>.Actions.<NotificationActionName>.invoke({ data: { key: value } });",
+              "code": "Page.Actions.notificationAction1.invoke({ data: { mode: 'edit' } });",
+              "explanation": "Triggers a notification and sends a data object."
+            }
+          ]
+        },
+        {
+          "name": "setData",
+          "syntax": "<Scope>.Actions.<navigationActionName>.setData({ 'param1': \"param value\",\"param2\": \"param value 2\" })"
+        }
+      ],
+      "events": [
+        {
+          "JS_format": [
+            "<Scope>.<NotificationVariableName>onClick = function(variable, data){};",
+            "<Scope>.<NotificationVariableName>onHide = function(variable, data){};"
+          ],
+          "variables.json format": [
+            "\"onClick\" : \"<variableName>onClick(variable, data, options)\"",
+            "\"onHide\" : \"<variableName>onHide(variable, data, options)\""
+          ]
+        }
+      ]
+    },
+    "web": {
+      "properties": [],
+      "methods": [],
+      "events": []
+    },
+    "mobile": {
+      "properties": [],
+      "methods": [],
+      "events": []
+    }
+  },
+  "wm.LogoutVariable": {
+    "name": "wm.LogoutVariable",
+    "common": {
+      "properties": [],
+      "syntax": "<scope>.Actions.variableName",
+      "methods": [
+        {
+          "name": "logout",
+          "syntax": "<Scope>.Actions.<logoutVariableName>.logout();",
+          "examples": [
+            {
+              "syntax": "<scope>.Actions.<logoutVariableName>.logout();",
+              "code": "Page.Actions.logoutaction1.logout();",
+              "explanation": "Triggers the logout action"
+            }
+          ]
+        }
+      ],
+      "events": [
+        {
+          "JS_format": [
+            "<scope>.<variableName>onBeforeDatasetReady = function (variable, data) {};",
+            "<scope>.<variableName>onResult = function (variable, data) {};",
+            "<scope>.<variableName>onSuccess = function (variable, data) {};",
+            "<scope>.<variableName>onError = function (variable, data) {};",
+            "<scope>.<variableName>onBeforeUpdate = function (variable, inputData) {};",
+            "<scope>.<variableName>onCanUpdate = function (variable, data) {};"
+          ],
+          "variables.json format": [
+            "\"onCanUpdate\" : \"<variableName>onCanUpdate(variable, data, options)\"",
+            "\"onBeforeUpdate\" : \"<variableName>onBeforeUpdate(variable, inputData, options)\"",
+            "\"onResult\" : \"<variableName>onResult(variable, data, options)\"",
+            "\"onSuccess\" : \"<variableName>onSuccess(variable, data, options)\"",
+            "\"onError\" : \"<variableName>onError(variable, data, options)\"",
+            "\"onBeforeDatasetReady\" : \"<variableName>onBeforeDatasetReady(variable, data, options)\""
+          ]
+        }
+      ]
+    },
+    "web": {
+      "properties": [],
+      "methods": [],
+      "events": []
+    },
+    "mobile": {
+      "properties": [],
+      "methods": [],
+      "events": []
+    }
+  },
+  "wm.LoginVariable": {
+    "name": "wm.LoginVariable",
+    "common": {
+      "properties": [],
+      "syntax": "<scope>.Actions.variableName",
+      "methods": [
+        {
+          "name": "login",
+          "syntax": "<Scope>.Actions.<loginVariableName>.login();",
+          "examples": [
+            {
+              "syntax": "<scope>.Actions.<loginVariableName>.login();",
+              "code": "Page.Actions.loginaction1.login();",
+              "explanation": "Triggers the login action"
+            }
+          ]
+        },
+        {
+          "name": "setData",
+          "syntax": "<Scope>.Actions.<loginVariableName>.setData({ 'param1': \"param value\",\"param2\": \"param value 2\" })",
+          "default params": "j_username, j_password, j_rememberme"
+        }
+      ],
+      "events": [
+        {
+          "JS_format": [
+            "<scope>.<variableName>onBeforeDatasetReady = function (variable, data) {};",
+            "<scope>.<variableName>onResult = function (variable, data) {};",
+            "<scope>.<variableName>onSuccess = function (variable, data) {};",
+            "<scope>.<variableName>onError = function (variable, data) {};",
+            "<scope>.<variableName>onBeforeUpdate = function (variable, inputData) {};",
+            "<scope>.<variableName>onCanUpdate = function (variable, data) {};"
+          ],
+          "variables.json format": [
+            "\"onCanUpdate\" : \"<variableName>onCanUpdate(variable, data, options)\"",
+            "\"onBeforeUpdate\" : \"<variableName>onBeforeUpdate(variable, inputData, options)\"",
+            "\"onResult\" : \"<variableName>onResult(variable, data, options)\"",
+            "\"onSuccess\" : \"<variableName>onSuccess(variable, data, options)\"",
+            "\"onError\" : \"<variableName>onError(variable, data, options)\"",
+            "\"onBeforeDatasetReady\" : \"<variableName>onBeforeDatasetReady(variable, data, options)\""
+          ]
+        }
+      ]
+    },
+    "web": {
+      "properties": [],
+      "methods": [],
+      "events": []
+    },
+    "mobile": {
+      "properties": [],
+      "methods": [],
+      "events": []
+    }
+  },
+  "wm.TimerVariable": {
+    "name": "wm.TimerVariable",
+    "common": {
+      "properties": [
+        {
+          "name": "delay",
+          "type": "integer",
+          "description": "delay in millieseconds"
+        },
+        {
+          "name": "repeating",
+          "type": "boolean",
+          "description": "Repeat after delay"
+        },
+        {
+          "name": "startUpdate",
+          "type": "boolean",
+          "description": "fire on page load"
+        }
+      ],
+      "syntax": "<scope>.Actions.variableName",
+      "methods": [
+        {
+          "name": "fire",
+          "syntax": "<Scope>.Actions.<TimerVariableName>.fire();",
+          "examples": [
+            {
+              "syntax": "<scope>.Actions.<TimerVariableName>.fire();",
+              "code": "Page.Actions.timerVariableName.fire();",
+              "explanation": "Triggers the default timer action."
+            }
+          ]
+        }
+      ],
+      "events": [
+        {
+          "JS_format": [
+            "<Scope>.<TimerVariableName>onTimerFire = function(variable, data){};"
+          ],
+          "variables.json format": [
+            "\"onTimerFire\" : \"<variableName>onTimerFire(variable, data, options)\""
+          ]
+        }
+      ]
+    },
+    "web": {
+      "properties": [],
+      "methods": [],
+      "events": []
+    },
+    "mobile": {
+      "properties": [],
+      "methods": [],
+      "events": []
+    }
+  },
+  "wm.DeviceVariable": {
+    "name": "wm.DeviceVariable",
+    "common": {
+      "properties": [],
+      "methods": [],
+      "events": []
+    },
+    "web": {
+      "properties": [],
+      "methods": [],
+      "events": []
+    },
+    "mobile": {
+      "properties": [
+        {
+          "name": "dataSet",
+          "type": "any"
+        }
+      ],
+      "methods": [
+        {
+          "name": "invoke",
+          "syntax": "<scope>.Variables.<DeviceVariableName>.invoke();",
+          "parameters": [
+            {
+              "name": "options",
+              "type": "key value pairs",
+              "description": " It can have fields as inputFields (key-value pair of inputData), page (pagination for Query Service Variable), size (pagination for Query Service Variable), orderBy (pagination for Query Service Variable)"
+            },
+            {
+              "type": "successCallback",
+              "description": "an optional callback method called on successful invocation of the variable."
+            },
+            {
+              "type": "errorCallback",
+              "description": "an optional callback method called on error invocation of the variable."
+            }
+          ]
+        }
+      ],
+      "events": []
+    }
+  },
+  "DialogService": {
+    "name": "DialogService",
+    "common": {
+      "properties": [
+        {
+          "name": "appConfirmDialog",
+          "description": "Name of the app confirmation dialog"
+        },
+        {
+          "name": "dialogRefsCollection",
+          "description": "Map of all dialog references",
+          "example": "DialogService.dialogRefsCollection = Map(6) {'oAuthLoginDialog' => Map(1), 'CommonLoginDialog' => Map(1), 'CommonAlertDialog' => Map(1), 'CommonConfirmDialog' => Map(1), 'dialog1' => Map(1)}"
+        }
+      ],
+      "methods": [
+        {
+          "name": "getDialogRef",
+          "description": "Returns the dialog reference for the given dialog name",
+          "syntax example": "dialogService.getDialogRef('cropperDialog')"
+        },
+        {
+          "name": "open",
+          "description": "Opens the specified dialog. Use this to open/show any dialog",
+          "syntax example": "dialogService.open('paymentDialog')"
+        },
+        {
+          "name": "close",
+          "description": "Closes the specified dialog. Use this to open/show any dialog",
+          "syntax example": "dialogService.close('alertDialog')"
+        },
+        {
+          "name": "setAppConfirmDialog",
+          "description": "Sets the reference for the app confirmation dialog",
+          "syntax example": "dialogService.setAppConfirmDialog('confirmDialog')"
+        },
+        {
+          "name": "getAppConfirmDialog",
+          "description": "Gets the reference of the app confirmation dialog",
+          "syntax example": "dialogService.getAppConfirmDialog()"
+        },
+        {
+          "name": "closeAllDialogs",
+          "description": "Closes all open dialogs",
+          "syntax example": "dialogService.closeAllDialogs()"
+        },
+        {
+          "name": "getDialogRefsCollection",
+          "description": "Returns the map of all dialog references",
+          "syntax example": "dialogService.getDialogRefsCollection()"
+        },
+        {
+          "name": "getOpenedDialogs",
+          "description": "Returns a list of currently opened dialogs",
+          "syntax example": "dialogService.getOpenedDialogs()"
+        },
+        {
+          "name": "showAppConfirmDialog",
+          "description": "Opens the app confirmation dialog",
+          "syntax example": "dialogService.showAppConfirmDialog()"
+        },
+        {
+          "name": "closeAppConfirmDialog",
+          "description": "Closes the app confirmation dialog",
+          "syntax example": "dialogService.closeAppConfirmDialog()"
+        },
+        {
+          "name": "getLastOpenedDialog",
+          "description": "Returns the last opened dialog",
+          "syntax example": "dialogService.getLastOpenedDialog()"
+        }
+      ]
+    },
+    "mobile": {
+      "properties": [],
+      "methods": [],
+      "events": []
+    },
+    "web": {
+      "properties": [],
+      "methods": [],
+      "events": []
+    }
+  },
+  "Highcharts": {
+    "name": "Highcharts",
+    "common": {
+      "HighchartsInstructionsDocument": {
+        "HighchartsIntegrationInstructions": {
+          "FileToUpdate": "src/main/webapp/index.html",
+          "ChartContainerDiv": {
+            "Instruction": "Always take input from the user regarding the id of the HTML div element where the Highcharts chart should be rendered.",
+            "ExampleHTML": "<div id='userProvidedDivId' style='width:100%; height:400px;'></div>",
+            "TargetCode": "Highcharts.chart('userProvidedDivId', { /* chart options */ });"
+          },
+          "RequiredCDNLinks": {
+            "Instruction": "Include the required Highcharts CDN links in the <head> or before the closing </body> tag of src/main/webapp/index.html using ~{mcp_platform-server_putProjectFileContent}.",
+            "Links": [
+              "https://code.highcharts.com/highcharts.js",
+              "https://code.highcharts.com/modules/exporting.js",
+              "https://code.highcharts.com/modules/export-data.js",
+              "https://code.highcharts.com/modules/accessibility.js",
+              "https://code.highcharts.com/modules/treemap.js"
+            ]
+          }
+        }
+      }
+    },
+    "mobile": {
+      "properties": [],
+      "methods": [],
+      "events": []
+    },
+    "web": {
+      "properties": [],
+      "methods": [],
+      "events": []
+    }
+  }
+}

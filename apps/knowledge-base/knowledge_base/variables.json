@@ -1,0 +1,396 @@
+[
+    {
+        "variable": "wmLiveVariable",
+        "description": "This is a Database variable in sync with a databse table, can be used to all the CRUD operation like create, read, update, delete a record from database.",
+        "methods": [
+            {
+                "name": "listRecords",
+                "description": "This method updates the Variable’s dataSet with new data by making a call to the Live DB Service.",
+                "syntax": "<scope>.Variables.<crudVariableName>.listRecords();",
+                "returnType": "jsonObject",
+                "parameters": [
+                    {
+                        "name": "options",
+                        "optional": true,
+                        "type": "json",
+                        "description": " The object can have fields as filterFields - key-value pairs of fields for filtering read calls as {“key”: “value”}"
+                    },
+                    {
+                        "type": "successCallback",
+                        "description": "an optional callback method called on successful invocation of the variable."
+                    },
+                    {
+                        "type": "errorCallback",
+                        "description": "an optional callback method called on error invocation of the variable."
+                    }
+                ],
+                "examples": [
+                    "var lv = Page.Variables.HrdbEmployeeData;// Example 1: Get all data for Employees tablelv.listRecords({}, function(data) { // Success Callback console.log('success', data) }, function(error) { // Error Callback console.error('error', error)});var lv = Page.Variables.HrdbEmployeeData;// Example 2: Set custom page and sizelv.listRecords({ \"page\": 2, \"pagesize\": 5 }, function(data) { // Success Callback console.log('success', data) }, function(error) { // Error Callback console.error('error', error) });var lv = Page.Variables.HrdbEmployeeData;// Example 3: Get data filtered on the table fieldslv.listRecords({ filterFields: { \"city\": { \"value\": \"New York\" } } }, function(data) { // Success Callback console.log('success', data) }, function(error) { // Error Callback console.error('error', error) });",
+                    "lv.listRecords({ filterFields: { \"deptId\": { \"value\": 1, \"matchMode\": \"EQUALS\" }, \"empId\": { \"value\": 1, \"matchMode\": \"GREATER_THAN\" } }, orderBy: \"empId desc, firstname desc\"});"
+                ]
+            },
+            {
+                "name": "createRecord",
+                "description": "This method creates a record and insert the row in the variable's source table",
+                "syntax": "<scope>.Variables.<crudVariableName>.createRecord({ \"row\" :entityJsonObject});",
+                "returnType": "jsonObject",
+                "parameters": [
+                    {
+                        "name": "options",
+                        "optional": true,
+                        "type": "json",
+                        "description": "This object can have fields as a row - record object as {\"field\": \"value\"}. Complete record object should be passed along with the primary key."
+                    },
+                    {
+                        "type": "successCallback",
+                        "description": "an optional callback method called on successful invocation of the variable."
+                    },
+                    {
+                        "type": "errorCallback",
+                        "description": "an optional callback method called on error invocation of the variable."
+                    }
+                ],
+                "examples": [
+                    "var lv = Page.Variables.HrdbEmployeeData;// Example 1: Insert a record into Employee tablelv.createRecord({ row: { 'firstname': \"Steve\", 'lastname': \"Rogers\", \"username\": \"steve.rogers\" }}, function(data) { // Success Callback console.log(\"Successfully inserted employee:\", data); // Output: // Successfully inserted employee: {empId: 11, firstname: “Steve”,...}}, function(error) { // Error Callback console.error(\"error while inserting employee\", error)});",
+                    "var sv = Page.Variables.[variable_name]; sv.createRecord({ \"row\": { \"fname\": \"Steve\", \"lname\": \"rogers\" } }, function(data) { console.log(\"creaded row\", data); }, function(error) { console.log(\"error\", error) });",
+                    "var sv = Partial.Variables.[variable_name]; sv.createRecord({ \"row\": { \"fname\": \"Steve\", \"lname\": \"rogers\" } });"
+                ]
+            },
+            {
+                "name": "deleteRecord",
+                "description": "This method deletes the record with the passed row primary key valueed row in variable's source table",
+                "syntax": "<scope>.Variables.<crudVariableName>.deleteRecord({ \"row\" :entityJsonObjectWithPrimaryKeyField});",
+                "returnType": "jsonObject",
+                "parameters": [
+                    {
+                        "name": "options",
+                        "optional": true,
+                        "type": "json",
+                        "description": "This object can have fields as a row - record object as {\"field\": \"value\"}. Complete record object should be passed along with the primary key."
+                    },
+                    {
+                        "type": "successCallback",
+                        "description": "an optional callback method called on successful invocation of the variable."
+                    },
+                    {
+                        "type": "errorCallback",
+                        "description": "an optional callback method called on error invocation of the variable."
+                    }
+                ],
+                "examples": [
+                    "var lv = Page.Variables.HrdbEmployeeData;// delete a recordlv.deleteRecord({ row: { \"empId\": 11 // primary key } }, function(success) { // Success Callback console.log(\"successfully deleted employee (boolean)\", success); }, function(error) { // Error Callback console.error(\"error while deleting employee\", error)});",
+                    "var sv = Page.Variables.[variable_name]; sv.deleteRecord({ \"row\": { \"emp_id\": 21 } }, function(data) { console.log(\"deleted row\", data); }, function(error) { console.log(\"error\", error) });",
+                    "var sv = Partial.Variables.[variable_name]; sv.deleteRecord({ \"row\": { \"emp_id\": 21 } });"
+                ]
+            },
+            {
+                "name": "updateRecord",
+                "description": "This method updates the variable's source table record with passed json row data",
+                "syntax": "<scope>.Variables.<crudVariableName>.updateRecord({ \"row\" :entityJsonObject});",
+                "returnType": "jsonObject",
+                "parameters": [
+                    {
+                        "name": "options",
+                        "optional": true,
+                        "type": "json",
+                        "description": "This object can have fields as a row - record object as {\"field\": \"value\"}. Complete record object should be passed along with the primary key."
+                    },
+                    {
+                        "type": "successCallback",
+                        "description": "an optional callback method called on successful invocation of the variable."
+                    },
+                    {
+                        "type": "errorCallback",
+                        "description": "an optional callback method called on error invocation of the variable."
+                    }
+                ],
+                "examples": [
+                    "var lv = Page.Variables.HrdbEmployeeData; // Example 1: Update a record lv.updateRecord({ row: { \"empId\": 11, \"firstname\": \"Steve\", \"lastname\": \"Rogers\", \"username\": \"captain.steve\" } }, function(data) { // Success Callback console.log(\"successfully updated employee\", data); }, function(error) { // Error Callback console.error(\"error while updating employee\", error) });",
+                    "var sv = Page.Variables.[variable_name]; sv.updateRecord({ \"row\": { \"emp_id\": 21, \"fname\": \"Steve\", \"lname\": \"rogers\" } }, function(data) { console.log(\"creaded row\", data); }, function(error) { console.log(\"error\", error) });",
+                    "var sv = Partial.Variables.[variable_name]; sv.updateRecord({ \"row\": { \"emp_id\": 21, \"fname\": \"Steve\", \"lname\": \"rogers\" } });"
+                ]
+            },
+            {
+                "name": "invoke",
+                "description": "This method updates the Variable’s dataSet with new data by making a call to the target service",
+                "syntax": "<scope>.Variables.<crudVariableName>.invoke();",
+                "returnType": "void",
+                "parameters": [
+                    {
+                        "name": "inputFields",
+                        "optional": true,
+                        "type": "key value pairs",
+                        "description": "key value pairs of inputs"
+                    },
+                    {
+                        "type": "successCallback",
+                        "description": "an optional callback method called on successful invocation of the variable."
+                    },
+                    {
+                        "type": "errorCallback",
+                        "description": "an optional callback method called on error invocation of the variable."
+                    }
+                ],
+                "examples": [
+                    "var sv = Page.Variables.[variable_name]; sv.invoke({ \"inputFields\": { \"fname\": \"Steve\" } }, function(data) { console.log(\"success\", data); }, function(error) { console.log(\"error\", error) });",
+                    "var sv = Page.Variables.[variable_name]; sv.invoke();",
+                    "// no inputFields \n var sv = Page.Variables.[variable_name]; sv.invoke({}, function(data) => {console.log(\"variable invokation successfull\", data)});",
+                    "// no inputFields \n var sv = Page.Variables.[variable_name]; sv.invoke(null, null, function(error) => {console.log(\"variable call failed\", error)});"
+                ]
+            },
+            {
+                "name": "setInput",
+                "description": "This method sets the input field value against the specified field(key).",
+                "syntax": "<scope>.Variables.<crudVariableName>.setInput(<key1>, <value1>)",
+                "returnType": "void",
+                "parameters": [
+                    {
+                        "name": "key",
+                        "optional": false,
+                        "type": "string",
+                        "description": "name of the input field"
+                    },
+                    {
+                        "name": "value",
+                        "optional": false,
+                        "type": "any",
+                        "description": "value for the input field"
+                    }
+                ],
+                "examples": [
+                    "var lv = Page.Variables.HrdbEmployeeData; lv.setInput(\"firstname\", \"Tony\"); lv.setInput(\"lastname\", \"Stark\"); lv.createRecord();"
+                ]
+            },
+            {
+                "name": "setInput",
+                "description": "This method can also be used to set all the specified key-value pairs as input fields in the variable.",
+                "syntax": "<scope>.Variables.<crudVariableName>.setInput({ <key1>: <value1>, <key2>: <value2> })",
+                "returnType": "void",
+                "parameters": [
+                    {
+                        "name": "key",
+                        "optional": false,
+                        "type": "string",
+                        "description": "name of the input field"
+                    },
+                    {
+                        "name": "value",
+                        "optional": false,
+                        "type": "any",
+                        "description": "value for the input field"
+                    }
+                ],
+                "examples": [
+                    "var lv = Page.Variables.HrdbEmployeeData; lv.setInput({ \"firstname\": \"Peter\", \"lastname\": \"Parker\" }); lv.createRecord();"
+                ]
+            }
+        ],
+        "properties": [
+            {
+                "name": "dataSet",
+                "description": "dataSet is the object of data of the variable. this will be the output of the variable after invokation"
+            }
+        ]
+    },
+    {
+        "variable": "wmServiceVariable",
+        "description": "This variable is an service created to call an API or a Java service",
+        "methods": [
+            {
+                "name": "invoke",
+                "description": "This method updates the Variable’s dataSet with new data by making a call to the target service.",
+                "syntax": "<scope>.Variables.<ServiceVariableName>.invoke();",
+                "returnType": "void",
+                "parameters": [
+                    {
+                        "name": "options",
+                        "optional": true,
+                        "type": "key value pairs",
+                        "description": " It can have fields as inputFields (key-value pair of inputData), page (pagination for Query Service Variable), size (pagination for Query Service Variable), orderBy (pagination for Query Service Variable)"
+                    },
+                    {
+                        "type": "successCallback",
+                        "description": "an optional callback method called on successful invocation of the variable."
+                    },
+                    {
+                        "type": "errorCallback",
+                        "description": "an optional callback method called on error invocation of the variable."
+                    }
+                ],
+                "examples": [
+                    "var sv = Page.Variables.[variable_name]; sv.invoke({ \"inputFields\": { \"fname\": \"Steve\", \"lname\": \"Rogers\" } }, function(data) { // Success Callback console.log(\"success\", data); }, function(error) { // Error Callback console.log(\"error\", error) });"
+                ]
+            },
+            {
+                "name": "cancel",
+                "description": "This method aborts the current inflight variable request.",
+                "syntax": "<scope>.Variables.<serviceVariableName>.cancel()",
+                "returnType": "void",
+                "parameters": [],
+                "examples": [
+                    "Page.Variables.[variable_name].cancel();"
+                ]
+            },
+            {
+                "name": "setInput",
+                "description": "This method sets the input field value against the specified field(key).",
+                "syntax": "<scope>.Variables.<serviceVariableName>.setInput(<key1>, <value1>)",
+                "returnType": "Updated inputFields object",
+                "parameters": [
+                    {
+                        "name": "key",
+                        "optional": false,
+                        "type": "string",
+                        "description": "name of the input field"
+                    },
+                    {
+                        "name": "value",
+                        "optional": false,
+                        "type": "any",
+                        "description": "value for the input field"
+                    }
+                ],
+                "examples": [
+                    "var sv = Page.Variables.[variable_name]; sv.setInput(\"fname\", \"Peter\"); sv.setInput(\"lname\", \"Parker\"); sv.invoke();"
+                ]
+            },
+            {
+                "name": "setInput",
+                "description": "This method can also be used to set all the specified key-value pairs as input fields in the variable.",
+                "syntax": "<scope>.Variables.<serviceVariableName>.setInput({ <key1>: <value1>, <key2>: <value2> })",
+                "returnType": "Updated inputFields object",
+                "parameters": [
+                    {
+                        "name": "key",
+                        "optional": false,
+                        "type": "string",
+                        "description": "name of the input field"
+                    },
+                    {
+                        "name": "value",
+                        "optional": false,
+                        "type": "any",
+                        "description": "value for the input field"
+                    }
+                ],
+                "examples": [
+                    "var sv = Page.Variables.[variable_name]; sv.setInput({ \"fname\": \"Peter\", \"lname\": \"Parker\" }); sv.invoke();"
+                ]
+            },
+            {
+                "name": "clearData",
+                "description": "This method clears the variable dataSet.",
+                "syntax": "<scope>.Variables.<serviceVariableName>.clearData()",
+                "returnType": "Updated(empty) dataSet of the variable",
+                "parameters": [
+                    {
+                        "name": "key",
+                        "optional": false,
+                        "type": "string",
+                        "description": "name of the input field"
+                    },
+                    {
+                        "name": "value",
+                        "optional": false,
+                        "type": "any",
+                        "description": "value for the input field"
+                    }
+                ],
+                "examples": [
+                    "var result = Page.Variables.[variable_name].clearData(); console.log(\"result:\", result); // Output: // result: {}"
+                ]
+            },
+            {
+                "name": "getData",
+                "description": "This method returns the variable’s dataSet, i.e., the current data stored in the variable through the listrecords method.",
+                "syntax": "<scope>.Variables.<serviceVariableName>.getData()",
+                "returnType": "Array of record objects",
+                "parameters": [
+                    {
+                        "name": "key",
+                        "optional": false,
+                        "type": "string",
+                        "description": "name of the input field"
+                    },
+                    {
+                        "name": "value",
+                        "optional": false,
+                        "type": "any",
+                        "description": "value for the input field"
+                    }
+                ],
+                "examples": [
+                    "var result = Page.Variables.[variable_name].getData(); console.log(\"result:\", result); // Output: // result: {data in the variable}"
+                ]
+            }
+        ],
+        "properties": [
+            {
+                "name": "dataSet",
+                "description": "dataSet is the object of data of the variable. This will be the output of the variable after invokation."
+            }
+        ]
+    },
+    {
+        "variable": "wmVariable",
+        "description": "This variable is called static variable or model variable, this is used to store data to pass between pages. there is no invoke method to this variable",
+        "methods": [
+            {
+                "name": "setValue",
+                "description": "This method sets the input field value against the specified field(key).",
+                "syntax": "<scope>.Variables.<serviceVariableName>.setValue(<key1>, <value1>)",
+                "returnType": "Updated inputFields object",
+                "parameters": [
+                    {
+                        "name": "key",
+                        "optional": false,
+                        "type": "string",
+                        "description": "name of the input field"
+                    },
+                    {
+                        "name": "value",
+                        "optional": false,
+                        "type": "any",
+                        "description": "value for the input field"
+                    }
+                ],
+                "examples": [
+                    "var sv = Page.Variables.[variable_name]; sv.setValue(\"fname\", \"Peter\"); sv.setValue(\"lname\", \"Parker\");"
+                ]
+            },
+            {
+                "name": "setData",
+                "description": "This method can also be used to set all the specified key-value pairs as input fields in the variable.",
+                "syntax": "<scope>.Variables.<serviceVariableName>.setData({ <key1>: <value1>, <key2>: <value2> })",
+                "returnType": "Updated inputFields object",
+                "parameters": [
+                    {
+                        "name": "key",
+                        "optional": false,
+                        "type": "string",
+                        "description": "name of the input field"
+                    },
+                    {
+                        "name": "value",
+                        "optional": false,
+                        "type": "any",
+                        "description": "value for the input field"
+                    }
+                ],
+                "examples": [
+                    "var sv = Page.Variables.[variable_name]; sv.setData({ \"fname\": \"Peter\", \"lname\": \"Parker\" });"
+                ]
+            }
+        ],
+        "properties": [
+            {
+                "name": "dataSet",
+                "description": "dataSet is the object of data of the variable, either it is Entry(Object) data or string or number or boolean or list of data."
+            },
+            {
+                "name": "type",
+                "description": "This is the type of variable. this can be boolean/date/integer/string/entry(object)"
+            }
+        ]
+    }
+]

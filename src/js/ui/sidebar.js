@@ -14,23 +14,111 @@ class WaveMakerCopilotSidebar {
         this.observers = [];
         this.initialize();
         this.setupToastObserver();
+        this.configureMarked();
+    }
+
+    configureMarked() {
+        const self = this;
+        const renderer = new marked.Renderer();
+
+        renderer.code = function (code, language) {
+            // Handle the case where marked passes an object (newer versions)
+            let codeText = code;
+            let lang = language;
+            if (typeof code === 'object' && code !== null) {
+                codeText = code.text || '';
+                lang = code.lang || '';
+            }
+            lang = (lang || '').trim();
+            const langLabel = self.escapeHtml(lang || 'text');
+            let highlighted = self.escapeHtml(codeText);
+            if (typeof window !== 'undefined' && window.Prism && lang) {
+                const grammar = Prism.languages[lang];
+                // Only call highlight when we have a real grammar object (not a function like .extend)
+                if (grammar && typeof grammar === 'object') {
+                    try {
+                        highlighted = Prism.highlight(codeText, grammar, lang);
+                    } catch (_e) {
+                        // Fall back to escaped text on any Prism error
+                    }
+                }
+            }
+            const id = 'cb-' + Math.random().toString(36).slice(2, 9);
+            return `<div class="code-block" data-code-id="${id}">
+                <div class="code-block-header">
+                    <span class="language-label">${langLabel}</span>
+                    <button class="copy-button" type="button" data-copy-target="${id}">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                        </svg>
+                        <span>Copy</span>
+                    </button>
+                </div>
+                <div class="code-content"><pre><code class="language-${langLabel}">${highlighted}</code></pre></div>
+            </div>`;
+        };
+
+        renderer.table = function (header, body) {
+            // Handle newer marked versions that pass an object
+            if (typeof header === 'object' && header !== null) {
+                const token = header;
+                let headerHtml = '<tr>';
+                if (token.header) {
+                    token.header.forEach(cell => {
+                        const align = cell.align ? ` style="text-align:${cell.align}"` : '';
+                        const cellText = cell.tokens ? marked.parser([{ type: 'paragraph', tokens: cell.tokens }]) : (cell.text || '');
+                        headerHtml += `<th${align}>${cellText}</th>`;
+                    });
+                }
+                headerHtml += '</tr>';
+
+                let bodyHtml = '';
+                if (token.rows) {
+                    token.rows.forEach(row => {
+                        bodyHtml += '<tr>';
+                        row.forEach(cell => {
+                            const align = cell.align ? ` style="text-align:${cell.align}"` : '';
+                            const cellText = cell.tokens ? marked.parser([{ type: 'paragraph', tokens: cell.tokens }]) : (cell.text || '');
+                            bodyHtml += `<td${align}>${cellText}</td>`;
+                        });
+                        bodyHtml += '</tr>';
+                    });
+                }
+                return `<div class="table-wrapper"><table><thead>${headerHtml}</thead><tbody>${bodyHtml}</tbody></table></div>`;
+            }
+            return `<div class="table-wrapper"><table><thead>${header}</thead><tbody>${body}</tbody></table></div>`;
+        };
+
+        marked.setOptions({
+            renderer,
+            breaks: true,
+            gfm: true
+        });
     }
 
     initialize() {
         // Create sidebar element
         this.sidebarElement = document.createElement('div');
         this.sidebarElement.className = 'wm-copilot-sidebar';
-        
+
         // Add sidebar content
         this.sidebarElement.innerHTML = `
+            <div class="sidebar-resize-handle"></div>
             <div class="sidebar-header">
-                <h2><img src="https://wm-ps-igniters.s3.amazonaws.com/surfboard-2.0/surfboard-logo.png" alt="Send" style="width:30px;" /> Surfboard AI</h2>
-                <div class="tab-buttons">              
+                <div class="sidebar-title">
+                    <img src="https://wm-ps-igniters.s3.amazonaws.com/surfboard-2.0/surfboard-logo.png" alt="Surfboard" class="sidebar-logo" />
+                    <h2>Surfboard AI</h2>
+                </div>
+                <div class="tab-buttons">
                     <button class="tab-button" data-tab="logs" style="display: none;">Logs</button>
                     <button class="tab-button active" data-tab="chat" style="display: none;">Chat</button>
-                    <!-- <button class="tab-button" data-tab="search">Search</button> -->
                 </div>
-                <button class="minimize-button">X</button>
+                <button class="minimize-button" aria-label="Close sidebar">
+                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+                        <path d="M1 1l12 12M13 1L1 13"/>
+                    </svg>
+                </button>
             </div>
             <div class="sidebar-content">
                 <div class="chat-container active"></div>
@@ -39,8 +127,8 @@ class WaveMakerCopilotSidebar {
                 <div class="context-panel"></div>
             </div>
             <div class="input-container">
-                <textarea placeholder="Ask me anything..." rows="1"></textarea>
-                <button class="send-button">
+                <textarea placeholder="Ask anything about your WaveMaker page..." rows="1"></textarea>
+                <button class="send-button" aria-label="Send message">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/>
                     </svg>
@@ -56,7 +144,80 @@ class WaveMakerCopilotSidebar {
 
         // Setup event listeners
         this.setupEventListeners();
-        // this.setupSearchPanel();
+        this.setupResizeHandle();
+
+        // Delegate copy-button clicks for code blocks rendered by marked
+        this.sidebarElement.addEventListener('click', (e) => {
+            const copyBtn = e.target.closest('.copy-button[data-copy-target]');
+            if (!copyBtn) return;
+            e.preventDefault();
+            e.stopPropagation();
+            const codeBlock = copyBtn.closest('.code-block');
+            const codeEl = codeBlock?.querySelector('code');
+            if (!codeEl) return;
+            const span = copyBtn.querySelector('span');
+            navigator.clipboard.writeText(codeEl.textContent).then(() => {
+                copyBtn.classList.add('copied');
+                if (span) span.textContent = 'Copied!';
+            }).catch(() => {
+                copyBtn.classList.add('error');
+                if (span) span.textContent = 'Error';
+            });
+            setTimeout(() => {
+                copyBtn.classList.remove('copied', 'error');
+                if (span) span.textContent = 'Copy';
+            }, 2000);
+        });
+
+        // Delegate feedback button clicks
+        this.sidebarElement.addEventListener('click', (e) => {
+            const feedbackBtn = e.target.closest('.feedback-btn[data-feedback]');
+            if (!feedbackBtn) return;
+            e.preventDefault();
+            e.stopPropagation();
+            const feedback = feedbackBtn.getAttribute('data-feedback');
+            const container = feedbackBtn.closest('.message-feedback');
+            if (!container) return;
+            // Toggle active state
+            const isActive = feedbackBtn.classList.contains('active');
+            container.querySelectorAll('.feedback-btn').forEach(btn => btn.classList.remove('active'));
+            if (!isActive) {
+                feedbackBtn.classList.add('active');
+            }
+            // Get the message text for feedback storage
+            const messageDiv = feedbackBtn.closest('.chat-message');
+            const messageText = messageDiv?.querySelector('.assistant-message-body')?.textContent?.slice(0, 200) || '';
+            // Dispatch a feedback event for external handling
+            document.dispatchEvent(new CustomEvent('surfboard-feedback', {
+                detail: {
+                    feedback: isActive ? null : feedback,
+                    messagePreview: messageText,
+                    timestamp: Date.now()
+                }
+            }));
+        });
+
+        // Delegate follow-up suggestion clicks
+        this.sidebarElement.addEventListener('click', (e) => {
+            const followupBtn = e.target.closest('.followup-chip');
+            if (!followupBtn) return;
+            const question = followupBtn.getAttribute('data-question');
+            if (!question) return;
+            const textarea = this.sidebarElement.querySelector('textarea');
+            if (textarea) {
+                textarea.value = question;
+                textarea.focus();
+                textarea.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+            // Auto-send
+            this.addMessage(question, 'user');
+            textarea.value = '';
+            textarea.style.height = 'auto';
+            const event = new CustomEvent('surfboard-message', {
+                detail: { message: question, type: 'user' }
+            });
+            document.dispatchEvent(event);
+        });
 
         // Create and add toggle button
         this.createToggleButton();
@@ -64,13 +225,9 @@ class WaveMakerCopilotSidebar {
 
     async initializePanels() {
         const logContainer = this.sidebarElement.querySelector('.log-container');
-        // console.log('Log container:', logContainer);
         if (!this.logPanel && logContainer) {
-            // console.log('Creating new LogPanel');
             this.logPanel = new LogPanel();
-            // console.log('LogPanel created:', this.logPanel);
             logContainer.appendChild(this.logPanel.element);
-            // console.log('LogPanel appended to container');
         }
         const searchContainer = this.sidebarElement.querySelector('.search-container');
         if (!this.searchPanel && searchContainer) {
@@ -83,15 +240,10 @@ class WaveMakerCopilotSidebar {
         const toggleButton = document.createElement('button');
         toggleButton.className = 'sidebar-toggle';
         toggleButton.innerHTML = `
-            <!-- <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-            </svg> -->
-            <img src="https://wm-ps-igniters.s3.amazonaws.com/surfboard-2.0/surfboard-logo.png" alt="Send" class="send-icon" />
-
+            <img src="https://wm-ps-igniters.s3.amazonaws.com/surfboard-2.0/surfboard-logo.png" alt="Surfboard AI" class="send-icon" />
         `;
         document.body.appendChild(toggleButton);
 
-        // Add toggle functionality
         toggleButton.addEventListener('click', () => {
             this.toggleSidebar();
             toggleButton.classList.toggle('active');
@@ -107,26 +259,23 @@ class WaveMakerCopilotSidebar {
         const sendButton = this.sidebarElement.querySelector('.send-button');
         const textarea = this.sidebarElement.querySelector('textarea');
         const inputContainer = this.sidebarElement.querySelector('.input-container');
-        
+
         const sendMessage = () => {
             const message = textarea.value.trim();
             if (message) {
                 this.addMessage(message, 'user');
                 textarea.value = '';
                 textarea.style.height = 'auto';
-                
-                // Emit custom event for content script to handle
-                const event = new CustomEvent('surfboard-message', { 
+
+                const event = new CustomEvent('surfboard-message', {
                     detail: { message, type: 'user' }
                 });
                 document.dispatchEvent(event);
             }
         };
 
-        // Send button click
         sendButton.addEventListener('click', sendMessage);
 
-        // Send on Enter (but Shift+Enter for new line)
         textarea.addEventListener('keydown', (event) => {
             if (event.key === 'Enter' && !event.shiftKey) {
                 event.preventDefault();
@@ -134,7 +283,6 @@ class WaveMakerCopilotSidebar {
             }
         });
 
-        // Auto-resize textarea
         textarea.addEventListener('input', () => {
             textarea.style.height = 'auto';
             textarea.style.height = Math.min(textarea.scrollHeight, 200) + 'px';
@@ -144,13 +292,11 @@ class WaveMakerCopilotSidebar {
         const tabButtons = this.sidebarElement.querySelectorAll('.tab-button');
         tabButtons.forEach(button => {
             button.addEventListener('click', () => {
-                // Remove active class from all buttons and containers
                 tabButtons.forEach(btn => btn.classList.remove('active'));
                 this.sidebarElement.querySelectorAll('.sidebar-content > div').forEach(container => {
                     container.classList.remove('active');
                 });
 
-                // Add active class to clicked button and corresponding container
                 button.classList.add('active');
                 const tabName = button.getAttribute('data-tab');
                 let containerClass = tabName === 'logs' ? 'log' : tabName;
@@ -159,14 +305,12 @@ class WaveMakerCopilotSidebar {
                     container.classList.add('active');
                 }
 
-                 // Toggle input-container visibility
                 if (tabName === 'chat') {
-                    inputContainer.style.display = 'block';
+                    inputContainer.style.display = '';
                 } else {
                     inputContainer.style.display = 'none';
                 }
 
-                // Initialize log panel if logs tab is selected
                 if (tabName === 'logs') {
                     this.initializePanels();
                 }
@@ -181,22 +325,49 @@ class WaveMakerCopilotSidebar {
         });
     }
 
+    setupResizeHandle() {
+        const handle = this.sidebarElement.querySelector('.sidebar-resize-handle');
+        if (!handle) return;
+
+        let startX = 0;
+        let startWidth = 0;
+
+        const onMouseMove = (e) => {
+            const delta = startX - e.clientX;
+            const newWidth = Math.min(Math.max(startWidth + delta, 320), window.innerWidth * 0.8);
+            this.sidebarElement.style.width = newWidth + 'px';
+        };
+
+        const onMouseUp = () => {
+            this.sidebarElement.classList.remove('resizing');
+            document.removeEventListener('mousemove', onMouseMove);
+            document.removeEventListener('mouseup', onMouseUp);
+        };
+
+        handle.addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            startX = e.clientX;
+            startWidth = this.sidebarElement.offsetWidth;
+            this.sidebarElement.classList.add('resizing');
+            document.addEventListener('mousemove', onMouseMove);
+            document.addEventListener('mouseup', onMouseUp);
+        });
+    }
+
     setupToastObserver() {
-        // Function to create and setup observer
         const createObserver = (target) => {
             const observer = new MutationObserver((mutations) => {
                 for (const mutation of mutations) {
                     if (mutation.type === 'childList') {
                         mutation.addedNodes.forEach(node => {
                             if (node.nodeType === 1) {
-                                if (node.classList?.contains('toast') && 
+                                if (node.classList?.contains('toast') &&
                                     node.classList?.contains('toast-error')) {
                                     const messageElement = node.querySelector('.toast-message');
                                     if (messageElement && !messageElement.ariaLabel) {
-                                        console.log('Error toast detected, opening sidebar and switching to logs');
                                         this.openWithLogs("application");
                                     }
-                                } else if (node.classList?.contains('ngx-toastr') && 
+                                } else if (node.classList?.contains('ngx-toastr') &&
                                          node.classList?.contains('toast-error')) {
                                     const messageElement = node.querySelector('.toast-message');
                                     if (messageElement && messageElement.textContent.trim().startsWith('{"headers":')) {
@@ -217,11 +388,9 @@ class WaveMakerCopilotSidebar {
             return observer;
         };
 
-        // Observe main document body
         const mainObserver = createObserver(document.body);
         this.observers = [mainObserver];
 
-        // Setup iframe observer once
         const setupIframeObserver = () => {
             const iframe = document.querySelector('#app-view');
             if (iframe?.contentDocument?.body) {
@@ -232,75 +401,40 @@ class WaveMakerCopilotSidebar {
             return false;
         };
 
-        // Try to set up iframe observer immediately
         if (!setupIframeObserver()) {
-            // If immediate setup fails, wait for iframe to load
             const iframe = document.querySelector('#app-view');
             if (iframe) {
                 iframe.addEventListener('load', () => {
                     setupIframeObserver();
-                }, { once: true }); // Ensure the event listener only fires once
+                }, { once: true });
             }
         }
     }
 
     async openWithLogs(logType="application") {
-        // Open sidebar
         if(!this.isOpen) {
             this.toggleSidebar();
         }
 
-        // Switch to logs tab
         const logsTab = this.sidebarElement.querySelector('[data-tab="logs"]');
         if (logsTab) {
-            // Deactivate all tabs
             await logsTab.click();
-            // await this.logPanel.initializeService();
             if(this.logPanel){
                 this.logPanel.setLogType(logType);
-                // await this.logPanel.analyzeLogs(logType);
             }
         }
     }
 
-    /*setupSearchPanel() {
-        // Initialize search panel first
-        const searchContainer = this.sidebarElement.querySelector('.search-container');
-        this.searchPanel = new SearchPanel();
-        this.searchPanel.initialize(); // Initialize before accessing container
-        searchContainer.appendChild(this.searchPanel.container);
-
-        // Handle tab switching
-        const tabButtons = this.sidebarElement.querySelectorAll('.tab-button');
-        tabButtons.forEach(button => {
-            button.addEventListener('click', () => {
-                // Update active tab button
-                tabButtons.forEach(btn => btn.classList.remove('active'));
-                button.classList.add('active');
-
-                // Show/hide containers
-                const tabName = button.dataset.tab;
-                const chatContainer = this.sidebarElement.querySelector('.chat-container');
-                const searchContainer = this.sidebarElement.querySelector('.search-container');
-
-                if (tabName === 'chat') {
-                    chatContainer.classList.add('active');
-                    searchContainer.classList.remove('active');
-                } else {
-                    chatContainer.classList.remove('active');
-                    searchContainer.classList.add('active');
-                }
-            });
-        });
-    }*/
-
     toggleSidebar() {
         this.isOpen = !this.isOpen;
         this.sidebarElement.classList.toggle('open');
-        
-        // Update minimize button text
+
         const minimizeButton = this.sidebarElement.querySelector('.minimize-button');
-        minimizeButton.textContent = this.isOpen ? 'X' : '+';
+        // Icon changes via CSS, no text update needed
+        const toggleButton = document.querySelector('.sidebar-toggle');
+        if (toggleButton) {
+            toggleButton.classList.toggle('active', this.isOpen);
+        }
     }
 
     addMessage(message, type) {
@@ -310,11 +444,19 @@ class WaveMakerCopilotSidebar {
         if (type === 'assistant') {
             messageDiv.innerHTML = this.renderAssistantMessage({ text: message, sources: [], followups: [] });
         } else {
-            messageDiv.textContent = message;
+            messageDiv.innerHTML = `
+                <div class="message-avatar user-avatar">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 12c2.7 0 5-2.3 5-5s-2.3-5-5-5-5 2.3-5 5 2.3 5 5 5zm0 2c-3.3 0-10 1.7-10 5v2h20v-2c0-3.3-6.7-5-10-5z"/></svg>
+                </div>
+                <div class="message-body">
+                    <span class="message-role">You</span>
+                    <div class="message-text">${this.escapeHtml(message)}</div>
+                </div>
+            `;
         }
 
         this.chatContainer.appendChild(messageDiv);
-        this.chatContainer.scrollTop = this.chatContainer.scrollHeight;
+        this.scrollToBottom();
         return messageDiv;
     }
 
@@ -327,51 +469,79 @@ class WaveMakerCopilotSidebar {
             sources: [],
             followups: []
         });
-        this.chatContainer.scrollTop = this.chatContainer.scrollHeight;
+        this.scrollToBottom();
         return messageDiv;
     }
 
     updateStreamingAssistantMessage(messageDiv, state) {
         messageDiv.innerHTML = this.renderAssistantMessage(state);
-        this.chatContainer.scrollTop = this.chatContainer.scrollHeight;
+        this.scrollToBottom();
     }
 
     finalizeStreamingAssistantMessage(messageDiv, state) {
         messageDiv.classList.remove('streaming');
         messageDiv.innerHTML = this.renderAssistantMessage(state);
-        this.chatContainer.scrollTop = this.chatContainer.scrollHeight;
+        this.scrollToBottom();
+    }
+
+    scrollToBottom() {
+        requestAnimationFrame(() => {
+            this.chatContainer.scrollTop = this.chatContainer.scrollHeight;
+        });
     }
 
     renderAssistantMessage({ text = '', sources = [], followups = [] }) {
         const messageBody = text?.trim()
             ? this.processMarkdown(text)
-            : '<p><em>Thinking...</em></p>';
+            : `<div class="thinking-indicator"><span></span><span></span><span></span></div>`;
+
         const sourceMarkup = sources.length
-            ? `
-                <div class="message-sources">
+            ? `<div class="message-sources">
                     ${sources
                         .map((source) => `<span class="message-source-chip">${this.escapeHtml(source)}</span>`)
                         .join('')}
-                </div>
-            `
+               </div>`
             : '';
+
         const followupMarkup = followups.length
-            ? `
-                <div class="message-followups">
-                    <strong>Suggested follow-ups</strong>
-                    <ul>
+            ? `<div class="message-followups">
+                    <span class="followups-label">Suggested follow-ups</span>
+                    <div class="followup-chips">
                         ${followups
-                            .map((question) => `<li>${this.escapeHtml(question)}</li>`)
+                            .map((question) => `<button class="followup-chip" data-question="${this.escapeHtml(question)}">${this.escapeHtml(question)}</button>`)
                             .join('')}
-                    </ul>
-                </div>
-            `
+                    </div>
+               </div>`
+            : '';
+
+        const feedbackMarkup = text?.trim()
+            ? `<div class="message-feedback">
+                    <button class="feedback-btn" data-feedback="positive" title="Helpful">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3H14z"/>
+                            <path d="M7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/>
+                        </svg>
+                    </button>
+                    <button class="feedback-btn" data-feedback="negative" title="Not helpful">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3H10z"/>
+                            <path d="M17 2h3a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-3"/>
+                        </svg>
+                    </button>
+               </div>`
             : '';
 
         return `
-            <div class="assistant-message-body">${messageBody}</div>
-            ${sourceMarkup}
-            ${followupMarkup}
+            <div class="message-avatar assistant-avatar">
+                <img src="https://wm-ps-igniters.s3.amazonaws.com/surfboard-2.0/surfboard-logo.png" alt="AI" />
+            </div>
+            <div class="message-body">
+                <span class="message-role">Surfboard AI</span>
+                <div class="assistant-message-body">${messageBody}</div>
+                ${sourceMarkup}
+                ${feedbackMarkup}
+                ${followupMarkup}
+            </div>
         `;
     }
 
@@ -404,16 +574,13 @@ class WaveMakerCopilotSidebar {
         const codeBlock = document.createElement('div');
         codeBlock.className = 'code-block';
 
-        // Create header
         const header = document.createElement('div');
         header.className = 'code-block-header';
 
-        // Add language label
         const languageLabel = document.createElement('span');
         languageLabel.className = 'language-label';
         languageLabel.textContent = language || 'text';
 
-        // Create copy button
         const copyButton = document.createElement('button');
         copyButton.className = 'copy-button';
         copyButton.type = 'button';
@@ -425,31 +592,14 @@ class WaveMakerCopilotSidebar {
             <span>Copy</span>
         `;
 
-        // console.log('Adding click handlers to button...');
-
-        // Add both click handlers for testing
-        copyButton.onclick = function(e) {
-            // console.log('Copy button clicked via onclick');
-            handleCopy(e);
-        };
-
-        copyButton.addEventListener('click', function(e) {
-            // console.log('Copy button clicked via addEventListener');
-            handleCopy(e);
-        });
-
-        // Separate copy handler function
         const handleCopy = async (e) => {
-            // console.log('Handling copy...');
             e.preventDefault();
             e.stopPropagation();
-            
+
             const span = copyButton.querySelector('span');
-            
+
             try {
-                // console.log('Attempting to copy code:', code);
                 await navigator.clipboard.writeText(code);
-                // console.log('Code copied successfully');
                 copyButton.classList.add('copied');
                 span.textContent = 'Copied!';
             } catch (err) {
@@ -457,38 +607,36 @@ class WaveMakerCopilotSidebar {
                 copyButton.classList.add('error');
                 span.textContent = 'Error!';
             }
-            
-            // Reset button state after delay
+
             setTimeout(() => {
                 copyButton.classList.remove('copied', 'error');
                 span.textContent = 'Copy';
             }, 2000);
         };
 
-        // Assemble header
+        copyButton.addEventListener('click', handleCopy);
+
         header.appendChild(languageLabel);
         header.appendChild(copyButton);
         codeBlock.appendChild(header);
 
-        // Create code content
         const codeContent = document.createElement('div');
         codeContent.className = 'code-content';
         const preElement = document.createElement('pre');
         const codeElement = document.createElement('code');
         codeElement.className = `language-${language || 'text'}`;
-        
-        // Set code content
-        if (window.Prism) {
-            codeElement.innerHTML = Prism.highlight(
-                code,
-                Prism.languages[language] || Prism.languages.text,
-                language || 'text'
-            );
+
+        const grammar = window.Prism && language && Prism.languages[language];
+        if (grammar && typeof grammar === 'object') {
+            try {
+                codeElement.innerHTML = Prism.highlight(code, grammar, language);
+            } catch (_e) {
+                codeElement.textContent = code;
+            }
         } else {
             codeElement.textContent = code;
         }
 
-        // Assemble code block
         preElement.appendChild(codeElement);
         codeContent.appendChild(preElement);
         codeBlock.appendChild(codeContent);
@@ -498,19 +646,26 @@ class WaveMakerCopilotSidebar {
 
     showError(message) {
         const errorDiv = document.createElement('div');
-        errorDiv.className = 'error-message';
-        errorDiv.textContent = message;
-        this.sidebarElement.appendChild(errorDiv);
+        errorDiv.className = 'chat-message error-bubble';
+        errorDiv.innerHTML = `
+            <div class="error-icon-wrap">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                    <circle cx="12" cy="12" r="10"/><path d="M12 8v4m0 4h.01"/>
+                </svg>
+            </div>
+            <div class="error-text">${this.escapeHtml(message)}</div>
+        `;
+        this.chatContainer.appendChild(errorDiv);
+        this.scrollToBottom();
 
-        // Auto-remove after 5 seconds
         setTimeout(() => {
             errorDiv.remove();
-        }, 5000);
+        }, 8000);
     }
 
     updateContextPanel(context) {
         const panel = this.sidebarElement.querySelector('.context-panel');
-        
+
         panel.innerHTML = `
             <div class="context-section">
                 <h3>Current Context</h3>

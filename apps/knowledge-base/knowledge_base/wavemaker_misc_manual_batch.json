@@ -1,0 +1,63 @@
+[
+  {
+    "title": "Access Widget Inside a Partial",
+    "synonyms": [
+      "access partial widget",
+      "widget inside container loaded partial"
+    ],
+    "tags": ["partial", "widget", "container", "partialPlacements"],
+    "syntax": "Page.Widgets.[partailLoadedWidgetName].Widgets.[widgetnames]",
+    "code": "Page.Widgets.containerSelectCoreProject.Widgets.coreAppsList",
+    "explanation": "Fetches the widget named 'coreAppsList' from a Partial loaded in 'containerSelectCoreProject'."
+  },
+  {
+    "title": "Add or Remove Class on Widget DOM",
+    "synonyms": ["manipulate DOM classes", "add/remove CSS class on widget"],
+    "tags": ["DOM", "widget", "class"],
+    "syntax": "Page.Widgets.[widgetName].nativeElement.classList.[add/remove](\"classname\")",
+    "code": "Page.Widgets.mdApplicationTypeList.nativeElement.classList.add(\"core-imp\");\nPage.Widgets.mdApplicationTypeList.nativeElement.classList.remove(\"core-imp\");",
+    "explanation": "Adds or removes a CSS class to the DOM element of 'mdApplicationTypeList' widget using nativeElement."
+  },
+  {
+    "title": "Click Handler Inside List/Card Items",
+    "synonyms": [
+      "click widget inside list",
+      "access widget inside repeating template"
+    ],
+    "tags": ["list items", "card", "child widget", "click"],
+    "syntax": "Partial.[widgetName]Click = function ($event, widget, item, currentItemWidgets) { ... }",
+    "code": "Partial.buttonAcceptClick = function ($event, widget, item, currentItemWidgets) {\n  Partial.Variables.swgTakeActionOnNotification.invoke({ inputFields: { \"notification_id\": item.notificationId, \"action\": \"Join\" } }, function(data) {\n    navigateBasedOnProjectType(item.arguments.p1.data.projectType);\n    Partial.Variables.swgGetNotitifications.invoke();\n    Partial.App.Widgets.header1.Widgets.popoverNotifications.close();\n  });\n};",
+    "explanation": "Executes a click event on a button inside a List item. Uses `item` for data and `currentItemWidgets` to manipulate inner widgets."
+  },
+  {
+    "title": "Disable Wizard Step Next Button",
+    "synonyms": ["disable wizard navigation", "lock next button in wizard"],
+    "tags": ["wizard button", "button next", "button done"],
+    "syntax": "$('button[name=\"nextBtn_[wizardName]\"]').prop('disabled', true);",
+    "code": "$('button[name=\"nextBtn_wizardCreatePrefab\"]').prop('disabled', true);",
+    "explanation": "Disables the 'Next' button in the wizard named 'wizardCreatePrefab' using jQuery."
+  },
+  {
+    "title": "Set Localized Caption for a Label",
+    "synonyms": ["i18n caption", "assign locale to label"],
+    "tags": ["label", "i18n", "localization"],
+    "syntax": "Partial.Widgets.[labelName].caption = App.appLocale[\"TRANSLATION_KEY\"]",
+    "code": "Partial.Widgets.labelNameCannotBeEmpty.caption = App.appLocale[\"LABEL_FIRSTNAME_CONNOT_BE_EMPTY_VALIDATION\"]",
+    "explanation": "Uses app-level i18n translation key to set the caption of a label in a Partial."
+  },
+  {
+    "title": "Pass Parameters to Partial via Container",
+    "synonyms": [
+      "pass param to partial",
+      "use pageParams for partial",
+      "assign data to partail"
+    ],
+    "tags": ["partial", "data partail", "pageParams"],
+    "syntax": [
+      "Page.Widgets.[container].pageParams.[paramName] = [value];",
+      "Partial.pageParams.[paramName]"
+    ],
+    "code": "Page.Widgets.container37.pageParams.test1 = \"1\";\n\nPartial.Variables.jsGetEmployeeData.invoke({ inputFields: { empid: Partial.pageParams.test1 } });",
+    "explanation": "Page assigns 'test1' to container's `pageParams`. The Partial accesses `Partial.pageParams.test1` for use in variable calls."
+  }
+]

@@ -1,0 +1,254 @@
+[
+  {
+    "type": "open_dialog",
+    "syntax": "Page.Widgets.[dialogWidgetName].open();  // Replace placeholders with actual widget names",
+    "code": "Page.button3Click = function($event, widget) {\n  Page.Widgets.designdialog1.open();\n};",
+    "code_explanation": " the code above does the following Opens the dialog 'designdialog1' when button 'button3' is clicked."
+  },
+  {
+    "type": "close_dialog",
+    "syntax": "Page.Widgets.[dialogWidgetName].close();  // Replace placeholders with actual widget names",
+    "code": "Page.button1Click = function($event, widget) {\n  Page.Widgets.designdialog1.close();\n};",
+    "explanation": " the code above does the following ->Closes the dialog 'designdialog1' when button 'button1' is clicked."
+  },
+  {
+    "type": "dialog_onopen",
+    "syntax": "Page.[dialogWidgetName]Opened = function ($event, widget) { ... };  // Replace [dialogWidgetName] with actual name",
+    "code": "Page.dialog1Opened = function ($event, widget) {\n  // Code to execute when dialog is opened\n};",
+    "explanation": "This is a call back function which is triggered after opening the dialog, here dialog1 is the dialog widget name"
+  },
+  {
+    "type": "dialog_onclose",
+    "syntax": "Page.[dialogWidgetName]Closed = function ($event, widget) { ... };  // Replace [dialogWidgetName] with actual name",
+    "code": "Page.dialog1Closed = function ($event, widget) {\n  // Code to execute when dialog is closed\n};",
+    "explanation": "This is a callback function which is triggred after closing the dialog, here dialog1 is the dialog widget name"
+  },
+  {
+    "type": "button_caption",
+    "syntax": "Page.Widgets.[buttonWidgetName].caption = \"[Button Text]\";  // Replace with actual button name and label",
+    "code": "Page.Widgets.button1.caption = \"Submit\";",
+    "codeexplanation": "Sets the display text of 'button1' to 'Submit'."
+  },
+  {
+    "type": "button_disabled",
+    "syntax": "Page.Widgets.[buttonWidgetName].disabled = [true|false];  // Replace with your button name and condition",
+    "code": "Page.Widgets.button1.disabled = !Page.Widgets.buttonDone.caption.length;",
+    "codeexplanation": "Disables 'button1' when 'cpation' of buttonDone as length is 0"
+  },
+  {
+    "type": "button_show",
+    "syntax": "Page.Widgets.[buttonWidgetName].show = [true|false];  // Replace with your button name and visibility logic",
+    "code": "Page.Widgets.button1.show = (Page.Variables.getUser.dataSet.role === \"Admin\");",
+    "codeexplanation": "Shows 'button1' only if the user's role which is coming from the page variable getUser is 'Admin'."
+  },
+
+  {
+    "type": "accordion_show",
+    "syntax": "[Scope].Widgets.[WidgetName].show = true | false;",
+    "code": "Page.Widgets.accordion1.show = false;",
+    "codeexplanation": "Hides the accordion widget on the page by setting its visibility to false."
+  },
+  {
+    "type": "accordion_collapsed",
+    "syntax": "[Scope].Widgets.[WidgetName].collapsed = true | false;",
+    "code": "Page.Widgets.accordion1.collapsed = true;",
+    "codeexplanation": "Initializes the accordion in a fully collapsed state where no panel is open."
+  },
+  {
+    "type": "accordion_collapseall",
+    "syntax": "[Scope].Widgets.[WidgetName].collapseall = true;",
+    "code": "Page.Widgets.accordion1.collapseall = true;",
+    "codeexplanation": "Programmatically collapses all the panels of the accordion widget."
+  },
+  {
+    "type": "accordion_multiple",
+    "syntax": "[Scope].Widgets.[WidgetName].multiple = true | false;",
+    "code": "Page.Widgets.accordion1.multiple = true;",
+    "codeexplanation": "Enables multiple accordion panels to be expanded at the same time."
+  },
+  {
+    "type": "accordion_animation",
+    "syntax": "[Scope].Widgets.[WidgetName].animation = \"slide\" | \"fade\";",
+    "code": "Page.Widgets.accordion1.animation = \"slide\";",
+    "codeexplanation": "Sets slide animation for panel transitions in the accordion."
+  },
+  {
+    "type": "accordion_collapseall",
+    "syntax": "[Scope].Widgets.[WidgetName].collapseAll();",
+    "code": "Page.Widgets.accordion1.collapseAll();",
+    "codeexplanation": "Calls the method to collapse all panels within the accordion widget."
+  },
+  {
+    "type": "accordion_expand_by_index",
+    "syntax": "[Scope].Widgets.[WidgetName].expand(index);",
+    "code": "Page.Widgets.accordion1.expand(1);",
+    "codeexplanation": "Expands the second panel (index 1) of the accordion widget."
+  },
+  {
+    "type": "accordion_expand",
+    "syntax": "[Scope].onReady = function() { [WidgetName].expand(index); };",
+    "code": "Page.onReady = function() {\n  Page.Widgets.accordion1.expand(0); // Expand first panel\n};",
+    "codeexplanation": "Automatically expands the first panel of the accordion when the page is loaded."
+  },
+  {
+    "type": "accordion_collapseAll",
+    "syntax": "[Scope].Widgets.[ButtonWidget].onClick = function() { [AccordionWidget].collapseAll(); };",
+    "code": "Page.Widgets.collapseBtn.onClick = function() {\n  Page.Widgets.accordion1.collapseAll();\n};",
+    "codeexplanation": "Collapses all panels when the user clicks a specific button."
+  },
+  {
+    "type": "accordion_expand",
+    "syntax": "[Scope].Widgets.[ButtonWidget].onClick = function() { if ([Variable].data === 'value') { [AccordionWidget].expand(index); } };",
+    "code": "Page.Widgets.searchBtn.onClick = function() {\n  if (Page.Variables.userInput.data === \"details\") {\n    Page.Widgets.accordion1.expand(2); // Open the 'Details' panel\n  }\n};",
+    "codeexplanation": "Expands a specific panel if user input matches a predefined value ('details' in this case)."
+  },
+  {
+    "type": "tabs_show",
+    "syntax": "[Scope].Widgets.[WidgetName].show = true | false;",
+    "code": "Page.Widgets.tabset1.show = false;",
+    "codeexplanation": "Hides the tabset widget on the page."
+  },
+  {
+    "type": "tabs_tabposition",
+    "syntax": "[Scope].Widgets.[WidgetName].tabposition = \"top\" | \"bottom\" | \"left\" | \"right\";",
+    "code": "Page.Widgets.tabset1.tabposition = \"left\";",
+    "codeexplanation": "Displays the tab headers on the left side."
+  },
+
+  {
+    "type": "tabs_Change",
+    "syntax": "[Scope].[WidgetName]Change = function($event, widget, newPaneIndex, oldPaneIndex) { ... };",
+    "code": "Page.tabs2Change = function($event, widget, newPaneIndex, oldPaneIndex) {\n  console.log(\"Selected tab:\", newPaneIndex);\n};",
+    "codeexplanation": "Fires when a tab is selected. Logs the selected tab object."
+  },
+  {
+    "type": "tabpane_onselect",
+    "syntax": "[Scope].[WidgetName]Select = function($event, widget) { ... };",
+    "code": "Page.tabPane1.onSelect = function($event, widget) {\n  console.log(\"TabPane selected:\", widget.name);\n};",
+    "codeexplanation": "Fires when a tab pane is selected. Logs the selected tab pane's name."
+  },
+  {
+    "type": "tabpane_ondeselect",
+    "syntax": "[Scope].[WidgetName]onDeselect = function($event, widget) { ... };",
+    "code": "Page.tabPane1.onDeselect = function($event, widget) {\n  console.log(\"TabPane deselected:\", widget.name);\n};",
+    "codeexplanation": "Triggers when a tab pane is deselected and logs the widget name."
+  },
+  {
+    "type": "tabpane_onload",
+    "syntax": "[Scope].[WidgetName]Load = function($event, widget) { ... };",
+    "code": "Page.tabPane1Load = function($event, widget) {\n  console.log(\"TabPane loaded:\", widget.title);\n};",
+    "codeexplanation": "Executes logic when the tab pane is loaded. Useful for initialization."
+  },
+
+  {
+    "type": "tabpane_disabled",
+    "syntax": "[Scope].Widgets.[WidgetName].disabled = true | false;",
+    "code": "Page.Widgets.tabPane1.disabled = true;",
+    "codeexplanation": "Disables the tab pane so it becomes non-interactive and read-only."
+  },
+  {
+    "type": "tabpane_name",
+    "syntax": "[Scope].Widgets.[WidgetName].name = \"paneName\";",
+    "code": "Page.Widgets.tabPane1.name = \"userSettingsPane\";",
+    "codeexplanation": "Assigns a unique name to the tab pane, useful in logic and bindings."
+  },
+
+  {
+    "type": "tabpane_show",
+    "syntax": "[Scope].Widgets.[WidgetName].show = true | false;",
+    "code": "Page.Widgets.tabPane1.show = false;",
+    "codeexplanation": "Hides the tab pane from the user interface."
+  },
+
+  {
+    "type": "tabpane_title",
+    "syntax": "[Scope].Widgets.[WidgetName].title = \"Tab Title\";",
+    "code": "Page.Widgets.tabPane1.title = \"User Settings\";",
+    "codeexplanation": "Changes the tab pane title to 'User Settings'."
+  },
+  {
+    "type": "wizard_show",
+    "syntax": "[Scope].Widgets.[WidgetName].show = true | false;",
+    "code": "Page.Widgets.wizard1.show = true;",
+    "codeexplanation": "Displays the wizard component on the page."
+  },
+  {
+    "type": "wizard_defaultstep",
+    "syntax": "[Scope].Widgets.[WidgetName].defaultstep = \"stepName\";",
+    "code": "Page.Widgets.wizard1.defaultstep = \"step1\";",
+    "codeexplanation": "  Sets 'step1' as the initial step in the wizard."
+  },
+  {
+    "type": "wizard_stepclass",
+    "syntax": "[Scope].Widgets.[WidgetName].stepclass = \"className\";",
+    "code": "Page.Widgets.wizard1.stepclass = \"custom-step-style\";",
+    "codeexplanation": "Applies a custom class to the step indicator section."
+  },
+  {
+    "type": "wizard_stepstyle",
+    "syntax": "[Scope].Widgets.[WidgetName].stepstyle = \"style string\";",
+    "code": "Page.Widgets.wizard1.stepstyle = \"font-weight: bold;\";",
+    "codeexplanation": "Applies bold font style to step indicators."
+  },
+  {
+    "type": "wizard_done",
+    "syntax": "[Scope].[WidgetName]Done = function(widget, steps) { ... };",
+    "code": "Partial.wizardCreateBranchDone = function(widget, steps) {\n  let members = Partial.Widgets.containerAddMembersToBranch.Widgets.listBranchMembers.dataset.filter(item => item.isChecked);\n  members.forEach(m => { delete m.isChecked; delete m.alias; });\n\n  Partial.Variables.swgCreateBranchProject.invoke({\n    inputFields: {\n      projectBranchRequest: {\n        copyUsers: App.isCopyUsers == false ? false : members.length === Partial.Widgets.containerAddMembersToBranch.Widgets.listBranchMembers.dataset.length,\n        vcsBranch: Partial.Widgets.containerCreateBranchStep1.Widgets.mdCreateBranchForm1.dataoutput['vcsBranch'].name,\n        projectUserMappingList: App.isCopyUsers === \"true\" ? [] : members\n      },\n      project_id: App.allowedActionsSelectedItem.projectId\n    }\n  });\n\n  $('button[name=\"doneBtn_wizardCreateBranch\"]').prop('disabled', true);\n};",
+    "codeexplanation": "Handles 'Done' for branch creation wizard: filters selected users, builds request, invokes API, disables done button."
+  },
+  {
+    "type": "wizard_cancel",
+    "syntax": "[Scope].[WidgetName]Cancel = function(widget, steps) { ... };",
+    "code": "Partial.wizardMergeranchCancel = function(widget, steps) {\n  Partial.Widgets.labelMergeBranch.caption = \"Merge Branch\";\n  Partial.Widgets.labelMergeBranchVcsName.show = false;\n};",
+    "codeexplanation": "Resets wizard UI when merge branch process is cancelled by the user."
+  },
+  {
+    "type": "wizard_dynamic_steps",
+    "syntax": "[Scope].Widgets.[WidgetName].steps = [ { name, title }, ... ];",
+    "code": "Page.Widgets.wizard1.steps = [\n  { name: \"step1\", title: \"User Info\" },\n  { name: \"step2\", title: \"Address Details\" },\n  { name: \"step3\", title: \"Confirmation\" }\n];",
+    "codeexplanation": "Creates wizard steps dynamically based on application data."
+  },
+
+  {
+    "type": "wizardstep_onload",
+    "syntax": "[Scope].[WidgetName]Load = function(widget, stepIndex) { ... };",
+    "code": "Page.wizardStep1Load = function(widget, stepIndex) {\n  console.log(\"Loaded wizard step:\", stepIndex);\n};",
+    "codeexplanation": "Triggered when the wizard step is loaded. Logs the index of the step."
+  },
+  {
+    "type": "wizardstep_onnext",
+    "syntax": "[Scope].[WidgetName]Next = function(widget, currentStep, stepIndex) { ... };",
+    "code": "Partial.wizardCreateBranchStep1Next = function(widget, currentStep, stepIndex) {\n  Partial.Widgets.labelSelectedCreateBranchVcsName.caption = \"From Branch- \" + Partial.Widgets.containerCreateBranchStep1.Widgets.vcsBranch.datavalue.name;\n  Partial.Widgets.labelCreateBranch.caption = \"Manage Members\";\n  Partial.Widgets.labelSelectedCreateBranchVcsName.show = true;\n};",
+    "codeexplanation": "Updates UI labels when navigating to 'Manage Members' step in create branch wizard."
+  },
+  {
+    "type": "wizardstep_onprev",
+    "syntax": "[Scope].[WidgetName]Prev = function(widget, currentStep, stepIndex) { ... };",
+    "code": "Partial.wizardCreateBranchstep2Prev = function(widget, currentStep, stepIndex) {\n  Partial.Widgets.labelCreateBranch.caption = \"Create Branch\";\n  Partial.Widgets.labelSelectedCreateBranchVcsName.show = false;\n};",
+    "codeexplanation": "Resets branch label and hides selected VCS label when navigating back to first step."
+  },
+  {
+    "type": "wizardstep_onskip",
+    "syntax": "[Scope].[WidgetName]Skip = function(widget, currentStep, stepIndex) { ... };",
+    "code": "Page.wizardStep1.onSkip = function(widget, currentStep, stepIndex) {\n  console.log(\"Skipped step:\", currentStep);\n};",
+    "codeexplanation": "Called when the skip link is clicked in the wizard. Logs the skipped step."
+  },
+  {
+    "type": "wizardstep_class",
+    "syntax": "[Scope].Widgets.[WidgetName].class = \"custom-class\";",
+    "code": "Page.Widgets.wizardStep1.class = \"step-highlight\";",
+    "codeexplanation": "Applies a custom class to the wizard step widget for styling."
+  },
+  {
+    "type": "wizardstep_enableskip",
+    "syntax": "[Scope].Widgets.[WidgetName].enableskip = true | false;",
+    "code": "Page.Widgets.wizardStep1.enableskip = true;",
+    "codeexplanation": "Enables the 'Skip' option on the current step."
+  },
+  {
+    "type": "wizardstep_show",
+    "syntax": "[Scope].Widgets.[WidgetName].show = true | false;",
+    "code": "Page.Widgets.wizardStep1.show = true;",
+    "codeexplanation": "Controls whether the step is visible on the page."
+  }
+]

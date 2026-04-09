@@ -1,0 +1,911 @@
+[
+    {
+        "widget": "wmForm",
+        "methods": [
+            {
+                "name": "clearMessage",
+                "description": "Clears the message in the form when using inline message layout.",
+                "parameters": [],
+                "returns": "void",
+                "syntax": "<Scope>.Widgets.<widgetName>.clearMessage()"
+            },
+            {
+                "name": "highlightInvalidFields",
+                "description": "Loops through the form fields and highlights those that are invalid.",
+                "parameters": [],
+                "returns": "void",
+                "syntax": "<Scope>.Widgets.<widgetName>.highlightInvalidFields()"
+            },
+            {
+                "name": "reset",
+                "description": "Resets the form to its initial state.",
+                "parameters": [],
+                "returns": "void",
+                "syntax": "<Scope>.Widgets.<widgetName>.reset()"
+            },
+            {
+                "name": "submit",
+                "description": "Submits the form.",
+                "parameters": [],
+                "returns": "void",
+                "syntax": "<Scope>.Widgets.<widgetName>.submit()"
+            },
+            {
+                "name": "toggleMessage",
+                "description": "Shows or hides a message in the form.",
+                "parameters": [
+                    {
+                        "name": "message",
+                        "type": "string",
+                        "description": "The message to be displayed or hidden."
+                    }
+                ],
+                "returns": "void",
+                "syntax": "<Scope>.Widgets.<widgetName>.toggleMessage(message)"
+            }
+        ],
+        "properties": [
+            {
+                "name": "formWidgets",
+                "type": "object",
+                "description": "object of all the form fields with form field name as keys and form field widget as values",
+                "syntax": "<Scope>.Widgets.<widgetName>.formWidgets"
+            },
+            {
+                "name": "dataoutput",
+                "type": "object",
+                "description": "object of all the form fields with form field attribute key as keys and their datavalue as values",
+                "syntax": "<Scope>.Widgets.<widgetName>.dataoutput"
+            },
+            {
+                "name": "class",
+                "type": "string",
+                "description": "CSS class for the form.",
+                "syntax": "<Scope>.Widgets.<widgetName>.class"
+            },
+            {
+                "name": "dataset",
+                "type": "object",
+                "description": "The dataset bound to the form for data submission.",
+                "syntax": "<Scope>.Widgets.<widgetName>.dataset"
+            },
+            {
+                "name": "message",
+                "type": "string",
+                "description": "Displays a message in the form.",
+                "syntax": "<Scope>.Widgets.<widgetName>.message"
+            },
+            {
+                "name": "name",
+                "type": "string",
+                "description": "The name of the form widget.",
+                "syntax": "<Scope>.Widgets.<widgetName>.name"
+            },
+            {
+                "name": "show",
+                "type": "boolean",
+                "description": "Controls the visibility of the form.",
+                "syntax": "<Scope>.Widgets.<widgetName>.show"
+            }
+        ]
+    },
+    {
+        "widget": "wmFormfield",
+        "methods": [
+            {
+                "name": "setValidators",
+                "description": "WaveMaker provides validators which can be referenced and used in the setValidator method for setting default validations for Form/DataTable fields. This method accepts an array of: Objects for default validators examples: VALIDATOR.REQUIRED, VALIDATOR.MAXCHARS, VALIDATOR.MINVALUE, VALIDATOR.MAXVALUE, VALIDATOR.REGEXP, VALIDATOR.MINDATE, VALIDATOR.MAXDATE, VALIDATOR.EXCLUDEDATES, VALIDATOR.EXCLUDEDAYS, VALIDATOR.MINTIME, VALIDATOR.MAXTIME and use Functions for custom validation",
+                "parameters": [
+                    "array of objects of validations from CONSTANTS validators or custom validation fuction names"
+                ],
+                "syntax": "<Scope>.Widgets.<formName>.formWidgets.<fieldName>.setValidators(validators)",
+                "examples": [
+                    "var VALIDATOR = App.getDependency('CONSTANTS').VALIDATOR; Page.Widgets.formName.formWidgets.fieldName.setValidators([{ type: VALIDATOR.REQUIRED, validator: true, // Display error message for the form field errorMessage: \"This field cannot be empty.\"}]);",
+                    "Page.Widgets.tableName.columns.columnName.setValidators([lastNameVal]); function lastNameVal(field, table) { if (field.value && field.value.length < 2) { return { errorMessage: \"Enter your full name.\" }; }}",
+                    "Page.Widgets.formName.formWidgets.fieldName.setValidators([lastNameVal]); function lastNameVal(field, form) { if (field.value && field.value.length < 2) { return { errorMessage: \"Enter your full name.\"};} }",
+                    "Page.Widgets.EmployeeTable1.columns.email.setValidators([emailRequired, { type: VALIDATOR.REGEXP, validator: \/\\w+@\\w+\\.\\w{2,3}/, errorMessage: \"Not a Valid Email\"}]); function emailRequired(field, table) { if (field.value && field.value.length < 1) { return { errorMessage: \"Email cannot be empty.\" }; }}",
+                    "var VALIDATOR = App.getDependency('CONSTANTS').VALIDATOR; Page.Widgets.EmployeeForm1.formWidgets.email.setValidators([emailRequired, {type: VALIDATOR.REGEXP, validator: /\\w+@\\w+\\.\\w{2,3}/, errorMessage: \"Not a Valid Email\" }]); function emailRequired(field, form) { if (field.value && field.value.length < 1) { return {errorMessage: \"Email cannot be empty.\"};}}"
+                ]
+            },
+            {
+                "name": "setAsyncValidators",
+                "description": "This method on the form field/table can be used to set async validations on the field. This method accepts an array of promises or function returning a promise.",
+                "parameters": [
+                    "array of custom validation function names"
+                ],
+                "syntax": "<Scope>.Widgets.<formName>.formWidgets.<fieldName>.setAsyncValidators(validators)",
+                "examples": [
+                    "Page.Widgets.employeeInfoForm3.formWidgets.email.setAsyncValidators([emailAsync]); function emailAsync(field, form) { if (field.value) { return new Promise(function(resolve, reject) { var emailExists = Page.Variables.EmailData.dataSet.filter(function(data) { if (data.dataValue === field.value) { return true; } }); if (emailExists.length != 0) { reject({ errorMessage: \"The email address is already registered.\" }); } resolve(); }); }}",
+                    "Page.Widgets.employeeInfoTable3.columns.email.setAsyncValidators([emailAsync]); function emailAsync(field, table) { if (field.value) { return new Promise(function(resolve, reject) { var emailExists = Page.Variables.EmailData.dataSet.filter(function(data) { if (data.dataValue === field.value) { return true; } }); if (emailExists.length != 0) { reject({ errorMessage: \"The email address is already registered.\" }); } resolve(); }); }}"
+                ]
+            },
+            {
+                "name": "observeOn",
+                "description": "This validation type observes changes in two or more fields. This method accepts an array of field names. Registering observeOn on a field triggers the field validations whenever there are changes in the observing field values. For example, it notifies whenever there are changes in any of the fields specified in the array.",
+                "parameters": [
+                    "array of field names to observe"
+                ],
+                "syntax": "<Scope>.Widgets.<formName>.formWidgets.<fieldName>.observeOn(fieldNamesArray)",
+                "examples": [
+                    "Page.Widgets.EmployeeForm1.formWidgets.confirmpassword.setValidators([confirmPasswordEval]); Page.Widgets.EmployeeForm1.formWidgets.confirmpassword.observeOn(['password']); function confirmPasswordEval(field, form) { if (field.value && form.formWidgets.password.datavalue != field.value) { return { errorMessage: \"Password & ConfirmPassword are not the same value\" }; } }",
+                    "Page.Widgets.staticVariable2Table1.columns.confirmpassword.setValidators([confirmPasswordEval]); Page.Widgets.staticVariable2Table1.columns.confirmpassword.observeOn(['password']); function confirmPasswordEval(field, table) { if (field.value && table.columns.password.value != field.value) { return { errorMessage: \"Password & ConfirmPassword are not the same value\" }; }}"
+                ]
+            }
+        ],
+        "properties": [
+            {
+                "name": "class",
+                "type": "string",
+                "description": "Class of the widget.",
+                "syntax": "<Scope>.Widgets.<formName>.formWidgets.<fieldName>.class"
+            },
+            {
+                "name": "datavalue",
+                "type": "string",
+                "description": "This is the default value to display for an editor widget. Note that the display value is just what the user sees initially, and is not always the dataValue returned by the widget.",
+                "syntax": "<Scope>.Widgets.<formName>.formWidgets.<fieldName>.datavalue"
+            },
+            {
+                "name": "inputtype",
+                "type": "string",
+                "description": "This property specifies the type of the input.",
+                "syntax": "<Scope>.Widgets.<formName>.formWidgets.<fieldName>.inputtype"
+            }
+        ]
+    },
+    {
+        "widget": "wmText",
+        "properties": [
+            {
+                "name": "datavalue",
+                "type": "string | number",
+                "description": "Defines the value of the text widget.",
+                "syntax": "<Scope>.Widgets.<widgetName>.datavalue"
+            },
+            {
+                "name": "displayformat",
+                "type": "string",
+                "description": "Specifies the display format for the text widget.",
+                "syntax": "<Scope>.Widgets.<widgetName>.displayformat"
+            },
+            {
+                "name": "disabled",
+                "type": "boolean",
+                "description": "If true, the widget becomes display-only and user input will not be accepted.",
+                "syntax": "<Scope>.Widgets.<widgetName>.disabled"
+            },
+            {
+                "name": "maxchars",
+                "type": "number",
+                "description": "Specifies the maximum number of characters allowed in the text widget.",
+                "syntax": "<Scope>.Widgets.<widgetName>.maxchars"
+            },
+            {
+                "name": "placeholder",
+                "type": "string",
+                "description": "Specifies placeholder text to be displayed when no value is entered in the text widget.",
+                "syntax": "<Scope>.Widgets.<widgetName>.placeholder"
+            },
+            {
+                "name": "readonly",
+                "type": "boolean",
+                "description": "Defines whether the text widget is read-only.",
+                "syntax": "<Scope>.Widgets.<widgetName>.readonly"
+            },
+            {
+                "name": "required",
+                "type": "boolean",
+                "description": "Specifies whether the text widget is required.",
+                "syntax": "<Scope>.Widgets.<widgetName>.required"
+            },
+            {
+                "name": "show",
+                "type": "boolean",
+                "description": "Controls the visibility of the text widget.",
+                "syntax": "<Scope>.Widgets.<widgetName>.show"
+            }
+        ]
+    },
+    {
+        "widget": "wmSelect",
+        "properties": [
+            {
+                "name": "datafield",
+                "type": "string",
+                "description": "Specifies the data field to be used as the value for each option in the select widget.",
+                "syntax": "<Scope>.Widgets.<widgetName>.datafield"
+            },
+            {
+                "name": "dataset",
+                "type": "Array<any>",
+                "description": "Collection of options to be displayed in the select widget.",
+                "syntax": "<Scope>.Widgets.<widgetName>.dataset"
+            },
+            {
+                "name": "datavalue",
+                "type": "any",
+                "description": "Defines the selected value of the select widget.",
+                "syntax": "<Scope>.Widgets.<widgetName>.datavalue"
+            },
+            {
+                "name": "disabled",
+                "type": "boolean",
+                "description": "Disables user interaction with the select widget.",
+                "syntax": "<Scope>.Widgets.<widgetName>.disabled"
+            },
+            {
+                "name": "displayfield",
+                "type": "string",
+                "description": "Specifies the field to be displayed as the label for each option in the select widget.",
+                "syntax": "<Scope>.Widgets.<widgetName>.displayfield"
+            },
+            {
+                "name": "placeholder",
+                "type": "string",
+                "description": "Specifies placeholder text to be displayed when no option is selected.",
+                "syntax": "<Scope>.Widgets.<widgetName>.placeholder"
+            },
+            {
+                "name": "readonly",
+                "type": "boolean",
+                "description": "Defines whether the select widget is read-only.",
+                "syntax": "<Scope>.Widgets.<widgetName>.readonly"
+            },
+            {
+                "name": "required",
+                "type": "boolean",
+                "description": "Specifies whether selection is required in the select widget.",
+                "syntax": "<Scope>.Widgets.<widgetName>.required"
+            },
+            {
+                "name": "show",
+                "type": "boolean",
+                "description": "Controls the visibility of the select widget.",
+                "syntax": "<Scope>.Widgets.<widgetName>.show"
+            }
+        ]
+    },
+    {
+        "widget": "wmSwitch",
+        "properties": [
+            {
+                "name": "datafield",
+                "type": "string",
+                "description": "Sets the dataValue to be returned by the switch widget when the list is populated using the dataset property.",
+                "syntax": "<Scope>.Widgets.<widgetName>.datafield"
+            },
+            {
+                "name": "dataset",
+                "type": "Array<any> | Object",
+                "description": "Options to create the switch widget. Can be an array of values, array of objects, or object containing key-value pairs.",
+                "syntax": "<Scope>.Widgets.<widgetName>.dataset"
+            },
+            {
+                "name": "datavalue",
+                "type": "any",
+                "description": "Initial selected value of the switch widget.",
+                "syntax": "<Scope>.Widgets.<widgetName>.datavalue"
+            },
+            {
+                "name": "disabled",
+                "type": "boolean",
+                "description": "Disables the switch widget. If true, the widget becomes display-only.",
+                "syntax": "<Scope>.Widgets.<widgetName>.disabled"
+            },
+            {
+                "name": "displayexpression",
+                "type": "string",
+                "description": "Advanced property to control what is displayed in the switch options using a JavaScript expression.",
+                "syntax": "<Scope>.Widgets.<widgetName>.displayexpression"
+            },
+            {
+                "name": "displayfield",
+                "type": "string",
+                "description": "Sets the displayValue to show in the switch widget when the list is populated using the dataset property.",
+                "syntax": "<Scope>.Widgets.<widgetName>.displayfield"
+            },
+            {
+                "name": "orderby",
+                "type": "string",
+                "description": "Displays the data in ascending or descending order based on this property.",
+                "syntax": "<Scope>.Widgets.<widgetName>.orderby"
+            },
+            {
+                "name": "required",
+                "type": "boolean",
+                "description": "Validates the state of the switch widget when used inside a form widget.",
+                "syntax": "<Scope>.Widgets.<widgetName>.required"
+            },
+            {
+                "name": "show",
+                "type": "boolean",
+                "description": "Shows or hides the switch widget.",
+                "syntax": "<Scope>.Widgets.<widgetName>.show"
+            }
+        ]
+    },
+    {
+        "widget": "wmFileupload",
+        "properties": [
+            {
+                "name": "uploadedFiles",
+                "type": "array",
+                "description": "Array of all the files uploaded. file is file object with filename, size and all the properties",
+                "syntax": "<Scope>.Widgets.<widgetName>.uploadedFiles"
+            },
+            {
+                "name": "selectedFiles",
+                "type": "array",
+                "description": "Array of files uploaded now",
+                "syntax": "<Scope>.Widgets.<widgetName>.selectedFiles"
+            },
+            {
+                "name": "caption",
+                "type": "string",
+                "description": "Caption/Label for the fileupload widget.",
+                "syntax": "<Scope>.Widgets.<widgetName>.caption"
+            },
+            {
+                "name": "contenttype",
+                "type": "string",
+                "description": "This property specifies the content types that are allowed to be uploaded.",
+                "allowedValues": [
+                    "zip",
+                    "pdf",
+                    "rar",
+                    "txt",
+                    "ppt",
+                    "pot",
+                    "pps",
+                    "pptx",
+                    "potx",
+                    "ppsx",
+                    "mpg",
+                    "mp4",
+                    "mov",
+                    "avi",
+                    "mp3",
+                    "docx",
+                    "js",
+                    "md",
+                    "html",
+                    "CSS",
+                    "xlsx",
+                    "png",
+                    "jpg",
+                    "jpeg",
+                    "file",
+                    "default"
+                ],
+                "syntax": "<Scope>.Widgets.<widgetName>.contenttype"
+            },
+            {
+                "name": "disabled",
+                "type": "boolean",
+                "description": "This property will be used to disable/enable the fileupload widget on the web page.",
+                "syntax": "<Scope>.Widgets.<widgetName>.disabled"
+            },
+            {
+                "name": "fileuploadmessage",
+                "type": "string",
+                "defaultValue": "You can also browse for files",
+                "description": "This property allows user to set message of the Fileupload widget.",
+                "syntax": "<Scope>.Widgets.<widgetName>.fileuploadmessage"
+            },
+            {
+                "name": "maxfilesize",
+                "type": "number",
+                "description": "This property specifies the max file size that can be uploaded.",
+                "syntax": "<Scope>.Widgets.<widgetName>.maxfilesize"
+            },
+            {
+                "name": "multiple",
+                "type": "boolean",
+                "defaultValue": false,
+                "description": "If set to true, multiple file upload is enabled. By default single file upload is enabled",
+                "syntax": "<Scope>.Widgets.<widgetName>.multiple"
+            },
+            {
+                "name": "show",
+                "type": "boolean",
+                "defaultValue": true,
+                "description": "This property will be used to show/hide the fileupload widget on the web page.",
+                "syntax": "<Scope>.Widgets.<widgetName>.show"
+            }
+        ]
+    },
+    {
+        "widget": "wmCheckbox",
+        "properties": [
+            {
+                "name": "datavalue",
+                "type": "boolean",
+                "description": "Defines the value of the text widget.",
+                "syntax": "<Scope>.Widgets.<widgetName>.datavalue"
+            },
+            {
+                "name": "disabled",
+                "type": "boolean",
+                "description": "If true, the widget becomes display-only and user input will not be accepted.",
+                "syntax": "<Scope>.Widgets.<widgetName>.disabled"
+            },
+            {
+                "name": "readonly",
+                "type": "boolean",
+                "description": "Defines whether the checkbox widget is read-only.",
+                "syntax": "<Scope>.Widgets.<widgetName>.readonly"
+            },
+            {
+                "name": "required",
+                "type": "boolean",
+                "description": "Specifies whether the checkbox widget is required.",
+                "syntax": "<Scope>.Widgets.<widgetName>.required"
+            },
+            {
+                "name": "show",
+                "type": "boolean",
+                "description": "Controls the visibility of the checkbox widget.",
+                "syntax": "<Scope>.Widgets.<widgetName>.show"
+            }
+        ]
+    },
+    {
+        "widget": "wmCheckboxset",
+        "properties": [
+            {
+                "name": "dataset",
+                "type": "array",
+                "description": "array of data objects as dataset to Checkboxset widget",
+                "syntax": "<Scope>.Widgets.<widgetName>.dataset"
+            },
+            {
+                "name": "displayvalue",
+                "type": "string",
+                "description": "key of data object to display on UI of Checkboxset widget",
+                "syntax": "<Scope>.Widgets.<widgetName>.displayvalue"
+            },
+            {
+                "name": "datafield",
+                "type": "string",
+                "description": "key of data object on select to get into datavalue Checkboxset widget",
+                "syntax": "<Scope>.Widgets.<widgetName>.datafield"
+            },
+            {
+                "name": "datavalue",
+                "type": "object",
+                "description": "datavalue of Checkboxset widgets",
+                "syntax": "<Scope>.Widgets.<widgetName>.datavalue"
+            },
+            {
+                "name": "disabled",
+                "type": "boolean",
+                "description": "If true, the widget becomes display-only and user input will not be accepted.",
+                "syntax": "<Scope>.Widgets.<widgetName>.disabled"
+            },
+            {
+                "name": "readonly",
+                "type": "boolean",
+                "description": "Defines whether the checkbox widget is read-only.",
+                "syntax": "<Scope>.Widgets.<widgetName>.readonly"
+            },
+            {
+                "name": "required",
+                "type": "boolean",
+                "description": "Specifies whether the checkbox widget is required.",
+                "syntax": "<Scope>.Widgets.<widgetName>.required"
+            },
+            {
+                "name": "show",
+                "type": "boolean",
+                "description": "Controls the visibility of the checkbox widget.",
+                "syntax": "<Scope>.Widgets.<widgetName>.show"
+            }
+        ]
+    },
+    {
+        "widget": "wmDate",
+        "properties": [
+            {
+                "name": "datavalue",
+                "type": "string",
+                "description": "Defines the value of the date widget.",
+                "syntax": "<Scope>.Widgets.<widgetName>.datavalue"
+            },
+            {
+                "name": "disabled",
+                "type": "boolean",
+                "description": "If true, the widget becomes display-only and user input will not be accepted.",
+                "syntax": "<Scope>.Widgets.<widgetName>.disabled"
+            },
+            {
+                "name": "readonly",
+                "type": "boolean",
+                "description": "Defines whether the date widget is read-only.",
+                "syntax": "<Scope>.Widgets.<widgetName>.readonly"
+            },
+            {
+                "name": "required",
+                "type": "boolean",
+                "description": "Specifies whether the date widget is required.",
+                "syntax": "<Scope>.Widgets.<widgetName>.required"
+            },
+            {
+                "name": "show",
+                "type": "boolean",
+                "description": "Controls the visibility of the date widget.",
+                "syntax": "<Scope>.Widgets.<widgetName>.show"
+            },
+            {
+                "name": "datepattern",
+                "type": "string",
+                "description": "This property is used to set the display pattern of the date widget. This is not available in mobile.",
+                "syntax": "<Scope>.Widgets.<widgetName>.datepattern"
+            },
+            {
+                "name": "excludedays",
+                "type": "string",
+                "description": "This property specifies the days which are to be excluded. This is not available in mobile.",
+                "syntax": "<Scope>.Widgets.<widgetName>.excludedays"
+            },
+            {
+                "name": "excludedates",
+                "type": "string",
+                "description": "This property specifies the dates which are to be excluded. This is not available in mobile.",
+                "syntax": "<Scope>.Widgets.<widgetName>.excludedates"
+            },
+            {
+                "name": "maxdate",
+                "type": "string",
+                "description": "This property is used to specify the maximum date to end with.",
+                "syntax": "<Scope>.Widgets.<widgetName>.maxdate"
+            },
+            {
+                "name": "mindate",
+                "type": "string",
+                "description": "This property is used to specify the minimum date to start with.",
+                "syntax": "<Scope>.Widgets.<widgetName>.mindate"
+            }
+        ]
+    },
+    {
+        "widget": "wmDatetime",
+        "properties": [
+            {
+                "name": "datavalue",
+                "type": "string",
+                "description": "Defines the value of the datetime widget.",
+                "syntax": "<Scope>.Widgets.<widgetName>.datavalue"
+            },
+            {
+                "name": "disabled",
+                "type": "boolean",
+                "description": "If true, the widget becomes display-only and user input will not be accepted.",
+                "syntax": "<Scope>.Widgets.<widgetName>.disabled"
+            },
+            {
+                "name": "readonly",
+                "type": "boolean",
+                "description": "Defines whether the datetime widget is read-only.",
+                "syntax": "<Scope>.Widgets.<widgetName>.readonly"
+            },
+            {
+                "name": "required",
+                "type": "boolean",
+                "description": "Specifies whether the date widget is required.",
+                "syntax": "<Scope>.Widgets.<widgetName>.required"
+            },
+            {
+                "name": "show",
+                "type": "boolean",
+                "description": "Controls the visibility of the datetime widget.",
+                "syntax": "<Scope>.Widgets.<widgetName>.show"
+            },
+            {
+                "name": "datepattern",
+                "type": "string",
+                "description": "Sets the display pattern of the datetime widget.",
+                "syntax": "<Scope>.Widgets.<widgetName>.datepattern"
+            },
+            {
+                "name": "excludedays",
+                "type": "string",
+                "description": "Specifies the days which are to be excluded.",
+                "syntax": "<Scope>.Widgets.<widgetName>.excludedays"
+            },
+            {
+                "name": "excludedates",
+                "type": "string",
+                "description": "Specifies the dates which are to be excluded.",
+                "syntax": "<Scope>.Widgets.<widgetName>.excludedates"
+            },
+            {
+                "name": "maxdate",
+                "type": "string",
+                "description": "Specifies the maximum date to end with.",
+                "syntax": "<Scope>.Widgets.<widgetName>.maxdate"
+            },
+            {
+                "name": "mindate",
+                "type": "string",
+                "description": "Specifies the minimum date to start with.",
+                "syntax": "<Scope>.Widgets.<widgetName>.mindate"
+            }
+        ]
+    },
+    {
+        "widget": "wmRadioset",
+        "properties": [
+            {
+                "name": "dataset",
+                "type": "array",
+                "description": "Array of data objects as dataset to Radioset widget",
+                "syntax": "<Scope>.Widgets.<widgetName>.dataset"
+            },
+            {
+                "name": "displayvalue",
+                "type": "string",
+                "description": "Key of data object to display on UI of Radioset widget",
+                "syntax": "<Scope>.Widgets.<widgetName>.displayvalue"
+            },
+            {
+                "name": "datafield",
+                "type": "string",
+                "description": "Key of data object on select to get into datavalue Radioset widget",
+                "syntax": "<Scope>.Widgets.<widgetName>.datafield"
+            },
+            {
+                "name": "datavalue",
+                "type": "object",
+                "description": "Datavalue of Radioset widgets",
+                "syntax": "<Scope>.Widgets.<widgetName>.datavalue"
+            },
+            {
+                "name": "disabled",
+                "type": "boolean",
+                "description": "If true, the widget becomes display-only and user input will not be accepted.",
+                "syntax": "<Scope>.Widgets.<widgetName>.disabled"
+            },
+            {
+                "name": "readonly",
+                "type": "boolean",
+                "description": "Defines whether the Radioset widget is read-only.",
+                "syntax": "<Scope>.Widgets.<widgetName>.readonly"
+            },
+            {
+                "name": "required",
+                "type": "boolean",
+                "description": "Specifies whether the Radioset widget is required.",
+                "syntax": "<Scope>.Widgets.<widgetName>.required"
+            },
+            {
+                "name": "show",
+                "type": "boolean",
+                "description": "Controls the visibility of the Radioset widget.",
+                "syntax": "<Scope>.Widgets.<widgetName>.show"
+            }
+        ]
+    },
+    {
+        "widget": "wmSpinner",
+        "properties": [
+            {
+                "name": "caption",
+                "type": "string",
+                "description": "Specifies the label of the spinner widget.",
+                "syntax": "<Scope>.Widgets.<widgetName>.caption"
+            },
+            {
+                "name": "image",
+                "type": "string",
+                "description": "URL of the image to be used as a loading icon.",
+                "syntax": "<Scope>.Widgets.<widgetName>.image"
+            },
+            {
+                "name": "show",
+                "type": "boolean",
+                "description": "Determines the visibility of the spinner widget.",
+                "syntax": "<Scope>.Widgets.<widgetName>.show"
+            }
+        ]
+    },
+    {
+        "widget": "wmTextarea",
+        "properties": [
+            {
+                "name": "datavalue",
+                "type": "string",
+                "description": "Defines the value of the textarea widget.",
+                "syntax": "<Scope>.Widgets.<widgetName>.datavalue"
+            },
+            {
+                "name": "disabled",
+                "type": "boolean",
+                "description": "If true, the widget becomes display-only and user input will not be accepted.",
+                "syntax": "<Scope>.Widgets.<widgetName>.disabled"
+            },
+            {
+                "name": "maxchars",
+                "type": "number",
+                "description": "Specifies the maximum number of characters allowed in the textarea widget.",
+                "syntax": "<Scope>.Widgets.<widgetName>.maxchars"
+            },
+            {
+                "name": "placeholder",
+                "type": "string",
+                "description": "Specifies placeholder text to be displayed when no value is entered in the textarea widget.",
+                "syntax": "<Scope>.Widgets.<widgetName>.placeholder"
+            },
+            {
+                "name": "readonly",
+                "type": "boolean",
+                "description": "Defines whether the textarea widget is read-only.",
+                "syntax": "<Scope>.Widgets.<widgetName>.readonly"
+            },
+            {
+                "name": "required",
+                "type": "boolean",
+                "description": "Specifies whether the textarea widget is required.",
+                "syntax": "<Scope>.Widgets.<widgetName>.required"
+            },
+            {
+                "name": "show",
+                "type": "boolean",
+                "description": "Controls the visibility of the textarea widget.",
+                "syntax": "<Scope>.Widgets.<widgetName>.show"
+            }
+        ]
+    },
+    {
+        "widget": "wmNumber",
+        "properties": [
+            {
+                "name": "datavalue",
+                "type": "number",
+                "description": "Defines the value of the number widget.",
+                "syntax": "<Scope>.Widgets.<widgetName>.datavalue"
+            },
+            {
+                "name": "displayformat",
+                "type": "string",
+                "description": "Specifies the display format for the number widget.",
+                "syntax": "<Scope>.Widgets.<widgetName>.displayformat"
+            },
+            {
+                "name": "disabled",
+                "type": "boolean",
+                "description": "If true, the widget becomes display-only and user input will not be accepted.",
+                "syntax": "<Scope>.Widgets.<widgetName>.disabled"
+            },
+            {
+                "name": "maxchars",
+                "type": "number",
+                "description": "Specifies the maximum number of digits allowed in the number widget.",
+                "syntax": "<Scope>.Widgets.<widgetName>.maxchars"
+            },
+            {
+                "name": "placeholder",
+                "type": "string",
+                "description": "Specifies placeholder text to be displayed when no value is entered in the number widget.",
+                "syntax": "<Scope>.Widgets.<widgetName>.placeholder"
+            },
+            {
+                "name": "readonly",
+                "type": "boolean",
+                "description": "Defines whether the number widget is read-only.",
+                "syntax": "<Scope>.Widgets.<widgetName>.readonly"
+            },
+            {
+                "name": "required",
+                "type": "boolean",
+                "description": "Specifies whether the number widget is required.",
+                "syntax": "<Scope>.Widgets.<widgetName>.required"
+            },
+            {
+                "name": "show",
+                "type": "boolean",
+                "description": "Controls the visibility of the number widget.",
+                "syntax": "<Scope>.Widgets.<widgetName>.show"
+            }
+        ]
+    },
+    {
+        "widget": "wmChips",
+        "properties": [
+            {
+                "name": "show",
+                "type": "boolean",
+                "description": "Controls the visibility of the chips widget",
+                "syntax": "<Scope>.Widgets.<widgetName>.show"
+            },
+            {
+                "name": "readonly",
+                "type": "string",
+                "description": "To display a partial in page add to accordion pane content here",
+                "syntax": "<Scope>.Widgets.<widgetName>.readonly"
+            },
+            {
+                "name": "dataset",
+                "type": "array",
+                "description": "Array of data objects as dataset to chips widget",
+                "syntax": "<Scope>.Widgets.<widgetName>.dataset"
+            },
+            {
+                "name": "displayvalue",
+                "type": "string",
+                "description": "Key of data object to display on UI of chips widget",
+                "syntax": "<Scope>.Widgets.<widgetName>.displayvalue"
+            },
+            {
+                "name": "datafield",
+                "type": "string",
+                "description": "Key of data object on select to get into datavalue chips widget",
+                "syntax": "<Scope>.Widgets.<widgetName>.datafield"
+            },
+            {
+                "name": "datavalue",
+                "type": "object",
+                "description": "Datavalue of chips widget",
+                "syntax": "<Scope>.Widgets.<widgetName>.datavalue"
+            }
+        ]
+    },
+    {
+        "widget": "wmSearch",
+        "properties": [
+            {
+                "name": "datafield",
+                "type": "string",
+                "description": "Specifies the data field to be used as the value for each option in the search widget.",
+                "syntax": "<Scope>.Widgets.<widgetName>.datafield"
+            },
+            {
+                "name": "dataset",
+                "type": "Array<any>",
+                "description": "Collection of options to be displayed in the search widget.",
+                "syntax": "<Scope>.Widgets.<widgetName>.dataset"
+            },
+            {
+                "name": "datavalue",
+                "type": "object",
+                "description": "Defines the selected value of the search widget.",
+                "syntax": "<Scope>.Widgets.<widgetName>.datavalue"
+            },
+            {
+                "name": "disabled",
+                "type": "boolean",
+                "description": "Disables user interaction with the search widget.",
+                "syntax": "<Scope>.Widgets.<widgetName>.disabled"
+            },
+            {
+                "name": "displayfield",
+                "type": "string",
+                "description": "Specifies the field to be displayed as the label for each option in the search widget.",
+                "syntax": "<Scope>.Widgets.<widgetName>.displayfield"
+            },
+            {
+                "name": "placeholder",
+                "type": "string",
+                "description": "Specifies placeholder text to be displayed when no option is selected.",
+                "syntax": "<Scope>.Widgets.<widgetName>.placeholder"
+            },
+            {
+                "name": "readonly",
+                "type": "boolean",
+                "description": "Defines whether the search widget is read-only.",
+                "syntax": "<Scope>.Widgets.<widgetName>.readonly"
+            },
+            {
+                "name": "required",
+                "type": "boolean",
+                "description": "Specifies whether selection is required in the search widget.",
+                "syntax": "<Scope>.Widgets.<widgetName>.required"
+            },
+            {
+                "name": "show",
+                "type": "boolean",
+                "description": "Controls the visibility of the search widget.",
+                "syntax": "<Scope>.Widgets.<widgetName>.show"
+            }
+        ]
+    }
+]

@@ -4,6 +4,7 @@ import {
     validateLiteLLMBaseUrlForRuntime
 } from '../constants/litellm.js';
 import { RUNTIME_MESSAGES } from '../constants/messages.js';
+import { WM_COMPLETION_RULES } from '../constants/wavemakerRules.js';
 
 class AIService {
     constructor() {
@@ -45,17 +46,7 @@ class AIService {
         return [
             {
                 role: 'system',
-                content: `You are a precise code completion model for ${language}. Follow these rules:
-1. Complete the code at the cursor position (▼) naturally.
-2. Treat the immediate cursor context as the highest-priority signal.
-3. Use WaveMaker Studio context, page files, and variable definitions as supporting context.
-4. Reuse identifiers exactly as they appear in context. Do not invent widget names, variable names, service names, bindings, or event handlers.
-5. Preserve the coding style, naming, and API usage already present in the file.
-6. For WaveMaker page script, prefer Page.Widgets.*, Page.Variables.*, Page.Actions.*, and existing page handler names when those appear in context.
-7. If the surrounding code instead uses Widgets.*, Variables.*, App.*, or service aliases, preserve that existing convention rather than mixing styles.
-8. For markup, preserve existing widget names, bindings, and event handlers.
-9. For styles, preserve existing class names, selectors, and theme conventions.
-10. Ensure syntactic correctness and return only the completion text, with no explanation.`
+                content: WM_COMPLETION_RULES
             },
             {
                 role: 'user',
